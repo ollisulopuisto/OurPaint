@@ -4,6 +4,7 @@ STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int ShowTiles;
     real CanvasLastX,CanvasLastY;
+    real LastPressure;
 };
 
 

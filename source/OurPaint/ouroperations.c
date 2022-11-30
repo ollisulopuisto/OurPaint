@@ -279,7 +279,7 @@ void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
     *x = (real)((real)e->x - (real)(ex->ParentUi->R - ex->ParentUi->L) / 2 - ex->ParentUi->L) * ex->ZoomX + ex->PanX;
     *y = (real)((real)(ex->ParentUi->B - ex->ParentUi->U) / 2 - (real)e->y + ex->ParentUi->U) * ex->ZoomY + ex->PanY;
 }
-int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto, int *tl, int *tr, int* tu, int* tb){
+int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto, real last_pressure, real pressure, int *tl, int *tr, int* tu, int* tb){
     Our->NextDab=0;
     real size=b->Size; real dd=b->Size/b->DabsPerSize; real len=tnsDistIdv2(x,y,xto,yto); real alllen=len+Our->BrushRemainingDist;
     int count=alllen/dd; real uselen=count*dd; if(!count){ Our->BrushRemainingDist=alllen; return 0; }
@@ -288,7 +288,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     for(int i=starti;i<count;i++){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
         real r=tnsGetRatiod(0,len,i*dd-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r);
-        od->Size = b->Size; od->Hardness = b->Hardness; od->Smudge = b->Smudge;
+        TNS_CLAMP(r,0,1); od->Size = b->Size*tnsInterpolate(last_pressure,pressure,r);
+        od->Hardness = b->Hardness; od->Smudge = b->Smudge;
         tnsVectorSet3v(od->Color,Our->CurrentColor); od->Color[3]=b->Transparency;
         xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
         ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
@@ -362,7 +363,7 @@ int ourinv_MoveBrush(laOperator* a, laEvent* e){
 
 int ourinv_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;
+    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -370,13 +371,13 @@ int ourmod_Paint(laOperator* a, laEvent* e){
 
     if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){ return LA_FINISHED; }
 
-    if(e->Type==LA_MOUSEMOVE){
+    if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
         int tl,tr,tu,tb;
-        if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,&tl,&tr,&tu,&tb)){
+        if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,e->Pressure,&tl,&tr,&tu,&tb)){
             our_PaintDoDabs(l,tl,tr,tu,tb);
         }
-        ex->CanvasLastX=x;ex->CanvasLastY=y;
+        ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;
         laNotifyUsers("our.canvas");
     }
 
@@ -454,6 +455,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_DOWN, 0, "direction=out");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_UP, 0, "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_paint", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
 }
 
