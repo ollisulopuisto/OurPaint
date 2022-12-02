@@ -414,10 +414,10 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
     laCreateOperatorType("OUR_paint","Paint","Paint on a layer",0,0,0,ourinv_Paint,ourmod_Paint,0,LA_EXTRA_TO_PANEL);
 
-    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0);
-    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0);
-    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0);
-    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0);
+    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,0);
+    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0);
+    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0);
+    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,0);
