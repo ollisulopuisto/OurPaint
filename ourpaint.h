@@ -38,12 +38,16 @@ STRUCTURE(OurBrush){
     real Hardness;
     real Transparency;
     real Smudge;
+    real SmudgeResampleLength; real SmudgeAccum;
+    real BrushRemainingDist;
+    int UseNodes; // the flexible way
+    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 };
 STRUCTURE(OurDab){
     float X,Y;
     float Size;
     float Hardness;
-    float Smudge;
+    float Smudge; int ResampleSmudge;
     float Color[4];
 };
 
@@ -55,10 +59,9 @@ STRUCTURE(OurPaint){
 
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
-    real BrushRemainingDist;
     OurDab* Dabs; int NextDab,MaxDab;
 
-    tnsTexture* Content;
+    tnsTexture* SmudgeTexture;
     GLuint CanvasShader;
     GLuint CanvasProgram;
     GLint uBrushCorner;
@@ -67,8 +70,12 @@ STRUCTURE(OurPaint){
     GLint uBrushHardness;
     GLint uBrushSmudge;
     GLint uBrushColor;
+    GLint uBrushRoutineSelection;
+    GLint RoutineDoDabs;
+    GLint RoutineDoSample;
 
     real CurrentColor[4];
+    real BackgroundColor[3];
 };
 
 void ourInit();
