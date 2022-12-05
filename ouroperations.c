@@ -15,11 +15,20 @@ uniform float uBrushHardness;\n\
 uniform float uBrushSmudge;\n\
 uniform vec4 uBrushColor;\n\
 uniform vec4 uBackgroundColor;\n\
+vec4 mix_over(vec4 colora, vec4 colorb){\n\
+    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
+    c.rgb=(colora.rgb*colora.a+colorb.rgb*colorb.a*(1-colora.a))/c.a;\n\
+    return c;\n\
+}\n\
+float erase(float a, float target_a, float eraser_a){\n\
+    return mix(a,target_a,eraser_a);\n\
+}\n\
 int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){\n\
-    color.rgb=mix(color,smudge_color,smudge*smudge_color.a).rgb;\n\
-    color.a=color.a*(1-smudge);\n\
-    float a=clamp(color.a*1-pow(d/size,1+1/(1-hardness)),0,1);\n\
-    final=vec4(mix(last_color.rgb,color.rgb,a), 1-(1-last_color.a)*(1-a));\n\
+    vec4 cc; cc.rgb=mix(color,smudge_color,smudge*smudge_color.a).rgb;\n\
+    float fac=(1-pow(d/size,1+1/(1-hardness)));\n\
+    cc.a=clamp(mix(color.a,smudge_color.a,smudge)*fac,0,1);\n\
+    final=mix_over(cc,last_color);\n\
+    final.a=erase(final.a,mix(color.a,smudge_color.a,smudge),fac*smudge*(1-color.a));\n\
     return 1;\n\
 }\n\
 subroutine void BrushRoutines();\n\
@@ -212,7 +221,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     //our_CANVAS_TEST(bt,ui);
 
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     tnsDrawToOffscreen(e->OffScr,1,0);
     tnsViewportWithScissor(0, 0, W, H);
@@ -222,7 +231,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     //if(ocd->ShowTiles){ our_CanvasDrawTiles(); }
     our_CanvasDrawTextures();
 
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
 }
 
 OurLayer* our_NewLayer(char* name){
@@ -271,6 +280,9 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
     *x = (real)((real)e->x - (real)(ex->ParentUi->R - ex->ParentUi->L) / 2 - ex->ParentUi->L) * ex->ZoomX + ex->PanX;
     *y = (real)((real)(ex->ParentUi->B - ex->ParentUi->U) / 2 - (real)e->y + ex->ParentUi->U) * ex->ZoomY + ex->PanY;
+}
+void our_PaintResetBrushState(OurBrush* b){
+    b->BrushRemainingDist = 0; b->SmudgeAccum=0; b->SmudgeRestart=1;
 }
 real our_PaintGetDabStepDistance(OurBrush* b, real pressure){
     if(!b->PressureSize) return b->Size/b->DabsPerSize;
@@ -339,29 +351,32 @@ void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int 
 }
 STRUCTURE(OurSmudgeSegement){
     laListItem Item;
-    int Start,End;
+    int Start,End,Resample;
 };
 void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int tb){
     laListHandle Segments={0}; int from=0,to=Our->NextDab; if(!Our->NextDab) return;
     OurSmudgeSegement* oss;
     oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
     for(int i=1;i<to;i++){
-        if(Our->Dabs[i].ResampleSmudge){ oss->Start=from; oss->End=i; from=i; oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement)); }
+        if(Our->Dabs[i].ResampleSmudge){ oss->Resample=1;
+             oss->Start=from; oss->End=i; from=i; oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement)); }
     }
     oss->Start=from; oss->End=to;
+    if(Our->Dabs[0].ResampleSmudge){ ((OurSmudgeSegement*)Segments.pFirst)->Resample=1; }
 
     glUseProgram(Our->CanvasProgram);
 
-    if(!Segments.pFirst){ our_PaintDoDabs(l,tl,tr,tu,tb,0,Our->NextDab); return; }
-
     while(oss=lstPopItem(&Segments)){
-        float x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y;
-        int col=(int)(floor(OUR_TEX_TILE_CTR+x/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(col,0,OUR_TEX_TILES_PER_ROW-1);
-        int row=(int)(floor(OUR_TEX_TILE_CTR+y/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(row,0,OUR_TEX_TILES_PER_ROW-1);
-        glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;
-        glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
-        our_PaintDoSample(x,y,sx,sy);
+        if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
+            float x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y;
+            int col=(int)(floor(OUR_TEX_TILE_CTR+x/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(col,0,OUR_TEX_TILES_PER_ROW-1);
+            int row=(int)(floor(OUR_TEX_TILE_CTR+y/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(row,0,OUR_TEX_TILES_PER_ROW-1);
+            glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+            int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;
+            glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+            our_PaintDoSample(x,y,sx,sy);
+            Our->CurrentBrush->SmudgeRestart=0;
+        }
 
         //printf("from to %d %d %d\n", oss->Start,oss->End,Our->Dabs[oss->Start].ResampleSmudge);
 
@@ -425,6 +440,7 @@ int ourinv_MoveBrush(laOperator* a, laEvent* e){
 
 int ourinv_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
+    our_PaintResetBrushState(ob);
     real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;
     return LA_RUNNING;
 }

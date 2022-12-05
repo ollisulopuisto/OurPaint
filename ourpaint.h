@@ -38,7 +38,7 @@ STRUCTURE(OurBrush){
     real Hardness;
     real Transparency;
     real Smudge;
-    real SmudgeResampleLength; real SmudgeAccum;
+    real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart;
     real BrushRemainingDist;
     int UseNodes; // the flexible way
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
