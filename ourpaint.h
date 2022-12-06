@@ -1,9 +1,21 @@
 #include "la_5.h"
 
+#define OUR_AT_CROP_CENTER 0
+#define OUR_AT_CROP_L 1
+#define OUR_AT_CROP_R 2
+#define OUR_AT_CROP_U 3
+#define OUR_AT_CROP_B 4
+#define OUR_AT_CROP_UL 5
+#define OUR_AT_CROP_UR 6
+#define OUR_AT_CROP_BL 7
+#define OUR_AT_CROP_BR 8
+
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int ShowTiles;
+    int AtCrop;
     real CanvasLastX,CanvasLastY;
+    real CanvasDownX,CanvasDownY;
     real LastPressure;
 };
 
@@ -51,6 +63,9 @@ STRUCTURE(OurDab){
     float Color[4];
 };
 
+#define OUR_TOOL_PAINT 0
+#define OUR_TOOL_CROP 1
+
 STRUCTURE(OurPaint){
     real pad;
 
@@ -60,6 +75,10 @@ STRUCTURE(OurPaint){
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
     OurDab* Dabs; int NextDab,MaxDab;
+
+    int Tool,ActiveTool;
+    int X,Y,W,H; //border
+    int ShowBorder,UseBorder;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;
@@ -76,6 +95,7 @@ STRUCTURE(OurPaint){
 
     real CurrentColor[4];
     real BackgroundColor[3];
+    real BorderAlpha;
 };
 
 void ourInit();
