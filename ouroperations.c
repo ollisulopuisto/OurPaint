@@ -17,27 +17,22 @@ uniform vec4 uBrushColor;\n\
 uniform vec4 uBackgroundColor;\n\
 vec4 mix_over(vec4 colora, vec4 colorb){\n\
     vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
-    c.rgb=(colora.rgb*colora.a+colorb.rgb*colorb.a*(1-colora.a))/c.a;\n\
+    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
     return c;\n\
-}\n\
-float erase(float a, float target_a, float eraser_a){\n\
-    return mix(a,target_a,eraser_a);\n\
-}\n\
-vec4 alpha_mix(vec4 c1, vec4 c2, float fac){\n\
-    return vec4(mix(c1.rgb*c1.a,c2.rgb*c2.a,fac)/(c1.a*(1-fac)+c2.a*fac+1e-3),mix(c1.a,c2.a,fac));\n\
 }\n\
 int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){\n\
     vec4 cc=color;\n\
-    float fac=(1-pow(d/size,1+1/(1-hardness)));\n\
-    cc.a=color.a*fac*(1-smudge+1e-5);\n\
+    float fac=1-pow(d/size,1+1/(1-hardness+1e-4));\n\
+    cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
     vec4 c1=mix_over(cc,last_color);\n\
-    vec4 c2=alpha_mix(c1,smudge_color,smudge*fac*color.a);\n\
+    vec4 c2=mix(c1,smudge_color,smudge*fac*color.a);\n\
     final=c2;\n\
     return 1;\n\
 }\n\
 subroutine void BrushRoutines();\n\
 subroutine(BrushRoutines) void DoDabs(){\n\
     ivec2 px = ivec2(gl_GlobalInvocationID.xy)+uBrushCorner;\n\
+    if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;\n\
     float dd=distance(vec2(px),uBrushCenter); if(dd>uBrushSize) return;\n\
     vec4 final;\n\
     vec4 dabc=imageLoad(img, px);\n\
@@ -156,7 +151,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 }
 
 void our_CanvasDrawTextures(){
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsUseImmShader; tnsEnableShaderv(T->immShader);
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         int any=0;
         for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){
@@ -164,7 +159,8 @@ void our_CanvasDrawTextures(){
             for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
                 if(!l->TexTiles[row][col]) continue;
                 int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;            
-                tnsDraw2DTextureDirectly(l->TexTiles[row][col]->Texture,sx,sy+OUR_TEX_TILE_W,OUR_TEX_TILE_W,-OUR_TEX_TILE_W);
+                real pad=(real)OUR_TEX_TILE_SEAM/OUR_TEX_TILE_W; int seam=OUR_TEX_TILE_SEAM;
+                tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TEX_TILE_W-seam,OUR_TEX_TILE_W-seam*2,-OUR_TEX_TILE_W+seam*2,0,pad,pad,pad,pad);
                 any=1;
             }
         }
@@ -180,10 +176,10 @@ void our_CanvasDrawTiles(){
         for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
             if(!l->TexTiles[row][col]) continue;
             int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;            
-            tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
-            tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
-            tnsColor4dv(laAccentColor(LA_BT_NORMAL));
-            tnsPackAs(GL_TRIANGLE_FAN);
+            //tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
+            //tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
+            //tnsColor4dv(laAccentColor(LA_BT_NORMAL));
+            //tnsPackAs(GL_TRIANGLE_FAN);
             tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
             tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
             tnsColor4dv(laAccentColor(LA_BT_TEXT));
@@ -250,19 +246,19 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     }
 
     //our_CANVAS_TEST(bt,ui);
-
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
 
     tnsDrawToOffscreen(e->OffScr,1,0);
     tnsViewportWithScissor(0, 0, W, H);
     tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
     tnsOrtho(e->PanX - W * e->ZoomX / 2, e->PanX + W * e->ZoomX / 2, e->PanY - e->ZoomY * H / 2, e->PanY + e->ZoomY * H / 2, 100, -100);
     tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
-    //if(ocd->ShowTiles){ our_CanvasDrawTiles(); }
+    if(ocd->ShowTiles){ our_CanvasDrawTiles(); }
     our_CanvasDrawTextures();
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
 
-    //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
 }
 
 OurLayer* our_NewLayer(char* name){
@@ -291,11 +287,10 @@ void our_RemoveBrush(OurBrush* b){
 }
 
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int *tl, int *tr, int* tu, int* tb){
-    int l=(int)(floor(OUR_TEX_TILE_CTR+xmin/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(l,0,OUR_TEX_TILES_PER_ROW-1);
-    int r=(int)(floor(OUR_TEX_TILE_CTR+xmax/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(r,0,OUR_TEX_TILES_PER_ROW-1);
-    int u=(int)(floor(OUR_TEX_TILE_CTR+ymax/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(u,0,OUR_TEX_TILES_PER_ROW-1);
-    int b=(int)(floor(OUR_TEX_TILE_CTR+ymin/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(b,0,OUR_TEX_TILES_PER_ROW-1);
-    //printf("%lf\n",OUR_TEX_TILE_CTR+(real)xmin/OUR_TEX_TILE_W_USE+0.5);
+    int l=(int)(floor(OUR_TEX_TILE_CTR+(xmin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(l,0,OUR_TEX_TILES_PER_ROW-1);
+    int r=(int)(floor(OUR_TEX_TILE_CTR+(xmax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(r,0,OUR_TEX_TILES_PER_ROW-1);
+    int u=(int)(floor(OUR_TEX_TILE_CTR+(ymax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(u,0,OUR_TEX_TILES_PER_ROW-1);
+    int b=(int)(floor(OUR_TEX_TILE_CTR+(ymin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(b,0,OUR_TEX_TILES_PER_ROW-1);
     for(int row=b;row<=u;row++){
         if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TEX_TILES_PER_ROW);}
         for(int col=l;col<=r;col++){
@@ -323,7 +318,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     Our->NextDab=0;
     real size=b->Size; real dd=our_PaintGetDabStepDistance(b,last_pressure); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
-    real xmin=FLT_MAX,xmax=FLT_MIN,ymin=FLT_MAX,ymax=FLT_MIN;
+    real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
     while(1){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
         real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
@@ -411,16 +406,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
         //printf("from to %d %d %d\n", oss->Start,oss->End,Our->Dabs[oss->Start].ResampleSmudge);
 
-        for(int row=tb;row<=tu;row++){
-            for(int col=tl;col<=tr;col++){
-                OurTexTile* ott=l->TexTiles[row][col];
-                tnsBindTexture(ott->Texture); glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
-                int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;
-                for(int i=oss->Start;i<oss->End;i++){
-                    our_PaintDoDab(&Our->Dabs[i],sx,sx+OUR_TEX_TILE_W,sy,sy+OUR_TEX_TILE_W);
-                }
-            }
-        }
+        our_PaintDoDabs(l,tl,tr,tu,tb,oss->Start,oss->End);
     }
 }
 
