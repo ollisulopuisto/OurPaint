@@ -316,11 +316,23 @@ void our_RemoveBrush(OurBrush* b){
     memLeave(b);
 }
 
-void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int *tl, int *tr, int* tu, int* tb){
-    int l=(int)(floor(OUR_TEX_TILE_CTR+(xmin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(l,0,OUR_TEX_TILES_PER_ROW-1);
-    int r=(int)(floor(OUR_TEX_TILE_CTR+(xmax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(r,0,OUR_TEX_TILES_PER_ROW-1);
-    int u=(int)(floor(OUR_TEX_TILE_CTR+(ymax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(u,0,OUR_TEX_TILES_PER_ROW-1);
-    int b=(int)(floor(OUR_TEX_TILE_CTR+(ymin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(b,0,OUR_TEX_TILES_PER_ROW-1);
+void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
+    int l,r,u,b;
+    if(Aligned){
+        l=(int)(floor(OUR_TEX_TILE_CTR+(xmin)/OUR_TEX_TILE_W_USE+0.5));
+        r=(int)(floor(OUR_TEX_TILE_CTR+(xmax-1)/OUR_TEX_TILE_W_USE+0.5));
+        u=(int)(floor(OUR_TEX_TILE_CTR+(ymax-1)/OUR_TEX_TILE_W_USE+0.5));
+        b=(int)(floor(OUR_TEX_TILE_CTR+(ymin)/OUR_TEX_TILE_W_USE+0.5));
+    }else{
+        l=(int)(floor(OUR_TEX_TILE_CTR+(xmin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));
+        r=(int)(floor(OUR_TEX_TILE_CTR+(xmax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));
+        u=(int)(floor(OUR_TEX_TILE_CTR+(ymax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));
+        b=(int)(floor(OUR_TEX_TILE_CTR+(ymin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));
+    }
+    TNS_CLAMP(l,0,OUR_TEX_TILES_PER_ROW-1);
+    TNS_CLAMP(r,0,OUR_TEX_TILES_PER_ROW-1);
+    TNS_CLAMP(u,0,OUR_TEX_TILES_PER_ROW-1);
+    TNS_CLAMP(b,0,OUR_TEX_TILES_PER_ROW-1);
     for(int row=b;row<=u;row++){
         if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TEX_TILES_PER_ROW);}
         for(int col=l;col<=r;col++){
@@ -413,21 +425,22 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp){
     png_set_swap(png_ptr);
 
     for(int i=0;i<Our->ImageH;i++){
-        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i)*4]);
+        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i-1)*4]);
     }
 
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
+    free(Our->ImageBuffer); Our->ImageBuffer=0;
 
     return 1;
 }
-void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H){
+void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H, int Align, int StartX, int StartY){
     int tw=W/OUR_TEX_TILE_W_USE, th=H/OUR_TEX_TILE_W_USE;
     int w=tw*OUR_TEX_TILE_W_USE, h=th*OUR_TEX_TILE_W_USE;
     if(w<W){ tw+=1; w+=OUR_TEX_TILE_W_USE; } if(h<H){ th+=1; h+=OUR_TEX_TILE_W_USE; }
 
-    int ix=-W/2, iy=H/2; int tl,tr,tu,tb;
-    our_LayerEnsureTiles(l,ix,ix+W,iy-H,iy,&tl,&tr,&tu,&tb);
+    int ix=-tw/2*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_W_USE/2, iy=th/2*OUR_TEX_TILE_W_USE+OUR_TEX_TILE_W_USE/2; int tl,tr,tu,tb;
+    our_LayerEnsureTiles(l,ix,ix+W,iy-H,iy,1,&tl,&tr,&tu,&tb);
     our_LayerEnsureImageBuffer(l);
     Our->LoadX = ix-Our->ImageX; Our->LoadY = Our->ImageY+Our->ImageH-iy;
 }
@@ -454,6 +467,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
     if (setjmp(png_jmpbuf(png_ptr))) { goto cleanup_png_read; }
     png_init_io(png_ptr, fp);
     png_read_info(png_ptr, info_ptr);
+    png_set_swap(png_ptr);
 
     int UseSRGB=0;
 
@@ -522,9 +536,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
     int W = png_get_image_width(png_ptr, info_ptr);
     int H = png_get_image_height(png_ptr, info_ptr);
 
-    /* Todo: create big image buffer and read into offset regions, then read into separate tiles. */
-
-    our_EnsureImageBufferOnRead(l,W,H);
+    our_EnsureImageBufferOnRead(l,W,H,1,0,0);
 
     for(int i=0;i<H;i++){
         png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
@@ -538,6 +550,7 @@ cleanup_png_read:
 
     if(input_buffer_profile) cmsCloseProfile(input_buffer_profile);
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
+    free(Our->ImageBuffer); Our->ImageBuffer=0;
 
     return result;
 }
@@ -576,7 +589,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
         if(step+uselen<alllen)uselen+=step; else break;
     }
     b->BrushRemainingDist=alllen-uselen;
-    if(Our->NextDab) { our_LayerEnsureTiles(l,xmin,xmax,ymin,ymax,tl,tr,tu,tb); return 1; }
+    if(Our->NextDab) { our_LayerEnsureTiles(l,xmin,xmax,ymin,ymax,0,tl,tr,tu,tb); return 1; }
     return 0;
 }
 void our_PaintDoSample(int x, int y, int sx, int sy){
