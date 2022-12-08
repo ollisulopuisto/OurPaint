@@ -1,4 +1,6 @@
 #include "ourpaint.h"
+#include "png.h"
+#include "lcms2.h"
 
 OurPaint *Our;
 extern LA MAIN;
@@ -55,6 +57,35 @@ void main() {\n\
 }\n\
 ";
 
+void our_InitsRGBProfile(int Linear, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
+    cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
+    cmsCIExyY d65_srgb_adobe_specs = {0.3127, 0.3290, 1.0};
+    cmsToneCurve*tonecurve; cmsToneCurve*curve[3];
+    if(Linear){ tonecurve = cmsBuildGamma (NULL, 1.0f); }
+    else{
+        cmsFloat64Number srgb_parameters[5] = { 2.4, 1.0 / 1.055,  0.055 / 1.055, 1.0 / 12.92, 0.04045 };
+        tonecurve=cmsBuildParametricToneCurve(NULL, 4, srgb_parameters);
+    }
+    curve[0] = curve[1] = curve[2] = tonecurve;
+    cmsHPROFILE profile4 = cmsCreateRGBProfile (&d65_srgb_adobe_specs, &srgb_primaries_pre_quantized, curve);
+    cmsMLU *copy = cmsMLUalloc(NULL, 1);
+    cmsMLUsetASCII(copy, "en", "US", copyright);
+    cmsWriteTag(profile4, cmsSigCopyrightTag, copy);
+    cmsMLU* manu = cmsMLUalloc(NULL, 1);
+    cmsMLUsetASCII(manu, "en", "US", manufacturer);
+    cmsWriteTag(profile4, cmsSigDeviceMfgDescTag, manu);
+    cmsMLU *desc = cmsMLUalloc(NULL, 1);
+    cmsMLUsetASCII(desc, "en", "US", description);
+    cmsWriteTag(profile4, cmsSigProfileDescriptionTag, desc);
+    cmsSaveProfileToMem(profile4, 0, psize);
+    (*ptr)=calloc(1,*psize); cmsSaveProfileToMem(profile4, *ptr, psize);
+    cmsMLUfree(copy); cmsMLUfree(manu); cmsMLUfree(desc); cmsFreeToneCurve(tonecurve); cmsCloseProfile(profile4);
+}
+void our_InitColorProfiles(){
+    char* manu="sRGB chromaticities from A Standard Default Color Space for the Internet - sRGB, http://www.w3.org/Graphics/Color/sRGB; and http://www.color.org/specification/ICC1v43_2010-12.pdf";
+    our_InitsRGBProfile(1,&Our->icc_LinearsRGB,&Our->iccsize_LinearsRGB,"Copyright Yiming 2022.",manu,"Yiming's linear sRGB icc profile.");
+    our_InitsRGBProfile(0,&Our->icc_sRGB,&Our->iccsize_sRGB,"Copyright Yiming 2022.",manu,"Yiming's sRGB icc profile.");
+}
 
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -204,7 +235,6 @@ void our_CanvasDrawCropping(OurCanvasDraw* ocd){
     }
 }
 
-
 void our_CanvasDrawInit(laUiItem* ui){
     ui->Extra=memAcquireHyper(sizeof(OurCanvasDraw));
     laFirstColumn(laAddTabPage(ui, "New Group"));
@@ -303,6 +333,106 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
+void our_TileTextureToImage(OurTexTile* ot, int SX, int SY){
+    int bufsize=sizeof(uint16_t)*OUR_TEX_TILE_W_USE*OUR_TEX_TILE_W_USE*4;
+    ot->Data=malloc(bufsize); int seam=OUR_TEX_TILE_SEAM; int width=OUR_TEX_TILE_W_USE;
+    
+    tnsBindTexture(ot->Texture);
+    glPixelStorei(GL_PACK_ALIGNMENT, 2);
+    glGetTextureSubImage(ot->Texture->GLTexHandle, 0, seam, seam, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    int acc=0,read=0;
+    for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
+        memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
+    }
+    printf("%d %d\n",acc,read);
+    free(ot->Data);
+}
+int our_LayerEnsureImageBuffer(OurLayer* ol){
+    int l=1000,r=-1000,u=-1000,b=1000; int any=0;
+    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        if(row<b) b=row; if(row>u) u=row;
+        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            if(col<l) l=col; if(col>r) r=col; any++;
+        }
+    }
+    if(!any) return 0;
+    Our->ImageW = OUR_TEX_TILE_W_USE*(r-l+1); Our->ImageH = OUR_TEX_TILE_W_USE*(u-b+1);
+    Our->ImageX =((real)l-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE; Our->ImageY=((real)b-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
+    if(Our->ImageBuffer) free(Our->ImageBuffer);
+    Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+    return 1;
+}
+void our_LayerToImageBuffer(OurLayer* ol){
+    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
+            our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY);
+        }
+    }
+}
+int our_LayerExportPNG(OurLayer* l, FILE* fp){
+    if(!l||!fp) return 0;
+
+    if(!our_LayerEnsureImageBuffer(l)) return 0;
+
+    our_LayerToImageBuffer(l);
+
+    png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_init_io(png_ptr, fp);
+    
+    png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
+    //png_set_sRGB_gAMA_and_cHRM(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
+    //png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_sRGB,Our->iccsize_sRGB);
+    png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+    png_set_gAMA(png_ptr,info_ptr,0.45455);
+    //don't set alpha mode for internal data so read and write would be the same.
+
+    png_write_info(png_ptr, info_ptr);
+    png_set_swap(png_ptr);
+
+    for(int i=0;i<Our->ImageH;i++){
+        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i)*4]);
+    }
+
+    png_write_end(png_ptr, info_ptr);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    return 1;
+}
+int our_LayerImportPNG(OurLayer* l, FILE* fp){
+    if(!fp) return 0;
+
+    if(!l) l=our_NewLayer("Imported");
+
+    if(!our_LayerEnsureImageBuffer(l)) return 0;
+
+    our_LayerToImageBuffer(l);
+
+    png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_init_io(png_ptr, fp);
+    
+    png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
+    //png_set_sRGB_gAMA_and_cHRM(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
+    //png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_sRGB,Our->iccsize_sRGB);
+    png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+    png_set_gAMA(png_ptr,info_ptr,0.45455);
+    //don't set alpha mode for internal data so read and write would be the same.
+
+    png_write_info(png_ptr, info_ptr);
+    png_set_swap(png_ptr);
+
+    for(int i=0;i<Our->ImageH;i++){
+        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i)*4]);
+    }
+
+    png_write_end(png_ptr, info_ptr);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    return 1;
+}
+
 void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
     *x = (real)((real)e->x - (real)(ex->ParentUi->R - ex->ParentUi->L) / 2 - ex->ParentUi->L) * ex->ZoomX + ex->PanX;
     *y = (real)((real)(ex->ParentUi->B - ex->ParentUi->U) / 2 - (real)e->y + ex->ParentUi->U) * ex->ZoomY + ex->PanY;
@@ -464,6 +594,25 @@ int ourinv_MoveLayer(laOperator* a, laEvent* e){
     elif(l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); }
     return LA_FINISHED;
 }
+int ourinv_ExportLayer(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
+    laInvoke(a, "LA_file_dialog", e, 0, 0, 0);
+    return LA_RUNNING;
+}
+int ourmod_ExportLayer(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
+    if (a->ConfirmData){
+        if (a->ConfirmData->StrData){
+            FILE* fp=fopen(a->ConfirmData->StrData,"wb");
+            if(!fp) return LA_FINISHED;
+            our_LayerExportPNG(Our->CurrentLayer, fp);
+            fclose(fp);
+        }
+        return LA_FINISHED;
+    }
+    return LA_RUNNING;
+}
+
 int ourinv_NewBrush(laOperator* a, laEvent* e){
     our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.brushes");
     return LA_FINISHED;
@@ -589,12 +738,26 @@ void ourset_CanvasPosition(void* unused, int* xy){
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
 
+void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
+    laUiList *muil; laColumn *mc,*c = laFirstColumn(uil);
+    muil = laMakeMenuPage(uil, c, "File");{
+        mc = laFirstColumn(muil);
+        laShowLabel(muil, mc, "Our Paint", 0, 0);
+        laShowItem(muil, mc, 0, "OUR_export_layer");
+        laui_DefaultMenuButtonsFileEntries(muil,pp,actinst,extracol,0);
+    }
+    muil = laMakeMenuPage(uil, c, "Options"); {
+        mc = laFirstColumn(muil); laui_DefaultMenuButtonsOptionEntries(muil,pp,actinst,extracol,0);
+    }
+}
+
 void ourRegisterEverything(){
     laPropContainer* pc; laKeyMapper* km; laProp* p;
 
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
+    laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",0,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,L'🗴',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
@@ -665,6 +828,8 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
+
+    laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
 }
 
 
@@ -672,6 +837,8 @@ void ourInit(){
     Our=memAcquire(sizeof(OurPaint));
 
     ourRegisterEverything();
+
+    our_InitColorProfiles();
 
     char error[1024]; int status;
 

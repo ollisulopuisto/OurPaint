@@ -28,12 +28,9 @@ STRUCTURE(OurCanvasDraw){
 #define OUR_TEX_TILE_SEAM 12
 #define OUR_TEX_TILE_W_USE (OUR_TEX_TILE_W-OUR_TEX_TILE_SEAM*2)
 
-STRUCTURE(OurTile){
-    int X,Y; // with offset so not neccessarily n*OUR_TILE_W
-    void* Data;
-};
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
+    uint16_t* Data;
 };
 STRUCTURE(OurLayer){
     laListItem Item;
@@ -96,6 +93,12 @@ STRUCTURE(OurPaint){
     real CurrentColor[4];
     real BackgroundColor[3];
     real BorderAlpha;
+
+    uint16_t *ImageBuffer;
+    int ImageW,ImageH,ImageX,ImageY;
+
+    void* icc_LinearsRGB; int iccsize_LinearsRGB;
+    void* icc_sRGB; int iccsize_sRGB;
 };
 
 void ourInit();
