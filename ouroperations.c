@@ -336,7 +336,6 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY){
     int bufsize=sizeof(uint16_t)*OUR_TEX_TILE_W_USE*OUR_TEX_TILE_W_USE*4;
     ot->Data=malloc(bufsize); int seam=OUR_TEX_TILE_SEAM; int width=OUR_TEX_TILE_W_USE;
-    
     tnsBindTexture(ot->Texture);
     glPixelStorei(GL_PACK_ALIGNMENT, 2);
     glGetTextureSubImage(ot->Texture->GLTexHandle, 0, seam, seam, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
@@ -344,7 +343,18 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY){
     for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
         memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
     }
-    printf("%d %d\n",acc,read);
+    free(ot->Data);
+}
+void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
+    int pl=(SX!=0)?OUR_TEX_TILE_SEAM:0, pr=((SX+OUR_TEX_TILE_W_USE)!=Our->ImageW)?OUR_TEX_TILE_SEAM:0;
+    int pu=(SY!=0)?OUR_TEX_TILE_SEAM:0, pb=((SY+OUR_TEX_TILE_W_USE)!=Our->ImageH)?OUR_TEX_TILE_SEAM:0;
+    int bufsize=sizeof(uint16_t)*(OUR_TEX_TILE_W+pl+pr)*(OUR_TEX_TILE_W+pu+pb)*4;
+    ot->Data=malloc(bufsize); int width=OUR_TEX_TILE_W_USE+pl+pr, height=OUR_TEX_TILE_W_USE+pu+pb;
+    for(int row=0;row<height;row++){
+        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
+    }
+    tnsBindTexture(ot->Texture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TEX_TILE_SEAM-pl, OUR_TEX_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
     free(ot->Data);
 }
 int our_LayerEnsureImageBuffer(OurLayer* ol){
@@ -370,6 +380,14 @@ void our_LayerToImageBuffer(OurLayer* ol){
         }
     }
 }
+void our_LayerToTexture(OurLayer* ol){
+    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
+            our_TileImageToTexture(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY);
+        }
+    }
+}
 int our_LayerExportPNG(OurLayer* l, FILE* fp){
     if(!l||!fp) return 0;
 
@@ -382,11 +400,14 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp){
     png_init_io(png_ptr, fp);
     
     png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
-    //png_set_sRGB_gAMA_and_cHRM(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
+    // Should not set gamma, we should set either srgb chunk or iccp. Gimp bug: https://gitlab.gnome.org/GNOME/gimp/-/issues/5363
+    // But we still include a gamma 1.0 for convenience in OurPaint internal layer reading.
+    //png_set_gAMA(png_ptr,info_ptr,0.45455);
+    //png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
     //png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_sRGB,Our->iccsize_sRGB);
     png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
-    png_set_gAMA(png_ptr,info_ptr,0.45455);
-    //don't set alpha mode for internal data so read and write would be the same.
+    png_set_gAMA(png_ptr,info_ptr,1.0);
+    // Don't set alpha mode for internal data so read and write would be the same.
 
     png_write_info(png_ptr, info_ptr);
     png_set_swap(png_ptr);
@@ -400,37 +421,125 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp){
 
     return 1;
 }
-int our_LayerImportPNG(OurLayer* l, FILE* fp){
-    if(!fp) return 0;
+void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H){
+    int tw=W/OUR_TEX_TILE_W_USE, th=H/OUR_TEX_TILE_W_USE;
+    int w=tw*OUR_TEX_TILE_W_USE, h=th*OUR_TEX_TILE_W_USE;
+    if(w<W){ tw+=1; w+=OUR_TEX_TILE_W_USE; } if(h<H){ th+=1; h+=OUR_TEX_TILE_W_USE; }
 
-    if(!l) l=our_NewLayer("Imported");
+    int ix=-W/2, iy=H/2; int tl,tr,tu,tb;
+    our_LayerEnsureTiles(l,ix,ix+W,iy-H,iy,&tl,&tr,&tu,&tb);
+    our_LayerEnsureImageBuffer(l);
+    Our->LoadX = ix-Our->ImageX; Our->LoadY = Our->ImageY+Our->ImageH-iy;
+}
+int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
+    int result=0;
+    if(!fp || !l) return 0;
 
-    if(!our_LayerEnsureImageBuffer(l)) return 0;
+    int srgb_intent = 0;
+    png_charp icc_profile_name = NULL;
+    png_uint_32 icc_proflen = 0;
+    int icc_compression_type = 0;
+    cmsHPROFILE input_buffer_profile = NULL;
+    cmsHTRANSFORM cmsTransform = NULL;
+    cmsToneCurve *cmsToneCurve = NULL;
+    cmsUInt32Number input_buffer_format = 0;
+#if PNG_LIBPNG_VER < 10500    // 1.5.0beta36, according to libpng CHANGES
+    png_charp icc_profile = NULL;
+#else
+    png_bytep icc_profile = NULL;
+#endif
 
-    our_LayerToImageBuffer(l);
-
-    png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
-    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_structp png_ptr = png_create_read_struct (PNG_LIBPNG_VER_STRING,0,0,0); if (!png_ptr) { return 0; }
+    png_infop info_ptr = png_create_info_struct(png_ptr); if (!info_ptr) { return 0; }
+    if (setjmp(png_jmpbuf(png_ptr))) { goto cleanup_png_read; }
     png_init_io(png_ptr, fp);
-    
-    png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
-    //png_set_sRGB_gAMA_and_cHRM(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
-    //png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_sRGB,Our->iccsize_sRGB);
-    png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
-    png_set_gAMA(png_ptr,info_ptr,0.45455);
-    //don't set alpha mode for internal data so read and write would be the same.
+    png_read_info(png_ptr, info_ptr);
 
-    png_write_info(png_ptr, info_ptr);
-    png_set_swap(png_ptr);
+    int UseSRGB=0;
 
-    for(int i=0;i<Our->ImageH;i++){
-        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i)*4]);
+    if(UseProfile){
+        if(png_get_iCCP (png_ptr, info_ptr, &icc_profile_name, &icc_compression_type, &icc_profile, &icc_proflen)) {
+            input_buffer_profile = cmsOpenProfileFromMem(icc_profile, icc_proflen);
+            if(!input_buffer_profile) { goto cleanup_png_read; }
+            cmsColorSpaceSignature cs_sig = cmsGetColorSpace(input_buffer_profile);
+            if (cs_sig != cmsSigRgbData) { logPrint("    png has grayscale iCCP, OurPaint doesn't supported that yet, will load as sRGB.\n");
+                cmsCloseProfile(input_buffer_profile); input_buffer_profile = NULL; }
+            else{
+                char* desc="UNAMED PROFILE";
+                cmsUInt32Number len=cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",0,0);
+                if(len){ desc=calloc(1,sizeof(char)*len); cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",desc,len); }
+                logPrint("    png has iCCP: %s.\n", desc); if(len){ free(desc); }
+            }
+        }elif(png_get_sRGB(png_ptr,info_ptr,&srgb_intent)){
+            logPrint("    png is sRGB.\n");
+            UseSRGB=1;
+        }else{
+            // should use png_get_cHRM and png_get_gAMA, but for simplicity we just treat them as srgb,
+            logPrint("    png doesn't contain iCCP or sRGB flags, assuming sRGB.\n");
+            UseSRGB=1;
+        }
     }
 
-    png_write_end(png_ptr, info_ptr);
-    png_destroy_write_struct(&png_ptr, &info_ptr);
+    if (png_get_interlace_type (png_ptr, info_ptr) != PNG_INTERLACE_NONE){ logPrint("    Interlaced png not supported.\n");
+        goto cleanup_png_read;
+    }
 
-    return 1;
+    png_byte ColorType = png_get_color_type(png_ptr, info_ptr);
+    png_byte BitDepth = png_get_bit_depth(png_ptr, info_ptr);
+    int HasAlpha = ColorType & PNG_COLOR_MASK_ALPHA;
+    if (ColorType == PNG_COLOR_TYPE_PALETTE) { png_set_palette_to_rgb(png_ptr); }
+    //if (ColorType == PNG_COLOR_TYPE_GRAY && BitDepth < 8) { png_set_expand_gray_1_2_4_to_8(png_ptr); }
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) { png_set_tRNS_to_alpha(png_ptr); HasAlpha = 1; }
+    if (BitDepth<16) { png_set_expand_16(png_ptr); }
+    if (!HasAlpha) { png_set_add_alpha(png_ptr, 0xFFFF, PNG_FILLER_AFTER); }
+    if (ColorType == PNG_COLOR_TYPE_GRAY || ColorType == PNG_COLOR_TYPE_GRAY_ALPHA) { png_set_gray_to_rgb(png_ptr); }
+    png_read_update_info(png_ptr, info_ptr);
+    if (png_get_bit_depth(png_ptr, info_ptr)!=16) {
+        logPrint("    Can't convert png into 16 bits per channel, aborting.\n"); goto cleanup_png_read;
+    }
+    if (png_get_color_type(png_ptr, info_ptr) != PNG_COLOR_TYPE_RGB_ALPHA) {
+        logPrint("    Can't convert png into RGBA format, aborting.\n"); goto cleanup_png_read;
+    }
+    if (png_get_channels(png_ptr, info_ptr) != 4) {
+        logPrint("    Can't convert png into 4 channel RGBA format, aborting.\n"); goto cleanup_png_read;
+    }
+
+#ifdef CMS_USE_BIG_ENDIAN
+    input_buffer_format = TYPE_RGBA_16;
+#else
+    input_buffer_format = TYPE_RGBA_16_SE;
+#endif
+
+    if(UseProfile){
+        cmsTransform = cmsCreateTransform(
+            input_buffer_profile, input_buffer_format,
+            Our->icc_LinearsRGB, TYPE_RGBA_16,
+            INTENT_PERCEPTUAL,
+            0
+        );
+    }
+
+    int W = png_get_image_width(png_ptr, info_ptr);
+    int H = png_get_image_height(png_ptr, info_ptr);
+
+    /* Todo: create big image buffer and read into offset regions, then read into separate tiles. */
+
+    our_EnsureImageBufferOnRead(l,W,H);
+
+    for(int i=0;i<H;i++){
+        png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
+    }
+
+    our_LayerToTexture(l);
+
+    result=1;
+
+cleanup_png_read:
+
+    if(input_buffer_profile) cmsCloseProfile(input_buffer_profile);
+    if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
+
+    return result;
 }
 
 void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
@@ -612,6 +721,26 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
     }
     return LA_RUNNING;
 }
+int ourinv_ImportLayer(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0;
+    laInvoke(a, "LA_file_dialog", e, 0, 0, 0);
+    return LA_RUNNING;
+}
+int ourmod_ImportLayer(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0;
+    if (a->ConfirmData){
+        if (a->ConfirmData->StrData){
+            FILE* fp=fopen(a->ConfirmData->StrData,"rb");
+            if(!fp) return LA_FINISHED;
+            if(!ol) ol=our_NewLayer("Imported");
+            our_LayerImportPNG(ol, fp, 0);
+            fclose(fp);
+        }
+        return LA_FINISHED;
+    }
+    return LA_RUNNING;
+}
+
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
     our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.brushes");
@@ -744,6 +873,7 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil);
         laShowLabel(muil, mc, "Our Paint", 0, 0);
         laShowItem(muil, mc, 0, "OUR_export_layer");
+        laShowItem(muil, mc, 0, "OUR_import_layer");
         laui_DefaultMenuButtonsFileEntries(muil,pp,actinst,extracol,0);
     }
     muil = laMakeMenuPage(uil, c, "Options"); {
@@ -758,6 +888,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",0,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
+    laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,0,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,L'🗴',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);

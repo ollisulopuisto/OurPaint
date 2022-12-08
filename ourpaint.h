@@ -95,7 +95,7 @@ STRUCTURE(OurPaint){
     real BorderAlpha;
 
     uint16_t *ImageBuffer;
-    int ImageW,ImageH,ImageX,ImageY;
+    int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY;
 
     void* icc_LinearsRGB; int iccsize_LinearsRGB;
     void* icc_sRGB; int iccsize_sRGB;
