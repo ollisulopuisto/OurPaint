@@ -90,7 +90,7 @@ STRUCTURE(OurPaint){
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
 
-    real CurrentColor[4];
+    real CurrentColor[3];
     real BackgroundColor[3];
     real BorderAlpha;
 

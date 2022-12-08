@@ -272,7 +272,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     if (!e->OffScr || e->OffScr->pColor[0]->Height != ui->B - ui->U || e->OffScr->pColor[0]->Width != ui->R - ui->L){
         if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
-        e->OffScr = tnsCreate2DOffscreen(GL_RGBA, W, H, 0, 0);
+        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16, W, H, 0, 0);
     }
 
     //our_CANVAS_TEST(bt,ui);
@@ -289,6 +289,18 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
 
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+}
+void our_CanvasDrawOverlay(laUiItem* ui,int h){
+    laCanvasExtra *e = ui->Extra;
+    laBoxedTheme *bt = (*ui->Type->Theme);
+
+    tnsUseImmShader();tnsEnableShaderv(T->immShader);
+    tnsUniformColorMode(T->immShader, 2);
+    tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
+    tnsFlush();
+    tnsUniformColorMode(T->immShader, 0);
+    
+    la_CanvasDefaultOverlay(ui, h);
 }
 
 OurLayer* our_NewLayer(char* name){
@@ -574,10 +586,10 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     while(1){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
         real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
-#define pfac(psw) (psw?tnsInterpolate(last_pressure,pressure,r):1);
-        real sizepfac=pfac(b->PressureSize)
+#define pfac(psw) (psw?tnsInterpolate(last_pressure,pressure,r):1)
+        real sizepfac=pfac(b->PressureSize);
         od->Size = b->Size*sizepfac;       od->Hardness = b->Hardness*pfac(b->PressureHardness);
-        od->Smudge = b->Smudge*pfac(b->PressureSmudge); od->Color[3]=b->Transparency*pfac(b->PressureTransparency);
+        od->Smudge = b->Smudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->Transparency*pfac(b->PressureTransparency),2.718);
         tnsVectorSet3v(od->Color,Our->CurrentColor);
 #undef pfac;
         xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
@@ -672,6 +684,7 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     Our->CurrentColor[0]=(real)color[0]/255*a;
     Our->CurrentColor[1]=(real)color[1]/255*a;
     Our->CurrentColor[2]=(real)color[2]/255*a;
+    tns2LinearsRGB(Our->CurrentColor);
 }
 
 void our_StartCropping(OurCanvasDraw* cd){
@@ -920,8 +933,8 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,0,0,0,offsetof(OurPaint,Brushes),0);
     laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
-    laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,4,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,0);
+    laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
+    laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,L'🖌');
@@ -963,7 +976,7 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
 
-    laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", 0, our_CanvasDrawCanvas, la_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
+    laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", 0, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
     km = &ct->KeyMapper;
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_DOWN, 0, "direction=out");
