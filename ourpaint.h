@@ -31,12 +31,23 @@ STRUCTURE(OurCanvasDraw){
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
     uint16_t* Data;
+    int row,col;
 };
 STRUCTURE(OurLayer){
     laListItem Item;
     laSafeString Name;
     int OffsetX,OffsetY;
     OurTexTile** TexTiles[OUR_TEX_TILES_PER_ROW];
+};
+
+STRUCTURE(OurLayerWrite){
+    unsigned char* data;
+    size_t NextData, MaxData;
+};
+
+STRUCTURE(OurLayerRead){
+    unsigned char* data;
+    size_t NextData;
 };
 
 STRUCTURE(OurBrush){
@@ -68,7 +79,6 @@ STRUCTURE(OurPaint){
 
     laListHandle Layers;
     OurLayer*    CurrentLayer;
-
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
     OurDab* Dabs; int NextDab,MaxDab;
@@ -95,7 +105,7 @@ STRUCTURE(OurPaint){
     real BorderAlpha;
 
     uint16_t *ImageBuffer;
-    int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY;
+    int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
 
     void* icc_LinearsRGB; int iccsize_LinearsRGB;
     void* icc_sRGB; int iccsize_sRGB;

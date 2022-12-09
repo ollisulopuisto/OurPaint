@@ -188,7 +188,7 @@ void our_CanvasDrawTextures(){
         for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
             for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
-                if(!l->TexTiles[row][col]) continue;
+                if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
                 int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;            
                 real pad=(real)OUR_TEX_TILE_SEAM/OUR_TEX_TILE_W; int seam=OUR_TEX_TILE_SEAM;
                 tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TEX_TILE_W-seam,OUR_TEX_TILE_W-seam*2,-OUR_TEX_TILE_W+seam*2,0,pad,pad,pad,pad);
@@ -205,7 +205,7 @@ void our_CanvasDrawTiles(){
     for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){
         if(!l->TexTiles[row]) continue;
         for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
-            if(!l->TexTiles[row][col]) continue;
+            if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
             int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_SEAM;            
             //tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
             //tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
@@ -304,14 +304,30 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 }
 
 OurLayer* our_NewLayer(char* name){
-    OurLayer* l=memAcquire(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
+    OurLayer* l=memAcquireHyper(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
     memAssignRef(Our, &Our->CurrentLayer, l);
     return l;
 }
 void our_RemoveLayer(OurLayer* l){
     strSafeDestroy(&l->Name); lstRemoveItem(&Our->Layers, l);
     if(Our->CurrentLayer==l){ OurLayer* nl=l->Item.pPrev?l->Item.pPrev:l->Item.pNext; memAssignRef(Our, &Our->CurrentLayer, nl); }
+    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue;
+            if(l->TexTiles[row][col]->Texture) tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0;
+            if(l->TexTiles[row][col]->Data) free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0;
+        }
+    }
     memLeave(l);
+}
+void ourbeforefree_Layer(OurLayer* l){
+    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue;
+            if(l->TexTiles[row][col]->Texture) tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0;
+            if(l->TexTiles[row][col]->Data) free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0;
+            memFree(l->TexTiles[row][col]);
+        }
+        memFree(l->TexTiles[row]); l->TexTiles[row]=0;
+    }
 }
 OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, real Transparency, real Smudge, real SmudgeResampleLength,
     int PressureSize, int PressureHardness, int PressureTransparency, int PressureSmudge){
@@ -328,6 +344,12 @@ void our_RemoveBrush(OurBrush* b){
     memLeave(b);
 }
 
+int our_BufferAnythingVisible(uint16_t* buf, int elemcount){
+    for(int i=0;i<elemcount;i++){
+        uint16_t* rgba=&buf[i*4]; if(rgba[3]) return 1;
+    }
+    return 0;
+}
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
     int l,r,u,b;
     if(Aligned){
@@ -351,6 +373,7 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
             if(ol->TexTiles[row][col]) continue;
             ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
             ol->TexTiles[row][col]->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TEX_TILE_W,OUR_TEX_TILE_W,0);
+            ol->TexTiles[row][col]->row=row; ol->TexTiles[row][col]->col=col;
             uint16_t initColor[]={0,0,0,0};
             glClearTexImage(ol->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_RGBA, GL_UNSIGNED_SHORT, 0);
         }
@@ -367,7 +390,7 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY){
     for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
         memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
     }
-    free(ot->Data);
+    free(ot->Data); ot->Data=0;
 }
 void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     int pl=(SX!=0)?OUR_TEX_TILE_SEAM:0, pr=((SX+OUR_TEX_TILE_W_USE)!=Our->ImageW)?OUR_TEX_TILE_SEAM:0;
@@ -377,11 +400,14 @@ void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     for(int row=0;row<height;row++){
         memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
     }
-    tnsBindTexture(ot->Texture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TEX_TILE_SEAM-pl, OUR_TEX_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
-    free(ot->Data);
+    if(!our_BufferAnythingVisible(ot->Data, bufsize/sizeof(uint16_t)/4)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
+    else{
+        tnsBindTexture(ot->Texture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TEX_TILE_SEAM-pl, OUR_TEX_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
+    }
+    free(ot->Data); ot->Data=0;
 }
-int our_LayerEnsureImageBuffer(OurLayer* ol){
+int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     int l=1000,r=-1000,u=-1000,b=1000; int any=0;
     for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         if(row<b) b=row; if(row>u) u=row;
@@ -392,8 +418,10 @@ int our_LayerEnsureImageBuffer(OurLayer* ol){
     if(!any) return 0;
     Our->ImageW = OUR_TEX_TILE_W_USE*(r-l+1); Our->ImageH = OUR_TEX_TILE_W_USE*(u-b+1);
     Our->ImageX =((real)l-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE; Our->ImageY=((real)b-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
-    if(Our->ImageBuffer) free(Our->ImageBuffer);
-    Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+    if(!OnlyCalculate){
+        if(Our->ImageBuffer) free(Our->ImageBuffer);
+        Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+    }
     return 1;
 }
 void our_LayerToImageBuffer(OurLayer* ol){
@@ -412,16 +440,30 @@ void our_LayerToTexture(OurLayer* ol){
         }
     }
 }
-int our_LayerExportPNG(OurLayer* l, FILE* fp){
-    if(!l||!fp) return 0;
+static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t length){
+    OurLayerWrite* LayerWrite=png_get_io_ptr(png_ptr);
+    arrEnsureLength(&LayerWrite->data,LayerWrite->NextData+length,&LayerWrite->MaxData,sizeof(unsigned char));
+    memcpy(&LayerWrite->data[LayerWrite->NextData], data, length);
+    LayerWrite->NextData+=length;
+}
+int our_LayerExportPNG(OurLayer* l, FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf){
+    if(!l||(!fp&&!WriteToBuffer)) return 0;
 
-    if(!our_LayerEnsureImageBuffer(l)) return 0;
+    if(!our_LayerEnsureImageBuffer(l, 0)) return 0;
 
     our_LayerToImageBuffer(l);
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     png_infop info_ptr = png_create_info_struct(png_ptr);
-    png_init_io(png_ptr, fp);
+
+    OurLayerWrite LayerWrite={0};
+
+    if(WriteToBuffer){
+        arrEnsureLength(&LayerWrite.data,0,&LayerWrite.MaxData,sizeof(unsigned char));
+        png_set_write_fn(png_ptr,&LayerWrite,_our_png_write,0);
+    }else{
+        png_init_io(png_ptr, fp);
+    }
     
     png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
     // Should not set gamma, we should set either srgb chunk or iccp. Gimp bug: https://gitlab.gnome.org/GNOME/gimp/-/issues/5363
@@ -444,21 +486,30 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp){
     png_destroy_write_struct(&png_ptr, &info_ptr);
     free(Our->ImageBuffer); Our->ImageBuffer=0;
 
+    if(WriteToBuffer){ *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData; }
+
     return 1;
 }
-void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H, int Align, int StartX, int StartY){
+void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H, int UseOffsets, int StartX, int StartY){
     int tw=W/OUR_TEX_TILE_W_USE, th=H/OUR_TEX_TILE_W_USE;
     int w=tw*OUR_TEX_TILE_W_USE, h=th*OUR_TEX_TILE_W_USE;
     if(w<W){ tw+=1; w+=OUR_TEX_TILE_W_USE; } if(h<H){ th+=1; h+=OUR_TEX_TILE_W_USE; }
 
-    int ix=-tw/2*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_W_USE/2, iy=th/2*OUR_TEX_TILE_W_USE+OUR_TEX_TILE_W_USE/2; int tl,tr,tu,tb;
+    int ix=UseOffsets?StartX:(-tw/2*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_W_USE/2);
+    int iy=UseOffsets?StartY:(th/2*OUR_TEX_TILE_W_USE+OUR_TEX_TILE_W_USE/2);
+    int tl,tr,tu,tb;
     our_LayerEnsureTiles(l,ix,ix+W,iy-H,iy,1,&tl,&tr,&tu,&tb);
-    our_LayerEnsureImageBuffer(l);
+    our_LayerEnsureImageBuffer(l, 0);
     Our->LoadX = ix-Our->ImageX; Our->LoadY = Our->ImageY+Our->ImageH-iy;
 }
-int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
+static void _our_png_read(png_struct *ps, png_byte *data, png_size_t length){
+    OurLayerRead *LayerRead = (OurLayerRead*)png_get_io_ptr(ps);
+    memcpy(data,&LayerRead->data[LayerRead->NextData],length);
+    LayerRead->NextData+=length;
+}
+int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int UseOffsets, int StartX, int StartY){
     int result=0;
-    if(!fp || !l) return 0;
+    if((!fp&&!buf) || !l) return 0;
 
     int srgb_intent = 0;
     png_charp icc_profile_name = NULL;
@@ -474,10 +525,16 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
     png_bytep icc_profile = NULL;
 #endif
 
+    OurLayerRead LayerRead={0};
+
     png_structp png_ptr = png_create_read_struct (PNG_LIBPNG_VER_STRING,0,0,0); if (!png_ptr) { return 0; }
     png_infop info_ptr = png_create_info_struct(png_ptr); if (!info_ptr) { return 0; }
     if (setjmp(png_jmpbuf(png_ptr))) { goto cleanup_png_read; }
-    png_init_io(png_ptr, fp);
+    if(buf){
+        LayerRead.data=buf; png_set_read_fn(png_ptr, &LayerRead, _our_png_read);
+    }else{
+        png_init_io(png_ptr, fp);
+    }
     png_read_info(png_ptr, info_ptr);
     png_set_swap(png_ptr);
 
@@ -548,7 +605,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, int UseProfile){
     int W = png_get_image_width(png_ptr, info_ptr);
     int H = png_get_image_height(png_ptr, info_ptr);
 
-    our_EnsureImageBufferOnRead(l,W,H,1,0,0);
+    our_EnsureImageBufferOnRead(l,W,H,UseOffsets,StartX,StartY);
 
     for(int i=0;i<H;i++){
         png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
@@ -740,7 +797,7 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
         if (a->ConfirmData->StrData){
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
-            our_LayerExportPNG(Our->CurrentLayer, fp);
+            our_LayerExportPNG(Our->CurrentLayer, fp, 0, 0, 0);
             fclose(fp);
         }
         return LA_FINISHED;
@@ -759,7 +816,7 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
             FILE* fp=fopen(a->ConfirmData->StrData,"rb");
             if(!fp) return LA_FINISHED;
             if(!ol) ol=our_NewLayer("Imported");
-            our_LayerImportPNG(ol, fp, 0);
+            our_LayerImportPNG(ol, fp, 0, 0, 0, 0, 0);
             fclose(fp);
         }
         return LA_FINISHED;
@@ -862,6 +919,21 @@ void* ourget_FirstBrush(void* unused, void* unused1){
 void* ourget_our(void* unused, void* unused1){
     return Our;
 }
+void ourget_LayerTileStart(OurLayer* l, int* xy){
+    our_LayerEnsureImageBuffer(l, 1); xy[0]=Our->ImageX; xy[1]=Our->ImageY+Our->ImageH;
+}
+void ourset_LayerTileStart(OurLayer* l, int* xy){
+    Our->TempLoadX = xy[0]; Our->TempLoadY = xy[1];
+}
+void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
+    void* buf=0;
+    if(our_LayerExportPNG(l,0,1,&buf,r_size)){ *r_is_copy=1; return buf; }
+    *r_is_copy=0; return buf;
+}
+void ourset_LayerImage(OurLayer* l, void* data, int size){
+    if(!data) return;
+    our_LayerImportPNG(l, 0, data, 0, 1, Our->TempLoadX, Our->TempLoadY);
+}
 void ourset_LayerMove(OurLayer* l, int move){
     if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); }
     elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); }
@@ -887,6 +959,12 @@ void ourset_CanvasSize(void* unused, int* wh){
 }
 void ourset_CanvasPosition(void* unused, int* xy){
     Our->X=xy[0]; Our->Y=xy[1]; laNotifyUsers("our.canvas");
+}
+void ourset_LayoutPosition(OurLayer* l, int* xy){
+    l->OffsetX=xy[0]; l->OffsetY=xy[1]; laNotifyUsers("our.canvas");
+}
+void ourreset_Canvas(OurPaint* op){
+    while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst); }
 }
 
 #define OUR_ADD_PRESSURE_SWITCH(p)\
@@ -927,7 +1005,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0);
     
     pc=laDefineRoot();
-    laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,0);
+    laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
 
     pc=laAddPropertyContainer("our_paint","Our Paint","OurPaint main",0,0,sizeof(OurPaint),0,0,1);
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
@@ -964,15 +1042,19 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",L'🗴',0);
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),0,0,1);
+    laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
     laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),0);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
 
-    pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
+    pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,2);
+    laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_LayerMove,0,0,0,0,0,0,0,0,0);
-    //laAddSubGroup(pc,"Rows","Rows","Rows of tiles","our_rows",0,0,0,0,0,0,0,0,0,0,offsetof(OurLayer,Rows),0);
+    laAddIntProperty(pc,"offset","Offset","Offset of the layer",0,"X,Y","px",0,0,0,0,0,offsetof(OurLayer,OffsetX),0,0,2,0,0,0,0,ourset_LayoutPosition,0,0,0);
+    laAddIntProperty(pc,"tile_start","Tile Start","Tile starting position for loading",0,0,0,0,0,0,0,0,0,0,0,2,0,0,ourget_LayerTileStart,0,ourset_LayerTileStart,0,0,LA_UDF_ONLY);
+    laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
 
@@ -987,6 +1069,8 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
 
     laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
+
+    laSaveProp("our");
 }
 
 
