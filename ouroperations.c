@@ -57,6 +57,14 @@ void main() {\n\
 }\n\
 ";
 
+void our_CanvasAlphaMix(uint16_t* target, uint16_t* source){
+    real a_1=(real)(65535-source[3])/65535;
+    target[3]=source[3]+target[3]*a_1;
+    target[0]=source[0]+target[0]*a_1;
+    target[1]=source[1]+target[1]*a_1;
+    target[2]=source[2]+target[2]*a_1;
+}
+
 void our_InitsRGBProfile(int Linear, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
     cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
     cmsCIExyY d65_srgb_adobe_specs = {0.3127, 0.3290, 1.0};
@@ -148,19 +156,19 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 
     laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
-        laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.current_brush"));{
-            laShowItem(uil,c,0,"our.current_brush.name");
-            OUR_BR laShowItem(uil,c,0,"our.current_brush.size")->Expand=1; laShowItemFull(uil,c,0,"our.current_brush.pressure_size",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.current_brush.transparency")->Expand=1;  laShowItemFull(uil,c,0,"our.current_brush.pressure_transparency",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.current_brush.hardness")->Expand=1;  laShowItemFull(uil,c,0,"our.current_brush.pressure_hardness",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.current_brush.smudge")->Expand=1; laShowItemFull(uil,c,0,"our.current_brush.pressure_smudge",0,"text=P",0,0); OUR_ER
-            laShowItem(uil,c,0,"our.current_brush.dabs_per_size");
-            laShowItem(uil,c,0,"our.current_brush.smudge_resample_length");
+        laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
+            laShowItem(uil,c,0,"our.tools.current_brush.name");
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.size")->Expand=1; laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_size",0,"text=P",0,0); OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.transparency")->Expand=1;  laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_transparency",0,"text=P",0,0); OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_hardness",0,"text=P",0,0); OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1; laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_smudge",0,"text=P",0,0); OUR_ER
+            laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
+            laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
         }laEndCondition(uil,b);
 
         laShowLabel(uil,c,"Select a brush:",0,0);
 
-        laShowItemFull(uil,c,0,"our.brushes",0,0,0,0);
+        laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0);
         laShowItem(uil,c,0,"OUR_new_brush");
     }laEndCondition(uil,bt);
 
@@ -304,7 +312,7 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 }
 
 OurLayer* our_NewLayer(char* name){
-    OurLayer* l=memAcquireHyper(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
+    OurLayer* l=memAcquire(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
     memAssignRef(Our, &Our->CurrentLayer, l);
     return l;
 }
@@ -380,19 +388,28 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
-void our_TileTextureToImage(OurTexTile* ot, int SX, int SY){
+void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite){
+    if(!ot->Texture) return;
     int bufsize=sizeof(uint16_t)*OUR_TEX_TILE_W_USE*OUR_TEX_TILE_W_USE*4;
     ot->Data=malloc(bufsize); int seam=OUR_TEX_TILE_SEAM; int width=OUR_TEX_TILE_W_USE;
     tnsBindTexture(ot->Texture);
     glPixelStorei(GL_PACK_ALIGNMENT, 2);
     glGetTextureSubImage(ot->Texture->GLTexHandle, 0, seam, seam, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
-    int acc=0,read=0;
-    for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
-        memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
+    if(composite){
+        for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
+            for(int col=0;col<OUR_TEX_TILE_W_USE;col++){
+                our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TEX_TILE_W_USE+col)*4]);
+            }
+        }
+    }else{
+        for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
+            memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
+        }
     }
     free(ot->Data); ot->Data=0;
 }
 void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
+    if(!ot->Texture) return;
     int pl=(SX!=0)?OUR_TEX_TILE_SEAM:0, pr=((SX+OUR_TEX_TILE_W_USE)!=Our->ImageW)?OUR_TEX_TILE_SEAM:0;
     int pu=(SY!=0)?OUR_TEX_TILE_SEAM:0, pb=((SY+OUR_TEX_TILE_W_USE)!=Our->ImageH)?OUR_TEX_TILE_SEAM:0;
     int bufsize=sizeof(uint16_t)*(OUR_TEX_TILE_W+pl+pr)*(OUR_TEX_TILE_W+pu+pb)*4;
@@ -424,11 +441,32 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     }
     return 1;
 }
-void our_LayerToImageBuffer(OurLayer* ol){
+int our_CanvasEnsureImageBuffer(){
+    int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
+    for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
+        our_LayerEnsureImageBuffer(l,1);
+        if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
+        if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
+    }
+    if(w<0||h<0) return 0;
+    Our->ImageX=x; Our->ImageY=y; Our->ImageW=w; Our->ImageH=h;
+    if(Our->ImageBuffer) free(Our->ImageBuffer);
+    Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+    return 1;
+}
+void our_CanvasFillImageBufferBackground(){
+    int count=Our->ImageW*Our->ImageH;
+    Our->BColorU16[0]=Our->BackgroundColor[0]*65535; Our->BColorU16[1]=Our->BackgroundColor[1]*65535;
+    Our->BColorU16[2]=Our->BackgroundColor[2]*65535; Our->BColorU16[3]=65535;
+    for(int i=0;i<count;i++){
+        uint16_t* p=&Our->ImageBuffer[i*4]; tnsVectorSet4v(p,Our->BColorU16);
+    }
+}
+void our_LayerToImageBuffer(OurLayer* ol, int composite){
     for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
-            our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY);
+            our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY, composite);
         }
     }
 }
@@ -440,18 +478,31 @@ void our_LayerToTexture(OurLayer* ol){
         }
     }
 }
+void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
+    if(UseFrame){ *x=Our->X; *y=Our->Y; *w=Our->W; *h=Our->H; }
+    else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
+    printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
+}
+uint16_t* our_GetFinalRow(int UseFrame, int row, int x, int y, int w, int h, uint16_t* temp){
+    if(!UseFrame) return &Our->ImageBuffer[Our->ImageW*(Our->ImageH-row-1)*4];
+    int userow=(h-row-1)-(Our->ImageY-(y-h));
+    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }  return temp; }
+    int sstart=x>Our->ImageX?x-Our->ImageX:0, tstart=x>Our->ImageX?0:Our->ImageX-x;
+    int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));
+    for(int i=0;i<sstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }
+    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }
+    memcpy(&temp[tstart*4],&Our->ImageBuffer[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(uint16_t)*4);
+    return temp;
+}
 static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t length){
     OurLayerWrite* LayerWrite=png_get_io_ptr(png_ptr);
     arrEnsureLength(&LayerWrite->data,LayerWrite->NextData+length,&LayerWrite->MaxData,sizeof(unsigned char));
     memcpy(&LayerWrite->data[LayerWrite->NextData], data, length);
     LayerWrite->NextData+=length;
 }
-int our_LayerExportPNG(OurLayer* l, FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf){
-    if(!l||(!fp&&!WriteToBuffer)) return 0;
-
-    if(!our_LayerEnsureImageBuffer(l, 0)) return 0;
-
-    our_LayerToImageBuffer(l);
+int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame){
+    if((!fp)&&(!WriteToBuffer)) return 0;
+    if(!Our->ImageBuffer) return 0;
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     png_infop info_ptr = png_create_info_struct(png_ptr);
@@ -464,8 +515,10 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp, int WriteToBuffer, void** buf, int
     }else{
         png_init_io(png_ptr, fp);
     }
+
+    int X,Y,W,H; our_GetFinalDimension(UseFrame, &X,&Y,&W,&H);
     
-    png_set_IHDR(png_ptr, info_ptr,Our->ImageW,Our->ImageH,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
+    png_set_IHDR(png_ptr, info_ptr,W,H,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
     // Should not set gamma, we should set either srgb chunk or iccp. Gimp bug: https://gitlab.gnome.org/GNOME/gimp/-/issues/5363
     // But we still include a gamma 1.0 for convenience in OurPaint internal layer reading.
     //png_set_gAMA(png_ptr,info_ptr,0.45455);
@@ -478,8 +531,11 @@ int our_LayerExportPNG(OurLayer* l, FILE* fp, int WriteToBuffer, void** buf, int
     png_write_info(png_ptr, info_ptr);
     png_set_swap(png_ptr);
 
-    for(int i=0;i<Our->ImageH;i++){
-        png_write_row(png_ptr, (png_const_bytep)&Our->ImageBuffer[Our->ImageW*(Our->ImageH-i-1)*4]);
+    uint16_t* temp_row=calloc(W,sizeof(uint16_t)*4);
+
+    for(int i=0;i<H;i++){
+        uint16_t* final=our_GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
+        png_write_row(png_ptr, (png_const_bytep)final);
     }
 
     png_write_end(png_ptr, info_ptr);
@@ -795,9 +851,11 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
     if (a->ConfirmData){
         if (a->ConfirmData->StrData){
+            if(!our_LayerEnsureImageBuffer(ol, 0)) return LA_FINISHED;
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
-            our_LayerExportPNG(Our->CurrentLayer, fp, 0, 0, 0);
+            our_LayerToImageBuffer(ol, 0);
+            our_ImageExportPNG(fp, 0, 0, 0, 0);
             fclose(fp);
         }
         return LA_FINISHED;
@@ -823,22 +881,45 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
     }
     return LA_RUNNING;
 }
+int ourinv_ExportImage(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
+    laInvoke(a, "LA_file_dialog", e, 0, 0, 0);
+    return LA_RUNNING;
+}
+int ourmod_ExportImage(laOperator* a, laEvent* e){
+    OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
+    if (a->ConfirmData){
+        if (a->ConfirmData->StrData){
+            if(!our_CanvasEnsureImageBuffer()) return LA_FINISHED;
+            FILE* fp=fopen(a->ConfirmData->StrData,"wb");
+            if(!fp) return LA_FINISHED;
+            our_CanvasFillImageBufferBackground();
+            for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
+                our_LayerToImageBuffer(ol, 1);
+            }
+            our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder);
+            fclose(fp);
+        }
+        return LA_FINISHED;
+    }
+    return LA_RUNNING;
+}
 
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
-    our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.brushes");
+    our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.tools.brushes");
     return LA_FINISHED;
 }
 int ourinv_RemoveBrush(laOperator* a, laEvent* e){
     OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
-    our_RemoveLayer(b); laNotifyUsers("our.brushes");
+    our_RemoveLayer(b); laNotifyUsers("our.tools.brushes");
     return LA_FINISHED;
 }
 int ourinv_MoveBrush(laOperator* a, laEvent* e){
     OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"up")&&b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.brushes"); }
-    elif(b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.brushes"); }
+    if(strSame(direction,"up")&&b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
+    elif(b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
     return LA_FINISHED;
 }
 
@@ -860,9 +941,9 @@ int ourmod_Paint(laOperator* a, laEvent* e){
         int tl,tr,tu,tb;
         if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,e->Pressure,&tl,&tr,&tu,&tb)){
             our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
+            laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
         }
         ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;
-        laNotifyUsers("our.canvas");
     }
 
     return LA_RUNNING;
@@ -874,7 +955,7 @@ int ourmod_Crop(laOperator* a, laEvent* e){
     if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
         our_DoCropping(ex,x,y);
-        laNotifyUsers("our.canvas");
+        laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     }
 
     return LA_RUNNING;
@@ -910,6 +991,9 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
 }
 
 
+void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
+    *ptr="Main canvas";
+}
 void* ourget_FirstLayer(void* unused, void* unused1){
     return Our->Layers.pFirst;
 }
@@ -927,7 +1011,9 @@ void ourset_LayerTileStart(OurLayer* l, int* xy){
 }
 void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     void* buf=0;
-    if(our_LayerExportPNG(l,0,1,&buf,r_size)){ *r_is_copy=1; return buf; }
+    if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
+    our_LayerToImageBuffer(l, 0);
+    if(our_ImageExportPNG(0,1,&buf,r_size, 0)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
 }
 void ourset_LayerImage(OurLayer* l, void* data, int size){
@@ -939,8 +1025,8 @@ void ourset_LayerMove(OurLayer* l, int move){
     elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); }
 }
 void ourset_BrushMove(OurBrush* b, int move){
-    if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.brushes"); }
-    elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.brushes"); }
+    if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
+    elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
 }
 void ourset_BackgroundColor(void* unused, real* arr){
     memcpy(Our->BackgroundColor, arr, sizeof(real)*3); laNotifyUsers("our.canvas");
@@ -966,6 +1052,11 @@ void ourset_LayoutPosition(OurLayer* l, int* xy){
 void ourreset_Canvas(OurPaint* op){
     while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst); }
 }
+void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
+    for(OurBrush* b=p->Brushes.pFirst;b;b=b->Item.pNext){
+        if(force || !laget_InstanceActiveUDF(b)){ laset_InstanceUDF(b, udf); }
+    }
+}
 
 #define OUR_ADD_PRESSURE_SWITCH(p)\
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
@@ -976,6 +1067,8 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     muil = laMakeMenuPage(uil, c, "File");{
         mc = laFirstColumn(muil);
         laShowLabel(muil, mc, "Our Paint", 0, 0);
+        laShowItem(muil, mc, 0, "OUR_export_image");
+        laShowSeparator(muil,mc);
         laShowItem(muil, mc, 0, "OUR_export_layer");
         laShowItem(muil, mc, 0, "OUR_import_layer");
         laui_DefaultMenuButtonsFileEntries(muil,pp,actinst,extracol,0);
@@ -998,6 +1091,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
     laCreateOperatorType("OUR_action","Action","Doing action on a layer",0,0,0,ourinv_Action,ourmod_Action,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
+    laCreateOperatorType("OUR_export_image","Export Image","Export the image",0,0,0,ourinv_ExportImage,ourmod_ExportImage,L'🖼',0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint");
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0);
@@ -1009,8 +1103,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_paint","Our Paint","OurPaint main",0,0,sizeof(OurPaint),0,0,1);
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
-    laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,0,0,0,offsetof(OurPaint,Brushes),0);
-    laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
     laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
@@ -1020,6 +1113,12 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",OUR_TOOL_PAINT,L'🖌');
     laAddEnumItemAs(p,"TRUE","Yes","Show border on the canvas",OUR_TOOL_CROP,L'🖼');
+
+
+    pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
+    laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
+    laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,0,0,0,offsetof(OurPaint,Brushes),0);
+    laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -1043,12 +1142,14 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
+    Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
+    laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
     laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),0);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
 
-    pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,2);
+    pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_LayerMove,0,0,0,0,0,0,0,0,0);
@@ -1070,7 +1171,10 @@ void ourRegisterEverything(){
 
     laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
 
-    laSaveProp("our");
+    laSaveProp("our.canvas");
+    laSaveProp("our.tools");
+
+    laGetSaverDummy(Our,Our->CanvasSaverDummyProp);
 }
 
 

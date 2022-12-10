@@ -77,6 +77,9 @@ STRUCTURE(OurDab){
 STRUCTURE(OurPaint){
     real pad;
 
+    laListHandle CanvasSaverDummyList;
+    laProp*      CanvasSaverDummyProp;
+
     laListHandle Layers;
     OurLayer*    CurrentLayer;
     laListHandle Brushes;
@@ -102,6 +105,7 @@ STRUCTURE(OurPaint){
 
     real CurrentColor[3];
     real BackgroundColor[3];
+    uint16_t BColorU16[4];
     real BorderAlpha;
 
     uint16_t *ImageBuffer;
