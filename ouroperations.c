@@ -844,7 +844,7 @@ int ourinv_MoveLayer(laOperator* a, laEvent* e){
 }
 int ourinv_ExportLayer(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
-    laInvoke(a, "LA_file_dialog", e, 0, 0, 0);
+    laInvoke(a, "LA_file_dialog", e, 0, "warn_file_exists=true;", 0);
     return LA_RUNNING;
 }
 int ourmod_ExportLayer(laOperator* a, laEvent* e){
@@ -883,7 +883,7 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
 }
 int ourinv_ExportImage(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
-    laInvoke(a, "LA_file_dialog", e, 0, 0, 0);
+    laInvoke(a, "LA_file_dialog", e, 0, "warn_file_exists=true;", 0);
     return LA_RUNNING;
 }
 int ourmod_ExportImage(laOperator* a, laEvent* e){
@@ -904,7 +904,6 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
     }
     return LA_RUNNING;
 }
-
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
     our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.tools.brushes");
