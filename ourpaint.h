@@ -31,7 +31,10 @@ STRUCTURE(OurCanvasDraw){
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
     uint16_t* Data;
-    int row,col;
+    int l,r,u,b;
+    uint16_t* FullData;
+    uint16_t* CopyBuffer;
+    int cl,cr,cu,cb;
 };
 STRUCTURE(OurLayer){
     laListItem Item;
@@ -71,6 +74,17 @@ STRUCTURE(OurDab){
     float Color[4];
 };
 
+STRUCTURE(OurUndoTile){
+    laListItem Item;
+    int col,row;
+    uint16_t* CopyData;
+    int l,r,u,b;
+};
+STRUCTURE(OurUndo){
+    OurLayer* Layer;
+    laListHandle Tiles;
+};
+
 #define OUR_TOOL_PAINT 0
 #define OUR_TOOL_CROP 1
 
@@ -107,6 +121,8 @@ STRUCTURE(OurPaint){
     real BackgroundColor[3];
     uint16_t BColorU16[4];
     real BorderAlpha;
+
+    real xmin,xmax,ymin,ymax; // stroke bbox for undo region
 
     uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
