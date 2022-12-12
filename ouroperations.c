@@ -150,21 +150,29 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
 }
 void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
-    laUiItem* b1;
+    laUiItem* b1, *b2;
 #define OUR_BR b1=laBeginRow(uil,c,0,0);
 #define OUR_ER laEndRow(uil,b1);
+#define OUR_PRESSURE(a)\
+    b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
+    laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=P",0,0);\
+    laEndCondition(uil,b2);
 
     laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowLabel(uil,c,"Brush settings:",0,0);
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
             laShowItem(uil,c,0,"our.tools.current_brush.name");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.size")->Expand=1; laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_size",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.transparency")->Expand=1;  laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_transparency",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_hardness",0,"text=P",0,0); OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1; laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_smudge",0,"text=P",0,0); OUR_ER
+            laShowItem(uil,c,0,"our.tools.current_brush.use_nodes");
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.size")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
         }laEndCondition(uil,b);
+
+        laShowSeparator(uil,c);
 
         laShowLabel(uil,c,"Select a brush:",0,0);
 
@@ -187,6 +195,14 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laColumn* c=laFirstColumn(uil);
     
     laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0);
+}
+void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    
+    laShowItemFull(uil,c,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
+    laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
+        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Extra->HeightCoeff=-1;
+    }laEndCondition(uil,b);
 }
 
 void our_CanvasDrawTextures(){
@@ -341,11 +357,13 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     b->PressureHardness=PressureHardness; b->PressureSize=PressureSize; b->PressureTransparency=PressureTransparency; b->PressureSmudge=PressureSmudge;
     b->SmudgeResampleLength = SmudgeResampleLength;
     memAssignRef(Our, &Our->CurrentBrush, b);
+    b->Rack=memAcquireHyper(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     return b;
 }
 void our_RemoveBrush(OurBrush* b){
     strSafeDestroy(&b->Name); lstRemoveItem(&Our->Brushes, b);
     if(Our->CurrentLayer==b){ OurLayer* nb=b->Item.pPrev?b->Item.pPrev:b->Item.pNext; memAssignRef(Our, &Our->CurrentBrush, nb); }
+    memLeave(b->Rack); b->Rack=0;
     memLeave(b);
 }
 
@@ -758,30 +776,37 @@ void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
 void our_PaintResetBrushState(OurBrush* b){
     b->BrushRemainingDist = 0; b->SmudgeAccum=0; b->SmudgeRestart=1;
 }
-real our_PaintGetDabStepDistance(OurBrush* b, real pressure){
-    if(!b->PressureSize) return b->Size/b->DabsPerSize;
-    real d=b->Size/b->DabsPerSize*pressure; if(d<1e-2) d=1e-2; return d;
+real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
+    real d=Size/DabsPerSize; if(d<1e-2) d=1e-2; return d;
 }
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto, real last_pressure, real pressure, int *tl, int *tr, int* tu, int* tb){
     Our->NextDab=0;
-    real size=b->Size; real dd=our_PaintGetDabStepDistance(b,last_pressure); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
+    if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
+    real size=b->Size; real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
+    b->EvalSize=b->Size; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
+    b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize;
     while(1){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
         real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
-#define pfac(psw) (psw?tnsInterpolate(last_pressure,pressure,r):1)
-        real sizepfac=pfac(b->PressureSize);
-        od->Size = b->Size*sizepfac;       od->Hardness = b->Hardness*pfac(b->PressureHardness);
-        od->Smudge = b->Smudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->Transparency*pfac(b->PressureTransparency),2.718);
+        if(b->UseNodes){
+            b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
+            ourEvalBrush();
+            TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
+        }
+        if(!b->EvalDabsPerSize) b->EvalDabsPerSize=1;
+#define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
+        od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
+        od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
         tnsVectorSet3v(od->Color,Our->CurrentColor);
 #undef pfac;
         xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
         ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
         if(od->Size>1e-1) Our->NextDab++;
-        step=our_PaintGetDabStepDistance(b,sizepfac);
+        step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
         od->ResampleSmudge=0;
-        if(b->Smudge>1e-3){ b->SmudgeAccum+=step; if(b->SmudgeAccum>(b->SmudgeResampleLength*od->Size)){ b->SmudgeAccum-=(b->SmudgeResampleLength*od->Size); od->ResampleSmudge=1; } }
+        if(b->Smudge>1e-3){ b->SmudgeAccum+=step; if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; } }
         if(step+uselen<alllen)uselen+=step; else break;
     }
     b->BrushRemainingDist=alllen-uselen;
@@ -981,19 +1006,22 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
 }
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
-    our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laNotifyUsers("our.tools.brushes");
+    our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0);
+    laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add brush",0);
     return LA_FINISHED;
 }
 int ourinv_RemoveBrush(laOperator* a, laEvent* e){
     OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
-    our_RemoveLayer(b); laNotifyUsers("our.tools.brushes");
+    our_RemoveBrush(b);
+    laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Remove brush",0);
     return LA_FINISHED;
 }
 int ourinv_MoveBrush(laOperator* a, laEvent* e){
     OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"up")&&b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
-    elif(b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
+    if(strSame(direction,"up")&&b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); }
+    elif(b->Item.pNext){ lstMoveDown(&Our->Brushes, b); }
+    laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Move brush",0);
     return LA_FINISHED;
 }
 
@@ -1156,6 +1184,11 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     }
 }
 
+
+void ourPreFrame(){
+    if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
+}
+
 void ourRegisterEverything(){
     laPropContainer* pc; laKeyMapper* km; laProp* p;
 
@@ -1175,6 +1208,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0);
     laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0);
+    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -1215,6 +1249,11 @@ void ourRegisterEverything(){
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_smudge","Pressure Smudge","Use pen pressure to control smudging",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSmudge),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
+    p=laAddEnumProperty(pc,"use_nodes","Use Nodes","Use nodes to control brush dynamics",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,UseNodes),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Not using nodes",0,0);
+    laAddEnumItemAs(p,"ENABLED","Enabled","Using nodes",1,0);
+    laAddSubGroup(pc,"rack_page","Rack Page","Nodes rack page of this brush","la_rack_page",0,0,laui_RackPage,offsetof(OurBrush,Rack),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",L'🗴',0);
 
@@ -1249,10 +1288,14 @@ void ourRegisterEverything(){
 
     laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
 
+    ourRegisterNodes();
+
     laSaveProp("our.canvas");
     laSaveProp("our.tools");
 
     laGetSaverDummy(Our,Our->CanvasSaverDummyProp);
+
+    laSetFrameCallbacks(ourPreFrame,0,0);
 }
 
 

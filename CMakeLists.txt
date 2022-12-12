@@ -14,7 +14,7 @@ include_directories(
 )
 
 file(GLOB_RECURSE OurPaintFiles 
-    ourpaint.c ouroperations.c
+    ourpaint.c ouroperations.c ournodes.c
 )
 
 add_executable(OurPaint ${OurPaintFiles})

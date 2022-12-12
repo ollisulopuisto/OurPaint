@@ -53,6 +53,32 @@ STRUCTURE(OurLayerRead){
     size_t NextData;
 };
 
+STRUCTURE(OurBrushSettingsNode){
+    laBaseNode Base;
+    laNodeOutSocket* Size;         real rSize;
+    laNodeOutSocket* Transparency; real rTransparency;
+    laNodeOutSocket* Hardness;     real rHardness;
+    laNodeOutSocket* Smudge;       real rSmudge;
+    laNodeOutSocket* DabsPerSize;real rDabsPerSize;
+    laNodeOutSocket* SmudgeLength; real rSmudgeLength;
+};
+STRUCTURE(OurBrushOutputsNode){
+    laBaseNode Base;
+    laNodeInSocket* Size;
+    laNodeInSocket* Transparency;
+    laNodeInSocket* Hardness;
+    laNodeInSocket* Smudge;
+    laNodeInSocket* DabsPerSize;
+    laNodeInSocket* SmudgeLength;
+};
+STRUCTURE(OurBrushDeviceNode){
+    laBaseNode Base;
+    laNodeOutSocket* Pressure; real rPressure;
+    laNodeOutSocket* Position; real rPosition[2];
+    laNodeOutSocket* Tilt;     real rTilt[2];
+    laNodeOutSocket* IsEraser; int  rIsEraser;
+};
+
 STRUCTURE(OurBrush){
     laListItem Item;
     laSafeString Name;
@@ -63,8 +89,22 @@ STRUCTURE(OurBrush){
     real Smudge;
     real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart;
     real BrushRemainingDist;
-    int UseNodes; // the flexible way
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
+
+    int UseNodes; // the flexible way
+    laRackPage* Rack;
+    
+    real EvalSize;
+    real EvalDabsPerSize;
+    real EvalHardness;
+    real EvalTransparency;
+    real EvalSmudge;
+    real EvalSmudgeLength;
+
+    real EvalPressure;
+    real EvalPosition[2];
+    real EvalTilt[2];
+    int  EvalIsEraser;
 };
 STRUCTURE(OurDab){
     float X,Y;
@@ -99,6 +139,7 @@ STRUCTURE(OurPaint){
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
     OurDab* Dabs; int NextDab,MaxDab;
+    laListHandle BrushEval;
 
     int Tool,ActiveTool;
     int X,Y,W,H; //border
@@ -132,4 +173,7 @@ STRUCTURE(OurPaint){
 };
 
 void ourInit();
+void ourRegisterNodes();
+int ourRebuildBrushEval();
+int ourEvalBrush();
 

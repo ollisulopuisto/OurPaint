@@ -12,6 +12,10 @@ int main(int argc, char *argv[]){
     laRefreshUDFRegistries();
     laEnsureUserPreferences();
 
+    //laAddRootDBInst("la.input_mapping");
+    //laAddRootDBInst("la.drivers");
+    laAddRootDBInst("our.tools");
+
     laWindow* w = laDesignWindow(-1,-1,600,600);
 
     laLayout* l = laDesignLayout(w, "Our Paint");
