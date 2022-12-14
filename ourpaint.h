@@ -17,6 +17,7 @@ STRUCTURE(OurCanvasDraw){
     real CanvasLastX,CanvasLastY;
     real CanvasDownX,CanvasDownY;
     real LastPressure;
+    real LastTilt[2];
 };
 
 
@@ -55,21 +56,27 @@ STRUCTURE(OurLayerRead){
 
 STRUCTURE(OurBrushSettingsNode){
     laBaseNode Base;
+    laNodeOutSocket* CanvasScale;  real rCanvasScale;
     laNodeOutSocket* Size;         real rSize;
     laNodeOutSocket* Transparency; real rTransparency;
     laNodeOutSocket* Hardness;     real rHardness;
     laNodeOutSocket* Smudge;       real rSmudge;
-    laNodeOutSocket* DabsPerSize;real rDabsPerSize;
+    laNodeOutSocket* DabsPerSize;  real rDabsPerSize;
     laNodeOutSocket* SmudgeLength; real rSmudgeLength;
+    laNodeOutSocket* Slender;      real rSlender;
+    laNodeOutSocket* Angle;        real rAngle;
 };
 STRUCTURE(OurBrushOutputsNode){
     laBaseNode Base;
+    laNodeInSocket* Position;
     laNodeInSocket* Size;
     laNodeInSocket* Transparency;
     laNodeInSocket* Hardness;
     laNodeInSocket* Smudge;
     laNodeInSocket* DabsPerSize;
     laNodeInSocket* SmudgeLength;
+    laNodeInSocket* Slender;
+    laNodeInSocket* Angle;
 };
 STRUCTURE(OurBrushDeviceNode){
     laBaseNode Base;
@@ -77,6 +84,7 @@ STRUCTURE(OurBrushDeviceNode){
     laNodeOutSocket* Position; real rPosition[2];
     laNodeOutSocket* Tilt;     real rTilt[2];
     laNodeOutSocket* IsEraser; int  rIsEraser;
+    laNodeOutSocket* LastPosition; real rLastPosition[2];
 };
 
 STRUCTURE(OurBrush){
@@ -87,19 +95,25 @@ STRUCTURE(OurBrush){
     real Hardness;
     real Transparency;
     real Smudge;
-    real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart;
-    real BrushRemainingDist;
+    real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart; real BrushRemainingDist;
+    real Slender;
+    real Angle;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 
     int UseNodes; // the flexible way
     laRackPage* Rack;
+
+    real LastX,LastY;
     
+    real EvalPositionOut[2];
     real EvalSize;
     real EvalDabsPerSize;
     real EvalHardness;
     real EvalTransparency;
     real EvalSmudge;
     real EvalSmudgeLength;
+    real EvalSlender;
+    real EvalAngle;
 
     real EvalPressure;
     real EvalPosition[2];
@@ -112,6 +126,8 @@ STRUCTURE(OurDab){
     float Hardness;
     float Smudge; int ResampleSmudge;
     float Color[4];
+    float Slender;
+    float Angle;
 };
 
 STRUCTURE(OurUndoTile){
@@ -141,6 +157,8 @@ STRUCTURE(OurPaint){
     OurDab* Dabs; int NextDab,MaxDab;
     laListHandle BrushEval;
 
+    real CurrentScale;
+
     int Tool,ActiveTool;
     int X,Y,W,H; //border
     int ShowBorder,UseBorder;
@@ -154,6 +172,8 @@ STRUCTURE(OurPaint){
     GLint uBrushHardness;
     GLint uBrushSmudge;
     GLint uBrushColor;
+    GLint uBrushSlender;
+    GLint uBrushAngle;
     GLint uBrushRoutineSelection;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
@@ -164,6 +184,7 @@ STRUCTURE(OurPaint){
     real BorderAlpha;
 
     real xmin,xmax,ymin,ymax; // stroke bbox for undo region
+    int ResetBrush;
 
     uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;

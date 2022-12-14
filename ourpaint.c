@@ -14,7 +14,7 @@ int main(int argc, char *argv[]){
 
     //laAddRootDBInst("la.input_mapping");
     //laAddRootDBInst("la.drivers");
-    laAddRootDBInst("our.tools");
+    //laAddRootDBInst("our.tools");
 
     laWindow* w = laDesignWindow(-1,-1,600,600);
 
