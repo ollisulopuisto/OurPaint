@@ -184,6 +184,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
+            laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
         }laEndCondition(uil,b);
 
         laShowSeparator(uil,c);
@@ -794,43 +795,50 @@ real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
     real d=Size/DabsPerSize; if(d<1e-2) d=1e-2; return d;
 }
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto,
-    real last_pressure, real last_angle_x, real last_angle_y, real pressure, real angle_x, real angle_y, int *tl, int *tr, int* tu, int* tb){
+    real last_pressure, real last_angle_x, real last_angle_y, real pressure, real angle_x, real angle_y,
+    int *tl, int *tr, int* tu, int* tb, real* r_xto, real* r_yto){
     Our->NextDab=0;
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
+    real smfac=(1-b->Smoothness/1.1); xto=tnsLinearItp(x,xto,smfac); yto=tnsLinearItp(y,yto,smfac);  *r_xto=xto; *r_yto=yto;
     real size=b->Size; real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
     b->EvalSize=b->Size; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
+    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/b->Size;
+    if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
+    real this_angle=atan2(yto-y,xto-x);
 
-    if(Our->ResetBrush){ b->LastX=x; b->LastY=y; /*b->EvalLastAngle=atan2(yto-y,xto-x);*/ Our->ResetBrush=0; }
     while(1){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
         real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
+        b->LastX=od->X; b->LastY=od->Y;
         if(b->UseNodes){
             b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
-            b->EvalPositionOut[0]=od->X; b->EvalPositionOut[1]=od->Y;
+            b->EvalOffset[0]=0; b->EvalOffset[1]=0; b->EvalStrokeAngle=tnsInterpolate(b->LastAngle,this_angle,r);
             b->EvalTilt[0]=tnsInterpolate(last_angle_x,angle_x,r); b->EvalTilt[1]=tnsInterpolate(last_angle_y,angle_y,r);
+            tnsVectorSet3v(b->EvalColor, Our->CurrentColor);
             ourEvalBrush();
             TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
-            od->X=b->EvalPositionOut[0]; od->Y=b->EvalPositionOut[1];
+            od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
         }
         if(!b->EvalDabsPerSize) b->EvalDabsPerSize=1;
 #define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
         od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
         od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
-        tnsVectorSet3v(od->Color,Our->CurrentColor);
+        tnsVectorSet3v(od->Color,b->EvalColor);
 #undef pfac;
         od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
-        b->LastX=od->X; b->LastY=od->Y;
         xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
         ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
         if(od->Size>1e-1) Our->NextDab++;
         step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
+        b->EvalStrokeLength+=step/b->Size; b->EvalStrokeLengthAccum+=step/b->Size; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
         od->ResampleSmudge=0;
         if(b->Smudge>1e-3){ b->SmudgeAccum+=step; if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; } }
         if(step+uselen<alllen)uselen+=step; else break;
     }
+    b->LastAngle=this_angle;
     b->BrushRemainingDist=alllen-uselen;
     if(Our->NextDab) {
         our_LayerEnsureTiles(l,xmin,xmax,ymin,ymax,0,tl,tr,tu,tb);
@@ -1070,11 +1078,11 @@ int ourmod_Paint(laOperator* a, laEvent* e){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
         int tl,tr,tu,tb;
         if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,
-            ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],e->Pressure,e->AngleX,e->AngleY,&tl,&tr,&tu,&tb)){
+            ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],e->Pressure,e->AngleX,e->AngleY,&tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
             our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
             laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
         }
-        ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
+        ex->LastPressure=e->Pressure;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
     }
 
     return LA_RUNNING;
@@ -1268,6 +1276,7 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"smudge_resample_length","Smudge Resample Length","How long of a distance (based on size) should elapse before resampling smudge",0,0,0,0,0,0,0,0,offsetof(OurBrush,SmudgeResampleLength),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"slender","Slender","Slenderness of the brush",0,0, 0,10,0,0.1,0,0,offsetof(OurBrush,Slender),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"angle","Angle","Angle of the brush",0,0, 0,TNS_PI,-TNS_PI,0.1,0,0,offsetof(OurBrush,Angle),0,0,0,0,0,0,0,0,0,0,LA_RAD_ANGLE);
+    laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of the brush",0,0, 0,1,0,0.05,0,0,offsetof(OurBrush,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"pressure_size","Pressure Size","Use pen pressure to control size",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSize),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_transparency","Pressure Transparency","Use pen pressure to control transparency",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureTransparency),0,0,0,0,0,0,0,0,0,0);

@@ -65,10 +65,11 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* SmudgeLength; real rSmudgeLength;
     laNodeOutSocket* Slender;      real rSlender;
     laNodeOutSocket* Angle;        real rAngle;
+    laNodeOutSocket* Color;
 };
 STRUCTURE(OurBrushOutputsNode){
     laBaseNode Base;
-    laNodeInSocket* Position;
+    laNodeInSocket* Offset;
     laNodeInSocket* Size;
     laNodeInSocket* Transparency;
     laNodeInSocket* Hardness;
@@ -77,6 +78,7 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* SmudgeLength;
     laNodeInSocket* Slender;
     laNodeInSocket* Angle;
+    laNodeInSocket* Color;
 };
 STRUCTURE(OurBrushDeviceNode){
     laBaseNode Base;
@@ -84,7 +86,10 @@ STRUCTURE(OurBrushDeviceNode){
     laNodeOutSocket* Position; real rPosition[2];
     laNodeOutSocket* Tilt;     real rTilt[2];
     laNodeOutSocket* IsEraser; int  rIsEraser;
-    laNodeOutSocket* LastPosition; real rLastPosition[2];
+    laNodeOutSocket* Speed;    real rSpeed;
+    laNodeOutSocket* Angle;    real rAngle;
+    laNodeOutSocket* Length;   real rLength;
+    laNodeOutSocket* LengthAccum; real rLengthAccum;
 };
 
 STRUCTURE(OurBrush){
@@ -98,14 +103,17 @@ STRUCTURE(OurBrush){
     real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart; real BrushRemainingDist;
     real Slender;
     real Angle;
+    real Smoothness;
+    real MaxStrokeLength;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 
     int UseNodes; // the flexible way
     laRackPage* Rack;
 
-    real LastX,LastY;
+    real LastX,LastY,LastAngle;
     
-    real EvalPositionOut[2];
+    real EvalColor[3];
+    real EvalOffset[2];
     real EvalSize;
     real EvalDabsPerSize;
     real EvalHardness;
@@ -115,9 +123,13 @@ STRUCTURE(OurBrush){
     real EvalSlender;
     real EvalAngle;
 
+    real EvalSpeed;
+    real EvalStrokeLength;
+    real EvalStrokeLengthAccum;
     real EvalPressure;
     real EvalPosition[2];
     real EvalTilt[2];
+    real EvalStrokeAngle;
     int  EvalIsEraser;
 };
 STRUCTURE(OurDab){
