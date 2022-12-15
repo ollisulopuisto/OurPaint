@@ -26,6 +26,7 @@ int main(int argc, char *argv[]){
     laSplitBlockVertical(br,0.6);
     laCreatePanel(br->B1, "panel_color");
     laCreatePanel(br->B1, "panel_tools");
+    laCreatePanel(br->B1, "panel_brushes");
     laCreatePanel(br->B2, "panel_layers");
 
     laStartWindow(w);

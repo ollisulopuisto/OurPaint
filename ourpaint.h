@@ -13,6 +13,7 @@
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int ShowTiles;
+    int HideBrushCircle;
     int AtCrop;
     real CanvasLastX,CanvasLastY;
     real CanvasDownX,CanvasDownY;
@@ -107,6 +108,8 @@ STRUCTURE(OurBrush){
     real MaxStrokeLength;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 
+    int Binding;
+
     int UseNodes; // the flexible way
     laRackPage* Rack;
 
@@ -174,6 +177,9 @@ STRUCTURE(OurPaint){
     int Tool,ActiveTool;
     int X,Y,W,H; //border
     int ShowBorder,UseBorder;
+
+    int LockRadius;
+    int EnableBrushCircle;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;
