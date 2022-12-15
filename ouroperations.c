@@ -415,8 +415,9 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     return b;
 }
 void our_RemoveBrush(OurBrush* b){
-    strSafeDestroy(&b->Name); lstRemoveItem(&Our->Brushes, b);
-    if(Our->CurrentLayer==b){ OurLayer* nb=b->Item.pPrev?b->Item.pPrev:b->Item.pNext; memAssignRef(Our, &Our->CurrentBrush, nb); }
+    strSafeDestroy(&b->Name);
+    if(Our->CurrentBrush==b){ OurBrush* nb=b->Item.pPrev?b->Item.pPrev:b->Item.pNext; memAssignRef(Our, &Our->CurrentBrush, nb); }
+    lstRemoveItem(&Our->Brushes, b);
     memLeave(b->Rack); b->Rack=0;
     memLeave(b);
 }
@@ -1198,7 +1199,7 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     laUiItem* ui=ex->Base.ParentUi;
 
-    if(e->Type==LA_R_MOUSE_UP || e->Type==LA_L_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; return LA_FINISHED; }
+    if(e->Type==LA_R_MOUSE_UP || e->Type==LA_L_MOUSE_UP || e->Type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; return LA_FINISHED; }
 
     if(e->Type==LA_MOUSEMOVE||e->Type==LA_R_MOUSE_DOWN){
         our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color");
@@ -1278,6 +1279,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r; if(Our->LockRadius) r=Our->CurrentBrush?Our->CurrentBrush->Size:15;
     Our->CurrentBrush=b; if(b && Our->LockRadius) b->Size=r;
     if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; }else{ Our->Erasing=0; Our->PenID=b->Binding; }
+    laNotifyUsers("our.tools.current_brush"); laDriverRequestRebuild();
 }
 
 #define OUR_ADD_PRESSURE_SWITCH(p)\
@@ -1420,10 +1422,10 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ',', "direction=out");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, '.', "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
-    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
+    laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, 0);
 
     km=&MAIN.KeyMap; char buf[128];
     for(int i=0;i<=9;i++){
