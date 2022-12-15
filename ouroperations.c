@@ -19,6 +19,7 @@ uniform float uBrushSlender;\n\
 uniform float uBrushAngle;\n\
 uniform vec4 uBrushColor;\n\
 uniform vec4 uBackgroundColor;\n\
+uniform int uBrushErasing;\n\
 float atan2(in float y, in float x){\n\
     bool s = (abs(x) > abs(y)); return mix(3.1415926535/2.0 - atan(x,y), atan(y,x), s);\n\
 }\n\
@@ -35,8 +36,11 @@ int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smud
     vec4 cc=color;\n\
     float fac=1-pow(d/size,1+1/(1-hardness+1e-4));\n\
     cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
+    float erasing=float(uBrushErasing);\n\
+    cc=cc*(1-erasing);\n\
     vec4 c1=mix_over(cc,last_color);\n\
     vec4 c2=mix(c1,smudge_color,smudge*fac*color.a);\n\
+    c2=mix(c2,c2*(1-fac*color.a),erasing);\n\
     final=c2;\n\
     return 1;\n\
 }\n\
@@ -171,9 +175,9 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laEndCondition(uil,b2);
 
     laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
-    laShowLabel(uil,c,"Brush settings:",0,0);
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
+            laShowLabel(uil,cl,"Mode:",0,0);laShowItem(uil,cr,0,"our.erasing");
             laShowItem(uil,c,0,"our.tools.current_brush.name");
             laShowItem(uil,cl,0,"our.tools.current_brush.use_nodes");
 
@@ -190,6 +194,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
             laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
+            laShowItem(uil,c,0,"our.tools.current_brush.default_as_eraser");
         }laEndCondition(uil,b);
 
         laShowSeparator(uil,c);
@@ -933,6 +938,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     if(Our->Dabs[0].ResampleSmudge){ ((OurSmudgeSegement*)Segments.pFirst)->Resample=1; }
 
     glUseProgram(Our->CanvasProgram);
+    glUniform1i(Our->uBrushErasing,Our->Erasing);
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
@@ -949,6 +955,23 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         //printf("from to %d %d %d\n", oss->Start,oss->End,Our->Dabs[oss->Start].ResampleSmudge);
 
         our_PaintDoDabs(l,tl,tr,tu,tb,oss->Start,oss->End);
+    }
+}
+void our_EnsureEraser(int EventIsEraser){
+    if(EventIsEraser==Our->EventErasing){ return; }
+    printf("ev e %d %d\n", Our->EventErasing, Our->Erasing);
+    int erasing=Our->Erasing; int num=0;
+    if(EventIsEraser && (!Our->EventErasing)){ num=TNS_MAX2(Our->EraserID,num);
+        for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){
+            if(b->Binding==num){ ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break; }
+        }
+        Our->Erasing=1; Our->EventErasing=1; laNotifyUsers("our.erasing");
+    }
+    elif((!EventIsEraser) && Our->EventErasing){ num=TNS_MAX2(Our->PenID,num);
+        for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){
+            if(b->Binding==num){ ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break; }
+        }
+        Our->Erasing=0; Our->EventErasing=0; laNotifyUsers("our.erasing");
     }
 }
 
@@ -1118,6 +1141,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
+    our_EnsureEraser(e->IsEraser);
     laHideCursor();
     return LA_RUNNING;
 }
@@ -1253,6 +1277,7 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
 void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r; if(Our->LockRadius) r=Our->CurrentBrush?Our->CurrentBrush->Size:15;
     Our->CurrentBrush=b; if(b && Our->LockRadius) b->Size=r;
+    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; }else{ Our->Erasing=0; Our->PenID=b->Binding; }
 }
 
 #define OUR_ADD_PRESSURE_SWITCH(p)\
@@ -1324,6 +1349,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
+    p=laAddEnumProperty(pc,"erasing","Erasing","Is in erasing mode",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,Erasing),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","Draw","Is drawing mode",0,0);
+    laAddEnumItemAs(p,"TRUE","Erase","Is erasing mode",1,0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -1357,6 +1385,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Not using nodes",0,0);
     laAddEnumItemAs(p,"ENABLED","Enabled","Using nodes",1,0);
     laAddSubGroup(pc,"rack_page","Rack Page","Nodes rack page of this brush","la_rack_page",0,0,laui_RackPage,offsetof(OurBrush,Rack),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    p=laAddEnumProperty(pc,"default_as_eraser","Default as eraser","Use this brush as a eraser by default",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,DefaultAsEraser),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Default as brush",0,0);
+    laAddEnumItemAs(p,"ENABLED","Enabled","Default as eraser",1,0);
     
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",L'🗴',0);
@@ -1455,6 +1486,7 @@ void ourInit(){
     Our->uBrushColor=glGetUniformLocation(Our->CanvasProgram,"uBrushColor");
     Our->uBrushSlender=glGetUniformLocation(Our->CanvasProgram,"uBrushSlender");
     Our->uBrushAngle=glGetUniformLocation(Our->CanvasProgram,"uBrushAngle");
+    Our->uBrushErasing=glGetUniformLocation(Our->CanvasProgram,"uBrushErasing");
 
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
@@ -1465,6 +1497,9 @@ void ourInit(){
     Our->BorderAlpha=0.6;
 
     Our->LockRadius=1;
+
+    Our->PenID=-1;
+    Our->EraserID=-1;
 
     tnsEnableShaderv(T->immShader);
 }

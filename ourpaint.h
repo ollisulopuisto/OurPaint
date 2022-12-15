@@ -108,7 +108,7 @@ STRUCTURE(OurBrush){
     real MaxStrokeLength;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 
-    int Binding;
+    int Binding,DefaultAsEraser;
 
     int UseNodes; // the flexible way
     laRackPage* Rack;
@@ -174,7 +174,8 @@ STRUCTURE(OurPaint){
 
     real CurrentScale;
 
-    int Tool,ActiveTool;
+    int Tool,ActiveTool,Erasing,EventErasing;
+    int PenID,EraserID;
     int X,Y,W,H; //border
     int ShowBorder,UseBorder;
 
@@ -193,6 +194,7 @@ STRUCTURE(OurPaint){
     GLint uBrushSlender;
     GLint uBrushAngle;
     GLint uBrushRoutineSelection;
+    GLint uBrushErasing;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
 
