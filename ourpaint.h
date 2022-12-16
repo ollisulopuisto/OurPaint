@@ -143,6 +143,7 @@ STRUCTURE(OurDab){
     float Color[4];
     float Slender;
     float Angle;
+    float Recentness;
 };
 
 STRUCTURE(OurUndoTile){
@@ -190,6 +191,7 @@ STRUCTURE(OurPaint){
     GLint uBrushSize;
     GLint uBrushHardness;
     GLint uBrushSmudge;
+    GLint uBrushRecentness;
     GLint uBrushColor;
     GLint uBrushSlender;
     GLint uBrushAngle;

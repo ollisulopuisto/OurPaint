@@ -17,6 +17,7 @@ uniform float uBrushHardness;\n\
 uniform float uBrushSmudge;\n\
 uniform float uBrushSlender;\n\
 uniform float uBrushAngle;\n\
+uniform float uBrushRecentness;\n\
 uniform vec4 uBrushColor;\n\
 uniform vec4 uBackgroundColor;\n\
 uniform int uBrushErasing;\n\
@@ -38,8 +39,8 @@ int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smud
     cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
     float erasing=float(uBrushErasing);\n\
     cc=cc*(1-erasing);\n\
-    vec4 c1=mix_over(cc,last_color);\n\
-    vec4 c2=mix(c1,smudge_color,smudge*fac*color.a);\n\
+    vec4 c2=mix(last_color,smudge_color,smudge*fac*color.a);\n\
+    c2=mix_over(cc,c2);\n\
     c2=mix(c2,c2*(1-fac*color.a),erasing);\n\
     final=c2;\n\
     return 1;\n\
@@ -53,7 +54,7 @@ subroutine(BrushRoutines) void DoDabs(){\n\
     fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1+uBrushSlender);\n\
     float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;\n\
     vec4 dabc=imageLoad(img, px);\n\
-    vec4 smudgec=imageLoad(smudge_buckets,ivec2(0,0));\n\
+    vec4 smudgec=mix(imageLoad(smudge_buckets,ivec2(1,0)),imageLoad(smudge_buckets,ivec2(0,0)),uBrushRecentness);\n\
     vec4 final_color;\n\
     dab(dd,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);\n\
     dabc=final_color;\n\
@@ -61,9 +62,16 @@ subroutine(BrushRoutines) void DoDabs(){\n\
 }\n\
 subroutine(BrushRoutines) void DoSample(){\n\
     ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n\
-    if(p!=ivec2(0,0)) return;\n\
-    ivec2 px=p+uBrushCorner;\n\
+    if(p.y!=0) return;\n\
+    vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
+    ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;\n\
     vec4 color=imageLoad(img, px);\n\
+    imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
+    memoryBarrier();barrier();\n\
+    if(uBrushErasing==0 || p.x!=0) return;\n\
+    color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
+    color=color/64+imageLoad(img, uBrushCorner)/2; vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
+    imageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);\n\
     imageStore(smudge_buckets,ivec2(0,0),color);\n\
 }\n\
 subroutine uniform BrushRoutines uBrushRoutineSelection;\n\
@@ -874,7 +882,10 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
         step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
         b->EvalStrokeLength+=step/b->Size; b->EvalStrokeLengthAccum+=step/b->Size; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
         od->ResampleSmudge=0;
-        if(b->Smudge>1e-3){ b->SmudgeAccum+=step; if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; } }
+        if(b->Smudge>1e-3){ b->SmudgeAccum+=step;
+            if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; }
+            od->Recentness=b->SmudgeAccum/b->EvalSmudgeLength/od->Size;
+        }else{od->Recentness=0;}
         if(step+uselen<alllen)uselen+=step; else break;
     }
     b->LastAngle=this_angle;
@@ -886,12 +897,12 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     }
     return 0;
 }
-void our_PaintDoSample(int x, int y, int sx, int sy){
-    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
+void our_PaintDoSample(int x, int y, int sx, int sy, int ssize, int last,int begin_stroke){
     glUniform2i(Our->uBrushCorner,x-sx,y-sy);
     glUniform2f(Our->uBrushCenter,x-sx,y-sy);
+    glUniform1f(Our->uBrushSize, ssize);
+    glUniform1i(Our->uBrushErasing,last?(begin_stroke?2:1):0);
     glDispatchCompute(1,1,1);
-    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoDabs);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
@@ -907,6 +918,7 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(Our->uBrushSmudge,d->Smudge);
     glUniform1f(Our->uBrushSlender,d->Slender);
     glUniform1f(Our->uBrushAngle,d->Angle);
+    glUniform1f(Our->uBrushRecentness,d->Recentness);
     glUniform4fv(Our->uBrushColor,1,d->Color);
     glDispatchCompute(ceil(d->Size/16), ceil(d->Size/16), 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -932,8 +944,9 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     OurSmudgeSegement* oss;
     oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
     for(int i=1;i<to;i++){
-        if(Our->Dabs[i].ResampleSmudge){ oss->Resample=1;
-             oss->Start=from; oss->End=i; from=i; oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement)); }
+        if(Our->Dabs[i].ResampleSmudge){ oss->Start=from; oss->End=i; from=i;
+            oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));  oss->Resample=1;
+        }
     }
     oss->Start=from; oss->End=to;
     if(Our->Dabs[0].ResampleSmudge){ ((OurSmudgeSegement*)Segments.pFirst)->Resample=1; }
@@ -943,14 +956,23 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
-            float x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y;
-            int col=(int)(floor(OUR_TEX_TILE_CTR+x/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(col,0,OUR_TEX_TILES_PER_ROW-1);
-            int row=(int)(floor(OUR_TEX_TILE_CTR+y/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(row,0,OUR_TEX_TILES_PER_ROW-1);
-            glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
-            int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
+            int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float ssize=Our->Dabs[oss->Start].Size+1.5;
+            int colmax=(int)(floor(OUR_TEX_TILE_CTR+(float)(x+ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TEX_TILES_PER_ROW-1);
+            int rowmax=(int)(floor(OUR_TEX_TILE_CTR+(float)(y+ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TEX_TILES_PER_ROW-1);
+            int colmin=(int)(floor(OUR_TEX_TILE_CTR+(float)(x-ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TEX_TILES_PER_ROW-1);
+            int rowmin=(int)(floor(OUR_TEX_TILE_CTR+(float)(y-ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(rowmin,0,OUR_TEX_TILES_PER_ROW-1);
             glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
-            our_PaintDoSample(x,y,sx,sy);
+            for(int col=colmin;col<=colmax;col++){
+                for(int row=rowmin;row<=rowmax;row++){
+                    glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+                    int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
+                    our_PaintDoSample(x,y,sx,sy,ssize,(col==colmax)&&(row==rowmax),Our->CurrentBrush->SmudgeRestart);
+                }
+            }
             Our->CurrentBrush->SmudgeRestart=0;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoDabs);
+            glUniform1i(Our->uBrushErasing,Our->Erasing);
         }
 
         //printf("from to %d %d %d\n", oss->Start,oss->End,Our->Dabs[oss->Start].ResampleSmudge);
@@ -1485,6 +1507,7 @@ void ourInit(){
     Our->uBrushSize=glGetUniformLocation(Our->CanvasProgram,"uBrushSize");
     Our->uBrushHardness=glGetUniformLocation(Our->CanvasProgram,"uBrushHardness");
     Our->uBrushSmudge=glGetUniformLocation(Our->CanvasProgram,"uBrushSmudge");
+    Our->uBrushRecentness=glGetUniformLocation(Our->CanvasProgram,"uBrushRecentness");
     Our->uBrushColor=glGetUniformLocation(Our->CanvasProgram,"uBrushColor");
     Our->uBrushSlender=glGetUniformLocation(Our->CanvasProgram,"uBrushSlender");
     Our->uBrushAngle=glGetUniformLocation(Our->CanvasProgram,"uBrushAngle");
