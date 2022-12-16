@@ -81,12 +81,31 @@ void main() {\n\
 }\n\
 ";
 
+const char OUR_COMPOSITION_SHADER[]="#version 430\n\
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
+layout(rgba16, binding = 0) uniform image2D top;\n\
+layout(rgba16, binding = 1) uniform image2D bottom;\n\
+uniform int uMode;\n\
+vec4 mix_over(vec4 colora, vec4 colorb){\n\
+    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
+    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
+    return c;\n\
+}\n\
+void main() {\n\
+    ivec2 px=ivec2(gl_GlobalInvocationID.xy);\n\
+    vec4 c1=imageLoad(top,px); vec4 c2=imageLoad(bottom,px);\n\
+    imageStore(bottom,px,mix_over(c1,c2));\n\
+    imageStore(top,px,vec4(0,0,0,0));\n\
+}";
+
+
+void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb);
+void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
+void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
+
 void our_CanvasAlphaMix(uint16_t* target, uint16_t* source){
     real a_1=(real)(65535-source[3])/65535;
-    target[3]=source[3]+target[3]*a_1;
-    target[0]=source[0]+target[0]*a_1;
-    target[1]=source[1]+target[1]*a_1;
-    target[2]=source[2]+target[2]*a_1;
+    target[3]=source[3]+target[3]*a_1; target[0]=source[0]+target[0]*a_1; target[1]=source[1]+target[1]*a_1; target[2]=source[2]+target[2]*a_1;
 }
 
 void our_InitsRGBProfile(int Linear, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
@@ -150,8 +169,17 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItem(uil,c,0,"OUR_new_layer");
     }laEndCondition(uil,b);
 
-    laShowItemFull(uil,c,0,"our.canvas.layers",0,0,0,0);
+    laUiItem* lui=laShowItemFull(uil,c,0,"our.canvas.layers",0,0,0,0);
 
+    b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.current_layer"));{
+        laUiItem* b1=laBeginRow(uil,c,0,0);
+        laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,&lui->PP,"merge");
+        laShowSeparator(uil,c)->Expand=1;
+        laEndRow(uil,b1);
+    }laEndCondition(uil,b);
+
+    laShowSeparator(uil,c);
     b=laBeginRow(uil,c,0,0);
     laShowLabel(uil,c,"Background",0,0)->Expand=1;
     laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
@@ -255,13 +283,13 @@ void our_CanvasDrawTextures(){
     tnsUseImmShader; tnsEnableShaderv(T->immShader);
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         int any=0;
-        for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){
+        for(int row=0;row<OUR_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
-            for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
+            for(int col=0;col<OUR_TILES_PER_ROW;col++){
                 if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
                 int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
-                real pad=(real)OUR_TEX_TILE_SEAM/OUR_TEX_TILE_W; int seam=OUR_TEX_TILE_SEAM;
-                tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TEX_TILE_W-seam,OUR_TEX_TILE_W-seam*2,-OUR_TEX_TILE_W+seam*2,0,pad,pad,pad,pad);
+                real pad=(real)OUR_TILE_SEAM/OUR_TILE_W; int seam=OUR_TILE_SEAM;
+                tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TILE_W-seam,OUR_TILE_W-seam*2,-OUR_TILE_W+seam*2,0,pad,pad,pad,pad);
                 any=1;
             }
         }
@@ -272,17 +300,17 @@ void our_CanvasDrawTiles(){
     OurLayer* l=Our->CurrentLayer; if(!l) return;
     tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
     int any=0;
-    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){
         if(!l->TexTiles[row]) continue;
-        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){
             if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
             int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
-            //tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
-            //tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
+            //tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TILE_W,sy);
+            //tnsVertex2d(sx+OUR_TILE_W, sy+OUR_TILE_W); tnsVertex2d(sx,sy+OUR_TILE_W);
             //tnsColor4dv(laAccentColor(LA_BT_NORMAL));
             //tnsPackAs(GL_TRIANGLE_FAN);
-            tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TEX_TILE_W,sy);
-            tnsVertex2d(sx+OUR_TEX_TILE_W, sy+OUR_TEX_TILE_W); tnsVertex2d(sx,sy+OUR_TEX_TILE_W);
+            tnsVertex2d(sx, sy); tnsVertex2d(sx+OUR_TILE_W,sy);
+            tnsVertex2d(sx+OUR_TILE_W, sy+OUR_TILE_W); tnsVertex2d(sx,sy+OUR_TILE_W);
             tnsColor4dv(laAccentColor(LA_BT_TEXT));
             tnsPackAs(GL_LINE_LOOP);    
         }
@@ -395,8 +423,8 @@ OurLayer* our_NewLayer(char* name){
     return l;
 }
 void ourbeforefree_Layer(OurLayer* l){
-    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
-        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue;
             if(l->TexTiles[row][col]->Texture) tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0;
             if(l->TexTiles[row][col]->Data) free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0;
             if(l->TexTiles[row][col]->FullData) free(l->TexTiles[row][col]->FullData); l->TexTiles[row][col]->FullData=0;
@@ -406,11 +434,38 @@ void ourbeforefree_Layer(OurLayer* l){
     }
 }
 void our_RemoveLayer(OurLayer* l){
-    strSafeDestroy(&l->Name); lstRemoveItem(&Our->Layers, l);
+    strSafeDestroy(&l->Name);
     if(Our->CurrentLayer==l){ OurLayer* nl=l->Item.pPrev?l->Item.pPrev:l->Item.pNext; memAssignRef(Our, &Our->CurrentLayer, nl); }
+    lstRemoveItem(&Our->Layers, l);
     ourbeforefree_Layer(l);
     memLeave(l);
 }
+int our_MergeLayer(OurLayer* l){
+    OurLayer* ol=l->Item.pNext; if(!ol) return 0; int xmin=INT_MAX,xmax=-INT_MAX,ymin=INT_MAX,ymax=-INT_MAX; int seam=OUR_TILE_SEAM;
+    glUseProgram(Our->CompositionProgram);
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;// Should not happen.
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue; OurTexTile*t=l->TexTiles[row][col];
+            int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
+            OurTexTile*ot=ol->TexTiles[row][col]; if(!ot) continue;
+            glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+            glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+            glDispatchCompute(32,32,1);
+            xmin=TNS_MIN2(xmin,t->l+seam);xmax=TNS_MAX2(xmax,t->r-seam); ymin=TNS_MIN2(ymin,t->b+seam);ymax=TNS_MAX2(ymax,t->u-seam);
+        }
+    }
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    if(xmin>xmax||ymin>ymax) return 0;
+
+    our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
+    our_RecordUndo(ol,xmin,xmax,ymin,ymax,1,0);
+    our_RemoveLayer(l);
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
+    laPushDifferences("Merge layers",0);
+
+    return 1;
+}
+
 OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, real Transparency, real Smudge, real SmudgeResampleLength,
     int PressureSize, int PressureHardness, int PressureTransparency, int PressureSmudge){
     OurBrush* b=memAcquireHyper(sizeof(OurBrush)); strSafeSet(&b->Name,name); lstAppendItem(&Our->Brushes, b);
@@ -445,13 +500,13 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
     int bufsize=cols*4*rows*sizeof(uint16_t);
     t->CopyBuffer=calloc(1,bufsize);
     for(int row=0;row<rows;row++){
-        memcpy(&t->CopyBuffer[row*cols*4],&t->FullData[((+row+t->cb)*OUR_TEX_TILE_W+t->cl)*4],sizeof(uint16_t)*4*cols);
+        memcpy(&t->CopyBuffer[row*cols*4],&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],sizeof(uint16_t)*4*cols);
     }
     uint16_t* temp=malloc(bufsize);
     tnsBindTexture(t->Texture);
     glGetTextureSubImage(t->Texture->GLTexHandle, 0, t->cl, t->cb, 0, cols,rows,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, temp);
     for(int row=0;row<rows;row++){
-        memcpy(&t->FullData[((+row+t->cb)*OUR_TEX_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
+        memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
     }
 }
 void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r, int u, int b){
@@ -459,8 +514,8 @@ void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r
     uint16_t* temp=malloc(bufsize);
     memcpy(temp,data,bufsize);
     for(int row=0;row<rows;row++){
-        memcpy(&data[row*cols*4],&t->FullData[((+row+b)*OUR_TEX_TILE_W+l)*4],sizeof(uint16_t)*4*cols);
-        memcpy(&t->FullData[((+row+b)*OUR_TEX_TILE_W+l)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
+        memcpy(&data[row*cols*4],&t->FullData[((+row+b)*OUR_TILE_W+l)*4],sizeof(uint16_t)*4*cols);
+        memcpy(&t->FullData[((+row+b)*OUR_TILE_W+l)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
     }
     tnsBindTexture(t->Texture);
     glGetError();
@@ -471,12 +526,14 @@ void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r
 }
 void ourundo_Tiles(OurUndo* undo){
     for(OurUndoTile* ut=undo->Tiles.pFirst;ut;ut=ut->Item.pNext){
+        our_LayerEnsureTileDirect(undo->Layer,ut->row,ut->col);
         our_TileSwapBuffers(undo->Layer->TexTiles[ut->row][ut->col], ut->CopyData, 0, ut->l, ut->r, ut->u, ut->b);
     }
     laNotifyUsers("our.canvas");
 }
 void ourredo_Tiles(OurUndo* undo){
     for(OurUndoTile* ut=undo->Tiles.pFirst;ut;ut=ut->Item.pNext){
+        our_LayerEnsureTileDirect(undo->Layer,ut->row,ut->col);
         our_TileSwapBuffers(undo->Layer->TexTiles[ut->row][ut->col], ut->CopyData, 0, ut->l, ut->r, ut->u, ut->b);
     }
     laNotifyUsers("our.canvas");
@@ -487,13 +544,21 @@ void ourundo_Free(OurUndo* undo,int FromLeft){
     memFree(undo);
 }
 #define OUR_XXYY_TO_COL_ROW_RANGE\
-    l=(int)(floor(OUR_TEX_TILE_CTR+(xmin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));\
-    r=(int)(floor(OUR_TEX_TILE_CTR+(xmax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));\
-    u=(int)(floor(OUR_TEX_TILE_CTR+(ymax+OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));\
-    b=(int)(floor(OUR_TEX_TILE_CTR+(ymin-OUR_TEX_TILE_SEAM)/OUR_TEX_TILE_W_USE+0.5));
-void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax){
+    l=(int)(floor(OUR_TILE_CTR+(xmin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
+    r=(int)(floor(OUR_TILE_CTR+(xmax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
+    u=(int)(floor(OUR_TILE_CTR+(ymax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
+    b=(int)(floor(OUR_TILE_CTR+(ymin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
+    TNS_CLAMP(l,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(r,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(u,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(b,0,OUR_TILES_PER_ROW-1);
+#define OUR_XXYY_TO_COL_ROW_ALIGNED\
+    l=(int)(floor(OUR_TILE_CTR+(xmin)/OUR_TILE_W_USE+0.5));\
+    r=(int)(floor(OUR_TILE_CTR+(xmax-1)/OUR_TILE_W_USE+0.5));\
+    u=(int)(floor(OUR_TILE_CTR+(ymax-1)/OUR_TILE_W_USE+0.5));\
+    b=(int)(floor(OUR_TILE_CTR+(ymin)/OUR_TILE_W_USE+0.5));\
+    TNS_CLAMP(l,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(r,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(u,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(b,0,OUR_TILES_PER_ROW-1);
+void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push){
     if(xmax<xmin || ymax<ymin) return;
-    int l,r,u,b; OUR_XXYY_TO_COL_ROW_RANGE;
+    int l,r,u,b;
+    if(Aligned){ OUR_XXYY_TO_COL_ROW_ALIGNED }else{ OUR_XXYY_TO_COL_ROW_RANGE; }
     OurUndo* undo=memAcquire(sizeof(OurUndo)); undo->Layer=ol;
     for(int row=b;row<=u;row++){ if(!ol->TexTiles[row]) continue;// Should not happen.
         for(int col=l;col<=r;col++){ if(!ol->TexTiles[row][col]) continue; OurTexTile*t=ol->TexTiles[row][col];
@@ -509,84 +574,76 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax){
     if(!undo->Tiles.pFirst){ memFree(undo); return; /*unlikely;*/ }
     laFreeNewerDifferences();
     laRecordCustomDifferences(undo,ourundo_Tiles,ourredo_Tiles,ourundo_Free);
-    laPushDifferences("Paint",0);
+    if(Push){ laPushDifferences("Paint",0); }
+}
+void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
+    if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);}
+    if(ol->TexTiles[row][col]) return;
+    ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
+    OurTexTile*t=ol->TexTiles[row][col];
+    t->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
+    int sx=((real)col-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE,sy=((real)row-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    t->l=sx-OUR_TILE_SEAM,t->b=sy-OUR_TILE_SEAM; t->r=t->l+OUR_TILE_W; t->u=t->b+OUR_TILE_W;
+    uint16_t initColor[]={0,0,0,0};
+    glClearTexImage(t->Texture->GLTexHandle, 0, GL_RGBA, GL_UNSIGNED_SHORT, 0);
+    t->FullData=calloc(OUR_TILE_W*4,OUR_TILE_W*sizeof(uint16_t));
 }
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
     int l,r,u,b;
-    if(Aligned){
-        l=(int)(floor(OUR_TEX_TILE_CTR+(xmin)/OUR_TEX_TILE_W_USE+0.5));
-        r=(int)(floor(OUR_TEX_TILE_CTR+(xmax-1)/OUR_TEX_TILE_W_USE+0.5));
-        u=(int)(floor(OUR_TEX_TILE_CTR+(ymax-1)/OUR_TEX_TILE_W_USE+0.5));
-        b=(int)(floor(OUR_TEX_TILE_CTR+(ymin)/OUR_TEX_TILE_W_USE+0.5));
-    }else{
-        OUR_XXYY_TO_COL_ROW_RANGE;
-    }
-    TNS_CLAMP(l,0,OUR_TEX_TILES_PER_ROW-1);
-    TNS_CLAMP(r,0,OUR_TEX_TILES_PER_ROW-1);
-    TNS_CLAMP(u,0,OUR_TEX_TILES_PER_ROW-1);
-    TNS_CLAMP(b,0,OUR_TEX_TILES_PER_ROW-1);
+    if(Aligned){ OUR_XXYY_TO_COL_ROW_ALIGNED }else{ OUR_XXYY_TO_COL_ROW_RANGE; }
     for(int row=b;row<=u;row++){
-        if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TEX_TILES_PER_ROW);}
         for(int col=l;col<=r;col++){
-            if(ol->TexTiles[row][col]) continue;
-            ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
-            OurTexTile*t=ol->TexTiles[row][col];
-            t->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TEX_TILE_W,OUR_TEX_TILE_W,0);
-            int sx=((real)col-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE,sy=((real)row-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
-            t->l=sx-OUR_TEX_TILE_SEAM,t->b=sy-OUR_TEX_TILE_SEAM; t->r=t->l+OUR_TEX_TILE_W; t->u=t->b+OUR_TEX_TILE_W;
-            uint16_t initColor[]={0,0,0,0};
-            glClearTexImage(t->Texture->GLTexHandle, 0, GL_RGBA, GL_UNSIGNED_SHORT, 0);
-            t->FullData=calloc(OUR_TEX_TILE_W*4,OUR_TEX_TILE_W*sizeof(uint16_t));
+            our_LayerEnsureTileDirect(ol,row,col);
         }
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite){
     if(!ot->Texture) return;
-    int bufsize=sizeof(uint16_t)*OUR_TEX_TILE_W_USE*OUR_TEX_TILE_W_USE*4;
-    ot->Data=malloc(bufsize); int seam=OUR_TEX_TILE_SEAM; int width=OUR_TEX_TILE_W_USE;
+    int bufsize=sizeof(uint16_t)*OUR_TILE_W_USE*OUR_TILE_W_USE*4;
+    ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
     glGetTextureSubImage(ot->Texture->GLTexHandle, 0, seam, seam, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
     if(composite){
-        for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
-            for(int col=0;col<OUR_TEX_TILE_W_USE;col++){
-                our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TEX_TILE_W_USE+col)*4]);
+        for(int row=0;row<OUR_TILE_W_USE;row++){
+            for(int col=0;col<OUR_TILE_W_USE;col++){
+                our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4]);
             }
         }
     }else{
-        for(int row=0;row<OUR_TEX_TILE_W_USE;row++){
-            memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TEX_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TEX_TILE_W_USE);
+        for(int row=0;row<OUR_TILE_W_USE;row++){
+            memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TILE_W_USE);
         }
     }
     free(ot->Data); ot->Data=0;
 }
 void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     if(!ot->Texture) return;
-    int pl=(SX!=0)?OUR_TEX_TILE_SEAM:0, pr=((SX+OUR_TEX_TILE_W_USE)!=Our->ImageW)?OUR_TEX_TILE_SEAM:0;
-    int pu=(SY!=0)?OUR_TEX_TILE_SEAM:0, pb=((SY+OUR_TEX_TILE_W_USE)!=Our->ImageH)?OUR_TEX_TILE_SEAM:0;
-    int bufsize=sizeof(uint16_t)*(OUR_TEX_TILE_W+pl+pr)*(OUR_TEX_TILE_W+pu+pb)*4;
-    ot->Data=malloc(bufsize); int width=OUR_TEX_TILE_W_USE+pl+pr, height=OUR_TEX_TILE_W_USE+pu+pb;
+    int pl=(SX!=0)?OUR_TILE_SEAM:0, pr=((SX+OUR_TILE_W_USE)!=Our->ImageW)?OUR_TILE_SEAM:0;
+    int pu=(SY!=0)?OUR_TILE_SEAM:0, pb=((SY+OUR_TILE_W_USE)!=Our->ImageH)?OUR_TILE_SEAM:0;
+    int bufsize=sizeof(uint16_t)*(OUR_TILE_W+pl+pr)*(OUR_TILE_W+pu+pb)*4;
+    ot->Data=malloc(bufsize); int width=OUR_TILE_W_USE+pl+pr, height=OUR_TILE_W_USE+pu+pb;
     for(int row=0;row<height;row++){
         memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
     }
     if(!our_BufferAnythingVisible(ot->Data, bufsize/sizeof(uint16_t)/4)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
     else{
         tnsBindTexture(ot->Texture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TEX_TILE_SEAM-pl, OUR_TEX_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TILE_SEAM-pl, OUR_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
     }
     free(ot->Data); ot->Data=0;
 }
 int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     int l=1000,r=-1000,u=-1000,b=1000; int any=0;
-    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         if(row<b) b=row; if(row>u) u=row;
-        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             if(col<l) l=col; if(col>r) r=col; any++;
         }
     }
     if(!any) return 0;
-    Our->ImageW = OUR_TEX_TILE_W_USE*(r-l+1); Our->ImageH = OUR_TEX_TILE_W_USE*(u-b+1);
-    Our->ImageX =((real)l-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE; Our->ImageY=((real)b-OUR_TEX_TILE_CTR-0.5)*OUR_TEX_TILE_W_USE;
+    Our->ImageW = OUR_TILE_W_USE*(r-l+1); Our->ImageH = OUR_TILE_W_USE*(u-b+1);
+    Our->ImageX =((real)l-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; Our->ImageY=((real)b-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     if(!OnlyCalculate){
         if(Our->ImageBuffer) free(Our->ImageBuffer);
         Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
@@ -615,17 +672,17 @@ void our_CanvasFillImageBufferBackground(){
     }
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
-    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
-        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
-            int sx=ol->TexTiles[row][col]->l+OUR_TEX_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TEX_TILE_SEAM;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            int sx=ol->TexTiles[row][col]->l+OUR_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TILE_SEAM;
             our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY, composite);
         }
     }
 }
 void our_LayerToTexture(OurLayer* ol){
-    for(int row=0;row<OUR_TEX_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
-        for(int col=0;col<OUR_TEX_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
-            int sx=ol->TexTiles[row][col]->l+OUR_TEX_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TEX_TILE_SEAM;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            int sx=ol->TexTiles[row][col]->l+OUR_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TILE_SEAM;
             our_TileImageToTexture(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY);
         }
     }
@@ -699,12 +756,12 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     return 1;
 }
 void our_EnsureImageBufferOnRead(OurLayer*l, int W, int H, int UseOffsets, int StartX, int StartY){
-    int tw=W/OUR_TEX_TILE_W_USE, th=H/OUR_TEX_TILE_W_USE;
-    int w=tw*OUR_TEX_TILE_W_USE, h=th*OUR_TEX_TILE_W_USE;
-    if(w<W){ tw+=1; w+=OUR_TEX_TILE_W_USE; } if(h<H){ th+=1; h+=OUR_TEX_TILE_W_USE; }
+    int tw=W/OUR_TILE_W_USE, th=H/OUR_TILE_W_USE;
+    int w=tw*OUR_TILE_W_USE, h=th*OUR_TILE_W_USE;
+    if(w<W){ tw+=1; w+=OUR_TILE_W_USE; } if(h<H){ th+=1; h+=OUR_TILE_W_USE; }
 
-    int ix=UseOffsets?StartX:(-tw/2*OUR_TEX_TILE_W_USE-OUR_TEX_TILE_W_USE/2);
-    int iy=UseOffsets?StartY:(th/2*OUR_TEX_TILE_W_USE+OUR_TEX_TILE_W_USE/2);
+    int ix=UseOffsets?StartX:(-tw/2*OUR_TILE_W_USE-OUR_TILE_W_USE/2);
+    int iy=UseOffsets?StartY:(th/2*OUR_TILE_W_USE+OUR_TILE_W_USE/2);
     int tl,tr,tu,tb;
     our_LayerEnsureTiles(l,ix,ix+W,iy-H,iy,1,&tl,&tr,&tu,&tb);
     our_LayerEnsureImageBuffer(l, 0);
@@ -930,7 +987,7 @@ void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int 
             glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
             for(int i=Start;i<End;i++){
-                our_PaintDoDab(&Our->Dabs[i],sx,sx+OUR_TEX_TILE_W,sy,sy+OUR_TEX_TILE_W);
+                our_PaintDoDab(&Our->Dabs[i],sx,sx+OUR_TILE_W,sy,sy+OUR_TILE_W);
             }
         }
     }
@@ -958,10 +1015,10 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float ssize=Our->Dabs[oss->Start].Size+1.5;
-            int colmax=(int)(floor(OUR_TEX_TILE_CTR+(float)(x+ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TEX_TILES_PER_ROW-1);
-            int rowmax=(int)(floor(OUR_TEX_TILE_CTR+(float)(y+ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TEX_TILES_PER_ROW-1);
-            int colmin=(int)(floor(OUR_TEX_TILE_CTR+(float)(x-ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TEX_TILES_PER_ROW-1);
-            int rowmin=(int)(floor(OUR_TEX_TILE_CTR+(float)(y-ssize)/OUR_TEX_TILE_W_USE+0.5)); TNS_CLAMP(rowmin,0,OUR_TEX_TILES_PER_ROW-1);
+            int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
+            int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
+            int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
+            int rowmin=(int)(floor(OUR_TILE_CTR+(float)(y-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmin,0,OUR_TILES_PER_ROW-1);
             glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             for(int col=colmin;col<=colmax;col++){
                 for(int row=rowmin;row<=rowmax;row++){
@@ -1039,18 +1096,29 @@ void our_DoCropping(OurCanvasDraw* cd, real x, real y){
 
 int ourinv_NewLayer(laOperator* a, laEvent* e){
     our_NewLayer("Our Layer"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
     return LA_FINISHED;
 }
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
     our_RemoveLayer(l); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
     return LA_FINISHED;
 }
 int ourinv_MoveLayer(laOperator* a, laEvent* e){
-    OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
+    OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED; int changed=0;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"up")&&l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
-    elif(l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
+    if(strSame(direction,"up")&&l->Item.pPrev){ lstMoveUp(&Our->Layers, l); changed=1; }
+    elif(l->Item.pNext){ lstMoveDown(&Our->Layers, l); changed=1; }
+    if(changed){ laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); laRecordDifferences(0,"our.canvas.layers"); }
+    return LA_FINISHED;
+}
+int ourchk_MergeLayer(laPropPack *This, laStringSplitor *ss){
+    OurLayer* l=This->EndInstance; if(!l || !l->Item.pNext) return 0; return 1;
+}
+int ourinv_MergeLayer(laOperator* a, laEvent* e){
+    OurLayer* l=a->This?a->This->EndInstance:0; if(!l || !l->Item.pNext) return LA_CANCELED;
+    if(our_MergeLayer(l)){ laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
     return LA_FINISHED;
 }
 int ourinv_ExportLayer(laOperator* a, laEvent* e){
@@ -1171,7 +1239,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
 int ourmod_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){
-        our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax); ex->HideBrushCircle=0; laShowCursor();
+        our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1); ex->HideBrushCircle=0; laShowCursor();
         return LA_FINISHED;
     }
 
@@ -1335,6 +1403,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
+    laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
     laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",0,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
     laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,0,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
@@ -1435,7 +1504,8 @@ void ourRegisterEverything(){
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
-
+    laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",L'🠳',0);
+    
     laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", ourextramod_Canvas, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
     km = &ct->KeyMapper;
@@ -1463,13 +1533,15 @@ void ourRegisterEverything(){
     laSaveProp("our.canvas");
     laSaveProp("our.tools");
 
+    laAddRootDBInst("our.canvas");
+
     laGetSaverDummy(Our,Our->CanvasSaverDummyProp);
 
     laSetFrameCallbacks(ourPreFrame,0,0);
 }
 
 
-void ourInit(){
+int ourInit(){
     Our=memAcquire(sizeof(OurPaint));
 
     ourRegisterEverything();
@@ -1481,25 +1553,33 @@ void ourInit(){
     Our->SmudgeTexture=tnsCreate2DTexture(GL_RGBA16,256,1,0);
 
     Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
-    const GLchar* source = OUR_CANVAS_SHADER;
-    glShaderSource(Our->CanvasShader, 1, &source, NULL);
-    glCompileShader(Our->CanvasShader);
+    const GLchar* source1 = OUR_CANVAS_SHADER;
+    glShaderSource(Our->CanvasShader, 1, &source1, NULL); glCompileShader(Our->CanvasShader);
     glGetShaderiv(Our->CanvasShader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE){
-        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error);
-        printf("Compute shader error:\n%s", error);
-        glDeleteShader(Our->CanvasShader);
-        return -1;
+        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); printf("Canvas shader error:\n%s", error); glDeleteShader(Our->CanvasShader); return 0;
     }
 
     Our->CanvasProgram = glCreateProgram();
-    glAttachShader(Our->CanvasProgram, Our->CanvasShader);
-    glLinkProgram(Our->CanvasProgram);
+    glAttachShader(Our->CanvasProgram, Our->CanvasShader); glLinkProgram(Our->CanvasProgram);
     glGetProgramiv(Our->CanvasProgram, GL_LINK_STATUS, &status);
     if (status == GL_FALSE){
-        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error);
-        printf("Shader Linking error:\n%s", error);
-        return 0;
+        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); printf("Canvas program Linking error:\n%s", error); return 0;
+    }
+
+    Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
+    const GLchar* source2 = OUR_COMPOSITION_SHADER;
+    glShaderSource(Our->CompositionShader, 1, &source2, NULL); glCompileShader(Our->CompositionShader);
+    glGetShaderiv(Our->CompositionShader, GL_COMPILE_STATUS, &status);
+    if (status == GL_FALSE){
+        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); printf("Composition shader error:\n%s", error); glDeleteShader(Our->CompositionShader); return 0;
+    }
+
+    Our->CompositionProgram = glCreateProgram();
+    glAttachShader(Our->CompositionProgram, Our->CompositionShader); glLinkProgram(Our->CompositionProgram);
+    glGetProgramiv(Our->CompositionProgram, GL_LINK_STATUS, &status);
+    if (status == GL_FALSE){
+        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); printf("Composition program Linking error:\n%s", error); return 0;
     }
 
     Our->uBrushCorner=glGetUniformLocation(Our->CanvasProgram,"uBrushCorner");
@@ -1517,15 +1597,20 @@ void ourInit(){
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
     Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
 
+    Our->uMode=glGetUniformLocation(Our->CompositionProgram,"uMode");
+
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
     Our->BorderAlpha=0.6;
 
     Our->LockRadius=1;
+    Our->EnableBrushCircle=1;
 
     Our->PenID=-1;
     Our->EraserID=-1;
 
     tnsEnableShaderv(T->immShader);
+
+    return 1;
 }
 

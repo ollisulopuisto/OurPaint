@@ -22,13 +22,11 @@ STRUCTURE(OurCanvasDraw){
 };
 
 
-#define OUR_TILE_W 64
-#define OUR_TEX_TILE_W 1024
-#define OUR_TEX_TILES_PER_ROW 100
-#define OUR_TILES_PER_ROW (OUR_TEX_TILES_PER_ROW*(OUR_TEX_TILE_W/OUR_TILE_W))
-#define OUR_TEX_TILE_CTR (OUR_TEX_TILES_PER_ROW/2)
-#define OUR_TEX_TILE_SEAM 12
-#define OUR_TEX_TILE_W_USE (OUR_TEX_TILE_W-OUR_TEX_TILE_SEAM*2)
+#define OUR_TILE_W 1024
+#define OUR_TILES_PER_ROW 100
+#define OUR_TILE_CTR (OUR_TILES_PER_ROW/2)
+#define OUR_TILE_SEAM 12
+#define OUR_TILE_W_USE (OUR_TILE_W-OUR_TILE_SEAM*2)
 
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
@@ -42,7 +40,7 @@ STRUCTURE(OurLayer){
     laListItem Item;
     laSafeString Name;
     int OffsetX,OffsetY;
-    OurTexTile** TexTiles[OUR_TEX_TILES_PER_ROW];
+    OurTexTile** TexTiles[OUR_TILES_PER_ROW];
 };
 
 STRUCTURE(OurLayerWrite){
@@ -184,8 +182,8 @@ STRUCTURE(OurPaint){
     int EnableBrushCircle;
 
     tnsTexture* SmudgeTexture;
-    GLuint CanvasShader;
-    GLuint CanvasProgram;
+    GLuint CanvasShader;      GLuint CanvasProgram;
+    GLuint CompositionShader; GLuint CompositionProgram;
     GLint uBrushCorner;
     GLint uBrushCenter;
     GLint uBrushSize;
@@ -199,6 +197,7 @@ STRUCTURE(OurPaint){
     GLint uBrushErasing;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
+    GLint uMode;
 
     real CurrentColor[3];
     real BackgroundColor[3];
@@ -215,7 +214,7 @@ STRUCTURE(OurPaint){
     void* icc_sRGB; int iccsize_sRGB;
 };
 
-void ourInit();
+int ourInit();
 void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();
