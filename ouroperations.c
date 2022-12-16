@@ -1137,7 +1137,7 @@ int ourinv_BrushResize(laOperator* a, laEvent* e){
 int ourinv_Action(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     our_PaintResetBrushState(ob);
-    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=e->Pressure;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
+    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
@@ -1155,7 +1155,7 @@ int ourmod_Paint(laOperator* a, laEvent* e){
 
     if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
-        int tl,tr,tu,tb;
+        int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=e->Pressure; }
         if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,
             ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],e->Pressure,e->AngleX,e->AngleY,&tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
             our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
