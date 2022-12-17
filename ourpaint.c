@@ -12,6 +12,12 @@ int main(int argc, char *argv[]){
     laRefreshUDFRegistries();
     laEnsureUserPreferences();
 
+    for(int i=1;i<argc;i++){
+        char* file=argv[i]; 
+        laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);
+        if(udf){ laExtractUDF(udf,m,LA_UDF_MODE_APPEND,0); laCloseUDF(udf); }
+    }
+
     //laAddRootDBInst("la.input_mapping");
     //laAddRootDBInst("la.drivers");
     //laAddRootDBInst("our.tools");

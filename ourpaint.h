@@ -10,9 +10,11 @@
 #define OUR_AT_CROP_BL 7
 #define OUR_AT_CROP_BR 8
 
+#define OUR_VERSION_MAJOR 0
+#define OUR_VERSION_MINOR 1
+
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
-    int ShowTiles;
     int HideBrushCircle;
     int AtCrop;
     real CanvasLastX,CanvasLastY;
@@ -177,6 +179,7 @@ STRUCTURE(OurPaint){
     int PenID,EraserID;
     int X,Y,W,H; //border
     int ShowBorder,UseBorder;
+    int ShowTiles;
 
     int LockRadius;
     int EnableBrushCircle;
