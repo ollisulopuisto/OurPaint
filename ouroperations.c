@@ -524,11 +524,16 @@ int our_BufferAnythingVisible(uint16_t* buf, int elemcount){
     }
     return 0;
 }
-void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real ymax){
-    int _l=floor(xmin),_r=ceil(xmax),_u=ceil(ymax),_b=floor(ymin);
-    if(t->CopyBuffer) free(t->CopyBuffer); t->CopyBuffer=0; //shouldn't happen
-    if(_l>=t->r || _r<t->l || _b>=t->u || _u<t->b || _l==_r || _u==_b) return;
-    t->cl=TNS_MAX2(_l,t->l)-t->l;t->cr=TNS_MIN2(_r,t->r)-t->l;t->cu=TNS_MIN2(_u,t->u)-t->b;t->cb=TNS_MAX2(_b,t->b)-t->b;
+void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real ymax,int OnlyUpdateLocal){
+    if(!t->Texture) return;
+    if(OnlyUpdateLocal){
+        t->cl=0;t->cr=OUR_TILE_W;t->cu=OUR_TILE_W;t->cb=0;
+    }else{
+        int _l=floor(xmin),_r=ceil(xmax),_u=ceil(ymax),_b=floor(ymin);
+        if(t->CopyBuffer) free(t->CopyBuffer); t->CopyBuffer=0; //shouldn't happen
+        if(_l>=t->r || _r<t->l || _b>=t->u || _u<t->b || _l==_r || _u==_b) return;
+        t->cl=TNS_MAX2(_l,t->l)-t->l;t->cr=TNS_MIN2(_r,t->r)-t->l;t->cu=TNS_MIN2(_u,t->u)-t->b;t->cb=TNS_MAX2(_b,t->b)-t->b;
+    }
     int rows=t->cu-t->cb,cols=t->cr-t->cl;
     int bufsize=cols*4*rows*sizeof(uint16_t);
     t->CopyBuffer=calloc(1,bufsize);
@@ -595,7 +600,7 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
     OurUndo* undo=memAcquire(sizeof(OurUndo)); undo->Layer=ol;
     for(int row=b;row<=u;row++){ if(!ol->TexTiles[row]) continue;// Should not happen.
         for(int col=l;col<=r;col++){ if(!ol->TexTiles[row][col]) continue; OurTexTile*t=ol->TexTiles[row][col];
-            our_TileEnsureUndoBuffer(t,xmin,xmax,ymin,ymax);
+            our_TileEnsureUndoBuffer(t,xmin,xmax,ymin,ymax,0);
             if(!t->CopyBuffer) continue;
             OurUndoTile* ut=memAcquire(sizeof(OurUndoTile));
             ut->l=t->cl; ut->r=t->cr; ut->u=t->cu; ut->b=t->cb;
@@ -608,6 +613,18 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
     laFreeNewerDifferences();
     laRecordCustomDifferences(undo,ourundo_Tiles,ourredo_Tiles,ourundo_Free);
     if(Push){ laPushDifferences("Paint",0); }
+}
+void our_LayerRefreshLocal(OurLayer* ol){
+    //OurUndo* undo=memAcquire(sizeof(OurUndo)); undo->Layer=ol;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue; OurTexTile*t=ol->TexTiles[row][col];
+            our_TileEnsureUndoBuffer(t,0,0,0,0,1);
+        }
+    }
+    //if(!undo->Tiles.pFirst){ memFree(undo); return; /*unlikely;*/ }
+    //laFreeNewerDifferences();
+    //laRecordCustomDifferences(undo,ourundo_Tiles,ourredo_Tiles,ourundo_Free);
+    //if(Push){ laPushDifferences("Loaded",0); }
 }
 void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
     if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);}
@@ -1453,6 +1470,11 @@ void ourPreFrame(){
     if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
 }
 
+void ourPushEverything(){
+    laFreeOlderDifferences(0);
+    for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
+}
+
 void ourRegisterEverything(){
     laPropContainer* pc; laKeyMapper* km; laProp* p;
 
@@ -1606,6 +1628,7 @@ void ourRegisterEverything(){
     laSetAboutTemplates(ourui_AboutContent,ourui_AboutVersion,ourui_AboutAuthor);
 
     laSetFrameCallbacks(ourPreFrame,0,0);
+    laSetDiffCallback(ourPushEverything);
 }
 
 
