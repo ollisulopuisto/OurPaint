@@ -15,15 +15,15 @@ laPropContainer* OUR_PC_IDN_BRUSH_DEVICE;
 void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
     if(!NoCreate){
         n->CanvasScale=laCreateOutSocket(n,"Canvas Scale",LA_PROP_FLOAT);
-        n->Size=laCreateOutSocket(n,"Size",LA_PROP_FLOAT);
-        n->Transparency=laCreateOutSocket(n,"Transparency",LA_PROP_FLOAT);
-        n->Hardness=laCreateOutSocket(n,"Hardness",LA_PROP_FLOAT);
-        n->Smudge=laCreateOutSocket(n,"Smudge",LA_PROP_FLOAT);
-        n->SmudgeLength=laCreateOutSocket(n,"Smudge Length",LA_PROP_FLOAT);
+        n->Size=laCreateOutSocket(n,"SIZE",LA_PROP_FLOAT);
+        n->Transparency=laCreateOutSocket(n,"TRANSP",LA_PROP_FLOAT);
+        n->Hardness=laCreateOutSocket(n,"HARD",LA_PROP_FLOAT);
+        n->Smudge=laCreateOutSocket(n,"SMUDGE",LA_PROP_FLOAT);
+        n->SmudgeLength=laCreateOutSocket(n,"LEN",LA_PROP_FLOAT);
         n->DabsPerSize=laCreateOutSocket(n,"Dabs Per Size",LA_PROP_FLOAT);
-        n->Slender=laCreateOutSocket(n,"Slender",LA_PROP_FLOAT);
-        n->Angle=laCreateOutSocket(n,"Angle",LA_PROP_FLOAT);
-        n->Color=laCreateOutSocket(n,"Color",LA_PROP_FLOAT|LA_PROP_ARRAY);
+        n->Slender=laCreateOutSocket(n,"SLENDER",LA_PROP_FLOAT);
+        n->Angle=laCreateOutSocket(n,"ANGLE",LA_PROP_FLOAT);
+        n->Color=laCreateOutSocket(n,"COLOR",LA_PROP_FLOAT|LA_PROP_ARRAY);
         strSafeSet(&n->Base.Name, "Brush Settings");
     }
     n->CanvasScale->Data=&n->rCanvasScale;
@@ -63,31 +63,37 @@ void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, la
     laColumn* c=laFirstColumn(uil); OurBrushSettingsNode*n=This->EndInstance;
     laUiItem* b,*u;
     LA_BASE_NODE_HEADER(uil,c,This);
-    
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Canvas Scale",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;  laShowNodeSocket(uil,c,This,"canvas_scale",0);  laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Size",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;          laShowNodeSocket(uil,c,This,"size",0);          laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Transparency",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;  laShowNodeSocket(uil,c,This,"transparency",0);  laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Hardness",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;      laShowNodeSocket(uil,c,This,"hardness",0);      laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Smudge",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;        laShowNodeSocket(uil,c,This,"smudge",0);        laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Smudge Length",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"smudge_length",0); laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Dabs Per Size",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"dabs_per_size",0); laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Slender",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;       laShowNodeSocket(uil,c,This,"slender",0);       laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Angle",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;         laShowNodeSocket(uil,c,This,"angle",0);         laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Color",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;         laShowNodeSocket(uil,c,This,"color",0);         laEndRow(uil,b);
+
+    b=laBeginRow(uil,c,0,0);
+        laShowSeparator(uil,c)->Expand=1;
+        laShowNodeSocket(uil,c,This,"size",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"transparency",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"hardness",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"slender",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"angle",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"color",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowSeparator(uil,c)->Expand=1;
+        laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+        laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Canvas Scale",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;  laShowNodeSocket(uil,c,This,"canvas_scale",0);
+        u=laShowLabel(uil,c,"Dabs Per Size",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"dabs_per_size",0); laEndRow(uil,b);
 }
 
 void IDN_BrushOutputsInit(OurBrushOutputsNode* n, int NoCreate){
     if(NoCreate){ return; }
-    n->Offset=laCreateInSocket("Offset",LA_PROP_FLOAT);
-    n->Size=laCreateInSocket("Size",LA_PROP_FLOAT);
-    n->Transparency=laCreateInSocket("Transparency",LA_PROP_FLOAT);
-    n->Hardness=laCreateInSocket("Hardness",LA_PROP_FLOAT);
-    n->Smudge=laCreateInSocket("Smudge",LA_PROP_FLOAT);
-    n->SmudgeLength=laCreateInSocket("Smudge Length",LA_PROP_FLOAT);
+    n->Offset=laCreateInSocket("OFFSET",LA_PROP_FLOAT);
+    n->Size=laCreateInSocket("SIZE",LA_PROP_FLOAT);
+    n->Transparency=laCreateInSocket("TRANSP",LA_PROP_FLOAT);
+    n->Hardness=laCreateInSocket("HRAD",LA_PROP_FLOAT);
+    n->Smudge=laCreateInSocket("SMUDGE",LA_PROP_FLOAT);
+    n->SmudgeLength=laCreateInSocket("LENGTH",LA_PROP_FLOAT);
     n->DabsPerSize=laCreateInSocket("Dabs Per Size",LA_PROP_FLOAT);
-    n->Slender=laCreateInSocket("Slender",LA_PROP_FLOAT);
-    n->Angle=laCreateInSocket("Angle",LA_PROP_FLOAT);
-    n->Color=laCreateInSocket("Color",LA_PROP_FLOAT);
+    n->Slender=laCreateInSocket("SLENDER",LA_PROP_FLOAT);
+    n->Angle=laCreateInSocket("ANGLE",LA_PROP_FLOAT);
+    n->Color=laCreateInSocket("COLOR",LA_PROP_FLOAT);
     strSafeSet(&n->Base.Name, "Brush Outputs");
 }
 void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
@@ -144,27 +150,31 @@ void ui_BrushOutputsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laC
     laUiItem* b,*u;
     LA_BASE_NODE_HEADER(uil,c,This);
 
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"offset",0);        laShowLabel(uil,c,"Offset",0,0);        laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"size",0);          laShowLabel(uil,c,"Size",0,0);          laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"transparency",0);  laShowLabel(uil,c,"Transparency",0,0);  laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"hardness",0);      laShowLabel(uil,c,"Hardness",0,0);      laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"smudge",0);        laShowLabel(uil,c,"Smudge",0,0);        laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"smudge_length",0); laShowLabel(uil,c,"Smudge Length",0,0); laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowNodeSocket(uil,c,This,"offset",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"size",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"transparency",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"hardness",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"slender",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"angle",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"color",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+        laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+    laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"dabs_per_size",0); laShowLabel(uil,c,"Dabs Per Size",0,0); laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"slender",0);       laShowLabel(uil,c,"Slender",0,0);       laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"angle",0);         laShowLabel(uil,c,"Angle",0,0);         laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"color",0);         laShowLabel(uil,c,"Color",0,0);         laEndRow(uil,b);
 }
 
 void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
     if(!NoCreate){
-        n->Pressure=laCreateOutSocket(n,"Pressure",LA_PROP_FLOAT);
-        n->Tilt=laCreateOutSocket(n,"Tilt",LA_PROP_FLOAT|LA_PROP_ARRAY);
-        n->IsEraser=laCreateOutSocket(n,"Is Eraser",LA_PROP_INT);
-        n->Position=laCreateOutSocket(n,"Position",LA_PROP_FLOAT|LA_PROP_ARRAY);
-        n->Speed=laCreateOutSocket(n,"Speed",LA_PROP_FLOAT);
-        n->Angle=laCreateOutSocket(n,"Angle",LA_PROP_FLOAT);
-        n->Length=laCreateOutSocket(n,"Length",LA_PROP_FLOAT);
+        n->Pressure=laCreateOutSocket(n,"PRESSURE",LA_PROP_FLOAT);
+        n->Tilt=laCreateOutSocket(n,"TILT",LA_PROP_FLOAT|LA_PROP_ARRAY);
+        n->IsEraser=laCreateOutSocket(n,"ERASER",LA_PROP_INT);
+        n->Position=laCreateOutSocket(n,"POS",LA_PROP_FLOAT|LA_PROP_ARRAY);
+        n->Speed=laCreateOutSocket(n,"SPD",LA_PROP_FLOAT);
+        n->Angle=laCreateOutSocket(n,"ANGLE",LA_PROP_FLOAT);
+        n->Length=laCreateOutSocket(n,"LENGTH",LA_PROP_FLOAT);
         n->LengthAccum=laCreateOutSocket(n,"ACUM",LA_PROP_FLOAT);
         strSafeSet(&n->Base.Name, "Brush Device");
     }
@@ -203,14 +213,17 @@ void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laCo
     laUiItem* b,*u;
     LA_BASE_NODE_HEADER(uil,c,This);
 
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Pressure",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"pressure",0);  laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Tilt",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;     laShowNodeSocket(uil,c,This,"tilt",0);      laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Is Eraser",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;laShowNodeSocket(uil,c,This,"is_eraser",0); laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Position",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"position",0);  laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Speed",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;    laShowNodeSocket(uil,c,This,"speed",0);     laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Moving Angle",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;laShowNodeSocket(uil,c,This,"angle",0); laEndRow(uil,b);
-    b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Stroke Length",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;
-        laShowNodeSocket(uil,c,This,"length_accum",0)->Flags|=LA_UI_SOCKET_LABEL_W; laShowNodeSocket(uil,c,This,"length",0); laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowSeparator(uil,c)->Expand=1;
+        laShowNodeSocket(uil,c,This,"position",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"speed",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"angle",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"pressure",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"tilt",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"is_eraser",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0); laShowSeparator(uil,c)->Expand=1;
+        laShowNodeSocket(uil,c,This,"length_accum",0)->Flags|=LA_UI_SOCKET_LABEL_W; laShowNodeSocket(uil,c,This,"length",0)->Flags|=LA_UI_SOCKET_LABEL_W; laEndRow(uil,b);
     
 }
 
