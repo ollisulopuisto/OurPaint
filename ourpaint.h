@@ -160,6 +160,30 @@ STRUCTURE(OurUndo){
 #define OUR_TOOL_PAINT 0
 #define OUR_TOOL_CROP 1
 
+#define OUR_PNG_READ_INPUT_FLAT 0
+#define OUR_PNG_READ_INPUT_ICC  1
+#define OUR_PNG_READ_INPUT_SRGB 2
+#define OUR_PNG_READ_INPUT_LINEAR_SRGB 3
+#define OUR_PNG_READ_INPUT_CLAY 4
+#define OUR_PNG_READ_INPUT_LINEAR_CLAY 5
+
+#define OUR_PNG_READ_OUTPUT_CANVAS 0
+#define OUR_PNG_READ_OUTPUT_LINEAR_SRGB OUR_PNG_READ_INPUT_LINEAR_SRGB
+#define OUR_PNG_READ_OUTPUT_LINEAR_CLAY OUR_PNG_READ_INPUT_LINEAR_CLAY
+
+#define OUR_CANVAS_INTERPRETATION_SRGB 0
+#define OUR_CANVAS_INTERPRETATION_CLAY 1
+
+STRUCTURE(OurPNGReadExtra){
+    int Confirming;
+    laSafeString* FilePath;
+    laSafeString* iccName;
+    int HassRGB;
+    int HasProfile;
+    int InputMode;
+    int OutputMode;
+};
+
 STRUCTURE(OurPaint){
     real pad;
 
@@ -178,6 +202,7 @@ STRUCTURE(OurPaint){
     int Tool,ActiveTool,Erasing,EventErasing;
     int PenID,EraserID;
     int X,Y,W,H; //border
+    int ColorInterpretation;
     int ShowBorder,UseBorder;
     int ShowTiles;
 
@@ -214,7 +239,9 @@ STRUCTURE(OurPaint){
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
 
     void* icc_LinearsRGB; int iccsize_LinearsRGB;
+    void* icc_LinearClay; int iccsize_LinearClay;
     void* icc_sRGB; int iccsize_sRGB;
+    void* icc_Clay; int iccsize_Clay;
 };
 
 int ourInit();

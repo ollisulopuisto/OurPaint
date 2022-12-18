@@ -108,17 +108,18 @@ void our_CanvasAlphaMix(uint16_t* target, uint16_t* source){
     target[3]=source[3]+target[3]*a_1; target[0]=source[0]+target[0]*a_1; target[1]=source[1]+target[1]*a_1; target[2]=source[2]+target[2]*a_1;
 }
 
-void our_InitsRGBProfile(int Linear, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
-    cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
+void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
     cmsCIExyY d65_srgb_adobe_specs = {0.3127, 0.3290, 1.0};
     cmsToneCurve*tonecurve; cmsToneCurve*curve[3];
     if(Linear){ tonecurve = cmsBuildGamma (NULL, 1.0f); }
-    else{
+    elif(Linear==2){
+        tonecurve=cmsBuildGamma(NULL,2.19921875);
+    }else{
         cmsFloat64Number srgb_parameters[5] = { 2.4, 1.0 / 1.055,  0.055 / 1.055, 1.0 / 12.92, 0.04045 };
         tonecurve=cmsBuildParametricToneCurve(NULL, 4, srgb_parameters);
     }
     curve[0] = curve[1] = curve[2] = tonecurve;
-    cmsHPROFILE profile4 = cmsCreateRGBProfile (&d65_srgb_adobe_specs, &srgb_primaries_pre_quantized, curve);
+    cmsHPROFILE profile4 = cmsCreateRGBProfile (&d65_srgb_adobe_specs, primaries_pre_quantized, curve);
     cmsMLU *copy = cmsMLUalloc(NULL, 1);
     cmsMLUsetASCII(copy, "en", "US", copyright);
     cmsWriteTag(profile4, cmsSigCopyrightTag, copy);
@@ -133,9 +134,14 @@ void our_InitsRGBProfile(int Linear, void** ptr, int* psize, char* copyright, ch
     cmsMLUfree(copy); cmsMLUfree(manu); cmsMLUfree(desc); cmsFreeToneCurve(tonecurve); cmsCloseProfile(profile4);
 }
 void our_InitColorProfiles(){
+    cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
+    cmsCIExyYTRIPLE adobe_primaries_prequantized = { {0.639996511, 0.329996864, 1.0}, {0.210005295, 0.710004866, 1.0}, {0.149997606, 0.060003644, 1.0} };
     char* manu="sRGB chromaticities from A Standard Default Color Space for the Internet - sRGB, http://www.w3.org/Graphics/Color/sRGB; and http://www.color.org/specification/ICC1v43_2010-12.pdf";
-    our_InitsRGBProfile(1,&Our->icc_LinearsRGB,&Our->iccsize_LinearsRGB,"Copyright Yiming 2022.",manu,"Yiming's linear sRGB icc profile.");
-    our_InitsRGBProfile(0,&Our->icc_sRGB,&Our->iccsize_sRGB,"Copyright Yiming 2022.",manu,"Yiming's sRGB icc profile.");
+    our_InitRGBProfile(1,&srgb_primaries_pre_quantized,&Our->icc_LinearsRGB,&Our->iccsize_LinearsRGB,"Copyright Yiming 2022.",manu,"Yiming's linear sRGB icc profile.");
+    our_InitRGBProfile(0,&srgb_primaries_pre_quantized,&Our->icc_sRGB,&Our->iccsize_sRGB,"Copyright Yiming 2022.",manu,"Yiming's sRGB icc profile.");
+    manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
+    our_InitRGBProfile(1,&adobe_primaries_prequantized,&Our->icc_LinearClay,&Our->iccsize_LinearClay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
+    our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's Linear ClayRGB icc profile.");
 }
 
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -183,6 +189,8 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     b=laBeginRow(uil,c,0,0);
     laShowLabel(uil,c,"Background",0,0)->Expand=1;
     laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+    laShowLabel(uil,c,"Color Space",0,0)->Expand=1;
+    laShowItem(uil,c,0,"our.canvas.color_interpretation");
     laEndRow(uil,b);
 }
 void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -269,6 +277,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laColumn* c=laFirstColumn(uil);
     
     laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0);
+    laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -412,7 +421,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     if (!e->OffScr || e->OffScr->pColor[0]->Height != ui->B - ui->U || e->OffScr->pColor[0]->Width != ui->R - ui->L){
         if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
-        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16, W, H, 0, 0);
+        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0);
     }
 
     //our_CANVAS_TEST(bt,ui);
@@ -434,11 +443,15 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
     laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
     laBoxedTheme *bt = (*ui->Type->Theme);
 
-    tnsUseImmShader();tnsEnableShaderv(T->immShader);
-    tnsUniformColorMode(T->immShader, 2);
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,2);
+    tnsUniformOutputColorSpace(T->immShader, 0);
+    if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){ tnsUniformInputColorSpace(T->immShader, 0); }
+    elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){ tnsUniformInputColorSpace(T->immShader, 1); }
+
     tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
     tnsFlush();
-    tnsUniformColorMode(T->immShader, 0);
+
+    tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0); tnsUniformOutputColorSpace(T->immShader, MAIN.CurrentWindow->OutputColorSpace);
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
     
     la_CanvasDefaultOverlay(ui, h);
@@ -822,7 +835,52 @@ static void _our_png_read(png_struct *ps, png_byte *data, png_size_t length){
     memcpy(data,&LayerRead->data[LayerRead->NextData],length);
     LayerRead->NextData+=length;
 }
-int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int UseOffsets, int StartX, int StartY){
+int our_PeekPNG(FILE* fp, int* HasProfile, int* HassRGB, laSafeString** iccName){
+    png_structp png_ptr = png_create_read_struct (PNG_LIBPNG_VER_STRING,0,0,0); if (!png_ptr) { return 0; }
+    png_infop info_ptr = png_create_info_struct(png_ptr); if (!info_ptr) { return 0; }
+    png_init_io(png_ptr, fp);
+    png_read_info(png_ptr, info_ptr);
+    int srgb_intent = 0;
+    png_charp icc_profile_name = NULL;
+    png_uint_32 icc_proflen = 0;
+    int icc_compression_type = 0;
+    cmsHPROFILE input_buffer_profile = NULL;
+    cmsHTRANSFORM cmsTransform = NULL;
+    cmsToneCurve *cmsToneCurve = NULL;
+    cmsUInt32Number input_buffer_format = 0;
+#if PNG_LIBPNG_VER < 10500    // 1.5.0beta36, according to libpng CHANGES
+    png_charp icc_profile = NULL;
+#else
+    png_bytep icc_profile = NULL;
+#endif
+    if(png_get_iCCP (png_ptr, info_ptr, &icc_profile_name, &icc_compression_type, &icc_profile, &icc_proflen)) {
+        input_buffer_profile = cmsOpenProfileFromMem(icc_profile, icc_proflen);
+        if(!input_buffer_profile) { goto cleanup_png_peek; }
+        cmsColorSpaceSignature cs_sig = cmsGetColorSpace(input_buffer_profile);
+        if (cs_sig != cmsSigRgbData) { logPrint("    png has grayscale iCCP, OurPaint doesn't supported that yet, will load as sRGB.\n");
+            cmsCloseProfile(input_buffer_profile); input_buffer_profile = NULL; }
+        else{
+            char* desc="UNAMED PROFILE";
+            cmsUInt32Number len=cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",0,0);
+            if(len){ desc=calloc(1,sizeof(char)*len); cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",desc,len); }
+            logPrint("    png has iCCP: %s.\n", desc); strSafeSet(iccName, desc); if(len){ free(desc); }
+        }
+    }elif(png_get_sRGB(png_ptr,info_ptr,&srgb_intent)){
+        logPrint("    png is sRGB.\n");
+        *HassRGB=1;
+    }else{
+        // should use png_get_cHRM and png_get_gAMA, but for simplicity we just treat them as srgb,
+        logPrint("    png doesn't contain iCCP or sRGB flags, assuming sRGB.\n");
+        *HassRGB=0;
+    }
+
+cleanup_png_peek:
+
+    if(input_buffer_profile) cmsCloseProfile(input_buffer_profile);
+    if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
+    return 1;
+}
+int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, int OutputProfileMode, int UseOffsets, int StartX, int StartY){
     int result=0;
     if((!fp&&!buf) || !l) return 0;
 
@@ -831,6 +889,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int Use
     png_uint_32 icc_proflen = 0;
     int icc_compression_type = 0;
     cmsHPROFILE input_buffer_profile = NULL;
+    cmsHPROFILE output_buffer_profile = NULL;
     cmsHTRANSFORM cmsTransform = NULL;
     cmsToneCurve *cmsToneCurve = NULL;
     cmsUInt32Number input_buffer_format = 0;
@@ -855,26 +914,17 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int Use
 
     int UseSRGB=0;
 
-    if(UseProfile){
+    if(InputProfileMode==1){
         if(png_get_iCCP (png_ptr, info_ptr, &icc_profile_name, &icc_compression_type, &icc_profile, &icc_proflen)) {
             input_buffer_profile = cmsOpenProfileFromMem(icc_profile, icc_proflen);
             if(!input_buffer_profile) { goto cleanup_png_read; }
             cmsColorSpaceSignature cs_sig = cmsGetColorSpace(input_buffer_profile);
-            if (cs_sig != cmsSigRgbData) { logPrint("    png has grayscale iCCP, OurPaint doesn't supported that yet, will load as sRGB.\n");
-                cmsCloseProfile(input_buffer_profile); input_buffer_profile = NULL; }
+            if (cs_sig != cmsSigRgbData) { /*no grayscale icc*/ cmsCloseProfile(input_buffer_profile); input_buffer_profile = NULL; }
             else{
                 char* desc="UNAMED PROFILE";
                 cmsUInt32Number len=cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",0,0);
-                if(len){ desc=calloc(1,sizeof(char)*len); cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",desc,len); }
-                logPrint("    png has iCCP: %s.\n", desc); if(len){ free(desc); }
+                if(len){ desc=calloc(1,sizeof(char)*len); cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",desc,len); free(desc); }
             }
-        }elif(png_get_sRGB(png_ptr,info_ptr,&srgb_intent)){
-            logPrint("    png is sRGB.\n");
-            UseSRGB=1;
-        }else{
-            // should use png_get_cHRM and png_get_gAMA, but for simplicity we just treat them as srgb,
-            logPrint("    png doesn't contain iCCP or sRGB flags, assuming sRGB.\n");
-            UseSRGB=1;
         }
     }
 
@@ -908,15 +958,6 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int Use
     input_buffer_format = TYPE_RGBA_16_SE;
 #endif
 
-    if(UseProfile){
-        cmsTransform = cmsCreateTransform(
-            input_buffer_profile, input_buffer_format,
-            Our->icc_LinearsRGB, TYPE_RGBA_16,
-            INTENT_PERCEPTUAL,
-            0
-        );
-    }
-
     int W = png_get_image_width(png_ptr, info_ptr);
     int H = png_get_image_height(png_ptr, info_ptr);
 
@@ -926,6 +967,25 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int Use
         png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
     }
 
+    if(InputProfileMode && OutputProfileMode && (InputProfileMode!=OutputProfileMode)){
+        void* icc=0; int iccsize=0;
+        if(!input_buffer_profile){
+            if(InputProfileMode==OUR_PNG_READ_INPUT_SRGB){ icc=Our->icc_sRGB; iccsize=Our->iccsize_sRGB; }
+            elif(InputProfileMode==OUR_PNG_READ_INPUT_CLAY){ icc=Our->icc_Clay; iccsize=Our->iccsize_Clay; }
+            elif(InputProfileMode==OUR_PNG_READ_INPUT_LINEAR_SRGB){ icc=Our->icc_LinearsRGB; iccsize=Our->iccsize_LinearsRGB; }
+            elif(InputProfileMode==OUR_PNG_READ_INPUT_LINEAR_CLAY){ icc=Our->icc_LinearClay; iccsize=Our->iccsize_LinearClay; }
+            input_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
+        }
+        icc=0; iccsize=0;
+        if(OutputProfileMode==OUR_PNG_READ_OUTPUT_LINEAR_SRGB){ icc=Our->icc_LinearsRGB; iccsize=Our->iccsize_LinearsRGB; }
+        elif(OutputProfileMode==OUR_PNG_READ_OUTPUT_LINEAR_CLAY){ icc=Our->icc_LinearClay; iccsize=Our->iccsize_LinearClay; }
+        output_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
+        if(input_buffer_profile && output_buffer_profile){
+            cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
+            cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,sizeof(uint16_t)*W*H);
+        }
+    }
+
     our_LayerToTexture(l);
 
     result=1;
@@ -933,6 +993,8 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int UseProfile, int Use
 cleanup_png_read:
 
     if(input_buffer_profile) cmsCloseProfile(input_buffer_profile);
+    if(output_buffer_profile) cmsCloseProfile(output_buffer_profile);
+    if(cmsTransform) cmsDeleteTransform(cmsTransform);
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
     free(Our->ImageBuffer); Our->ImageBuffer=0;
 
@@ -1196,22 +1258,66 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
 }
 int ourinv_ImportLayer(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0;
+    a->CustomData=memAcquire(sizeof(OurPNGReadExtra));
     laInvoke(a, "LA_file_dialog", e, 0, "filter_extensions=png;use_extension=png", 0);
     return LA_RUNNING;
 }
 int ourmod_ImportLayer(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0;
-    if (a->ConfirmData){
-        if (a->ConfirmData->StrData){
-            FILE* fp=fopen(a->ConfirmData->StrData,"rb");
-            if(!fp) return LA_FINISHED;
-            if(!ol) ol=our_NewLayer("Imported");
-            our_LayerImportPNG(ol, fp, 0, 0, 0, 0, 0);
-            fclose(fp);
+    OurPNGReadExtra* ex=a->CustomData;
+    if(!ex->Confirming){
+        if (a->ConfirmData){
+            if (a->ConfirmData->StrData){
+                FILE* fp=fopen(a->ConfirmData->StrData,"rb"); if(!fp) return LA_FINISHED;
+                if(!our_PeekPNG(fp,&ex->HasProfile, &ex->HassRGB, &ex->iccName)){ fclose(fp); return LA_FINISHED; }
+                else{ ex->Confirming=1; fclose(fp); strSafeSet(&ex->FilePath,a->ConfirmData->StrData);
+                    if(ex->HasProfile){ex->InputMode=OUR_PNG_READ_INPUT_ICC;}
+                    else{ ex->InputMode=OUR_PNG_READ_INPUT_SRGB; }
+                    laEnableOperatorPanel(a,a->This,e->x,e->y,300,200,0,0,0,0,0,0,0,0,e); return LA_RUNNING;
+                }
+            }
+            return LA_FINISHED;
         }
-        return LA_FINISHED;
+    }else{
+        if (a->ConfirmData){
+            if (a->ConfirmData->Mode==LA_CONFIRM_OK){
+                FILE* fp=fopen(ex->FilePath->Ptr,"rb"); if(!fp) return LA_FINISHED;
+                if(!ol) ol=our_NewLayer("Imported");
+                int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:OUR_PNG_READ_OUTPUT_LINEAR_CLAY);
+                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, 0, 0, 0);
+                laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+                laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
+                our_LayerRefreshLocal(ol);
+                fclose(fp);
+            }
+            return LA_FINISHED;
+        }
     }
     return LA_RUNNING;
+}
+void ourui_ImportLayer(laUiList *uil, laPropPack *This, laPropPack *Operator, laColumn *UNUSED, int context){
+    laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laUiItem* b;
+
+    laShowLabel(uil,c,"Select the importing behavior:",0,0);
+    laShowLabel(uil,cl,"Input:",0,0);  laShowItem(uil,cl,Operator,"input_mode");
+    b=laOnConditionThat(uil,c,laNot(laEqual(laPropExpression(Operator,"input_mode"),laIntExpression(OUR_PNG_READ_INPUT_FLAT))));{
+        laShowLabel(uil,cr,"Output:",0,0); laShowItem(uil,cr,Operator,"output_mode");
+        laShowLabel(uil,cl,"Canvas:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,cr,0,"our.canvas.color_interpretation");
+    }laEndCondition(uil,b);
+    b=laOnConditionThat(uil,c,laPropExpression(Operator,"has_profile"));{
+        laShowLabel(uil,c,"Input image has built-in color profile:",0,0);
+        laShowItem(uil,cl,Operator,"icc_name")->Flags|=LA_TEXT_MONO;
+    }laElse(uil,b);{
+        laShowLabel(uil,c,"Input image does not have a built-in color profile.",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    }laEndCondition(uil,b);
+    b=laOnConditionThat(uil,c,laPropExpression(Operator,"has_srgb"));{
+        laShowLabel(uil,c,"Input image is tagged as sRGB.",0,0);
+    }laElse(uil,b);{
+        laShowLabel(uil,c,"Input image is not tagged as sRGB.",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    }laEndCondition(uil,b);
+
+    b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
 }
 int ourchk_ExportImage(laPropPack *This, laStringSplitor *ss){
     OurLayer* ol=This?This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return 0; return 1;
@@ -1382,7 +1488,7 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
 }
 void ourset_LayerImage(OurLayer* l, void* data, int size){
     if(!data) return;
-    our_LayerImportPNG(l, 0, data, 0, 1, Our->TempLoadX, Our->TempLoadY);
+    our_LayerImportPNG(l, 0, data, 0, 0, 1, Our->TempLoadX, Our->TempLoadY);
 }
 void ourset_LayerMove(OurLayer* l, int move){
     if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas"); }
@@ -1403,6 +1509,9 @@ void ourset_Tool(void* unused, int a){
 }
 void ourset_ShowBorder(void* unused, int a){
     Our->ShowBorder=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
+void ourset_ColorInterpretation(void* unused, int a){
+    Our->ColorInterpretation=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_ShowTiles(void* unused, int a){
     Our->ShowTiles=a; laNotifyUsers("our.canvas");
@@ -1476,14 +1585,35 @@ void ourPushEverything(){
 }
 
 void ourRegisterEverything(){
-    laPropContainer* pc; laKeyMapper* km; laProp* p;
+    laPropContainer* pc; laKeyMapper* km; laProp* p; laOperatorType* at;
 
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
     laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",ourchk_ExportLayer,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
-    laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,0,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
+    at=laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,0,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
+    at->UiDefine=ourui_ImportLayer; pc=laDefineOperatorProps(at, 1);
+    laAddStringProperty(pc,"icc_name","ICC Name","The name of the icc profile comes with the image",LA_WIDGET_STRING_PLAIN,0,0,0,1,offsetof(OurPNGReadExtra,iccName),0,0,0,0,LA_READ_ONLY);
+    laAddIntProperty(pc,"has_profile","Has Profile","If the importing image has a built-in icc profile",0,0,0,0,0,0,0,0,offsetof(OurPNGReadExtra,HasProfile),0,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
+    laAddIntProperty(pc,"has_srgb","Has sRGB","If the importing image has a sRGB tag",0,0,0,0,0,0,0,0,offsetof(OurPNGReadExtra,HassRGB),0,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
+    p=laAddEnumProperty(pc, "input_mode","Input Mode","Interpret input pixels as one of the supported formats",0,0,0,0,0,offsetof(OurPNGReadExtra,InputMode),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FLAT","Flat","Read the image as-is and don't do any color space transformations",OUR_PNG_READ_INPUT_FLAT,0);
+    laAddEnumItemAs(p,"ICC","Image ICC","Use the image built-in icc profile",OUR_PNG_READ_INPUT_ICC,0);
+    laAddEnumItemAs(p,"SRGB","Force sRGB","Interpret the image as sRGB regardless the image metadata",OUR_PNG_READ_INPUT_SRGB,0);
+    laAddEnumItemAs(p,"LINEAR_SRGB","Force Linear sRGB","Interpret the image as Linear sRGB regardless the image metadata",OUR_PNG_READ_INPUT_LINEAR_SRGB,0);
+    laAddEnumItemAs(p,"CLAY","Force Clay","Interpret the image as Clay (AdobeRGB 1998 compatible) regardless the image metadata",OUR_PNG_READ_INPUT_CLAY,0);
+    laAddEnumItemAs(p,"LINEAR_CLAY","Force Linear Clay","Interpret the image as Linear Clay (AdobeRGB 1998 compatible) regardless the image metadata",OUR_PNG_READ_INPUT_LINEAR_CLAY,0);
+    p=laAddEnumProperty(pc, "output_mode","Output Mode","Transform the input pixels to one of the supported formats",0,0,0,0,0,offsetof(OurPNGReadExtra,OutputMode),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"CANVAS","Follow Canvas","Transform the pixels into current canvas interpretation",OUR_PNG_READ_OUTPUT_CANVAS,0);
+    laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Write sRGB pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_SRGB,0);
+    laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
+
+
+#define OUR_PNG_READ_OUTPUT_CANVAS 0
+#define OUR_PNG_READ_OUTPUT_LINEAR_SRGB OUR_PNG_READ_INPUT_SRGB
+#define OUR_PNG_READ_OUTPUT_LINEAR_CLAY OUR_PNG_READ_INPUT_LINEAR_CLAY
+
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,L'🗴',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
@@ -1493,12 +1623,12 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,0,ourinv_ExportImage,ourmod_ExportImage,L'🖼',0);
 
-    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint");
-    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0);
-    laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0);
-    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0);
-    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0);
-    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0);
+    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F);
+    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -1580,6 +1710,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show border on the canvas",1,0);
+    p=laAddEnumProperty(pc,"color_interpretation","Color Interpretation","Interpret the color values on this canvas as in which color space",0,0,0,0,0,offsetof(OurPaint,ColorInterpretation),0,ourset_ColorInterpretation,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Interpret the color values as if they are in Linear sRGB color space",OUR_CANVAS_INTERPRETATION_SRGB,0);
+    laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Interpret the color values as if they are in Linear Clay color space (AdobeRGB 1998 compatible)",OUR_CANVAS_INTERPRETATION_CLAY,0);
 
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
