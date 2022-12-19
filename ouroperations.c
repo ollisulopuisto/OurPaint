@@ -322,6 +322,12 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Exporting Defaults:",0,0);
+    laShowLabel(uil,cl,"Bit Depth:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_bit_depth");
+    laShowLabel(uil,cl,"Color Profile:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_color_profile");
+    laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Developer:",0,0);
     laShowItem(uil,cl,0,"our.preferences.show_debug_tiles");
@@ -1208,16 +1214,12 @@ void our_EnsureEraser(int EventIsEraser){
 }
 
 void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
-    uint8_t color[4];
+    float color[4]; real rcolor[3],xyz[3];
     glBindFramebuffer(GL_READ_FRAMEBUFFER, e->OffScr->FboHandle);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    glReadPixels(x,y,1,1, GL_RGBA, GL_UNSIGNED_BYTE, color);
-    real a=(real)color[3]/255;
-    Our->CurrentColor[0]=(real)color[0]/255*a;
-    Our->CurrentColor[1]=(real)color[1]/255*a;
-    Our->CurrentColor[2]=(real)color[2]/255*a;
-    //tns2LinearsRGB(Our->CurrentColor);
+    glReadPixels(x,y,1,1, GL_RGBA, GL_FLOAT, color);
+    color[0]*=color[3];color[1]*=color[3];color[2]*=color[3];orSet3v(Our->CurrentColor,color);
 }
 
 void our_StartCropping(OurCanvasDraw* cd){
@@ -1740,6 +1742,13 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"show_debug_tiles","Show debug tiles","Whether to show debug tiles",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowTiles),0,ourset_ShowTiles,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show debug tiles on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show debug tiles on the canvas",1,0);
+    p=laAddEnumProperty(pc,"export_default_bit_depth","Export Default Bit Depth","Default bit depth when exporting images",0,0,0,0,0,offsetof(OurPaint,DefaultBitDepth),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
+    laAddEnumItemAs(p,"D16","16 Bits","Use 16 bits per channel",OUR_EXPORT_BIT_DEPTH_16,0);
+    p=laAddEnumProperty(pc, "export_default_color_profile","Export Default Color Profile","Default color profile to use when exporting images",0,0,0,0,0,offsetof(OurPaint,DefaultColorProfile),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
+    laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
+    laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
