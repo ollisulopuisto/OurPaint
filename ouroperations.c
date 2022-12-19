@@ -755,26 +755,62 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
     else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
     printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
 }
-uint16_t* our_GetFinalRow(int UseFrame, int row, int x, int y, int w, int h, uint16_t* temp){
-    if(!UseFrame) return &Our->ImageBuffer[Our->ImageW*(Our->ImageH-row-1)*4];
-    int userow=(h-row-1)-(Our->ImageY-(y-h));
-    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }  return temp; }
-    int sstart=x>Our->ImageX?x-Our->ImageX:0, tstart=x>Our->ImageX?0:Our->ImageX-x;
-    int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));
-    for(int i=0;i<sstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }
-    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }
-    memcpy(&temp[tstart*4],&Our->ImageBuffer[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(uint16_t)*4);
-    return temp;
+#define GET_FINAL_ROW_TYPE(TYPE)\
+TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
+    if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
+    int userow=(h-row-1)-(Our->ImageY-(y-h));\
+    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }  return temp; }\
+    int sstart=x>Our->ImageX?x-Our->ImageX:0, tstart=x>Our->ImageX?0:Our->ImageX-x;\
+    int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));\
+    for(int i=0;i<sstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
+    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
+    memcpy(&temp[tstart*4],&((TYPE*)Our->ImageBuffer)[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
+    return temp;\
 }
+GET_FINAL_ROW_TYPE(uint16_t)
+GET_FINAL_ROW_TYPE(uint8_t)
+typedef void* (*ourGetFinalRowFunc)(int UseFrame, int row, int x, int y, int w, int h, void* temp);
 static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t length){
     OurLayerWrite* LayerWrite=png_get_io_ptr(png_ptr);
     arrEnsureLength(&LayerWrite->data,LayerWrite->NextData+length,&LayerWrite->MaxData,sizeof(unsigned char));
     memcpy(&LayerWrite->data[LayerWrite->NextData], data, length);
     LayerWrite->NextData+=length;
 }
-int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame){
+void our_ImageConvertForExport(int BitDepth, int ColorProfile){
+    uint8_t* NewImage;
+    cmsHTRANSFORM cmsTransform = NULL;
+    cmsHPROFILE input_buffer_profile = NULL;
+    cmsHPROFILE output_buffer_profile = NULL;
+
+    if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
+
+    input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
+        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+
+    if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
+        if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
+        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
+        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
+        cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,Our->ImageW*Our->ImageH);
+        cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
+    }
+    NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
+    for(int row=0;row<Our->ImageH;row++){
+        for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
+            p[0]=((real)p0[0]+0.5)/256; p[1]=((real)p0[1]+0.5)/256; p[2]=((real)p0[2]+0.5)/256; p[3]=((real)p0[3]+0.5)/256;
+        }
+    }
+    free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
+}
+int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
     if((!fp)&&(!WriteToBuffer)) return 0;
     if(!Our->ImageBuffer) return 0;
+
+    int UseBitDepth,ElemSize; void* use_icc=0; int use_icc_size;
+    ourGetFinalRowFunc GetFinalRow;
+
+    if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ UseBitDepth=16; ElemSize=sizeof(uint16_t); ColorProfile=OUR_EXPORT_COLOR_MODE_FLAT; GetFinalRow=our_GetFinalRow_uint16_t; }
+    else{ UseBitDepth=8; ElemSize=sizeof(uint8_t); GetFinalRow=our_GetFinalRow_uint8_t; }
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     png_infop info_ptr = png_create_info_struct(png_ptr);
@@ -790,29 +826,28 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
 
     int X,Y,W,H; our_GetFinalDimension(UseFrame, &X,&Y,&W,&H);
     
-    png_set_IHDR(png_ptr, info_ptr,W,H,16,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
-    // Should not set gamma, we should set either srgb chunk or iccp. Gimp bug: https://gitlab.gnome.org/GNOME/gimp/-/issues/5363
-    // But we still include a gamma 1.0 for convenience in OurPaint internal layer reading.
-    //png_set_gAMA(png_ptr,info_ptr,0.45455);
-    //png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);
-    //png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_sRGB,Our->iccsize_sRGB);
-    png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
-    png_set_gAMA(png_ptr,info_ptr,1.0);
-    // Don't set alpha mode for internal data so read and write would be the same.
+    png_set_IHDR(png_ptr, info_ptr,W,H,UseBitDepth,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
+    if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);use_icc=Our->icc_sRGB;use_icc_size=Our->iccsize_sRGB; }
+    elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ use_icc=Our->icc_Clay;use_icc_size=Our->iccsize_Clay; }
+    elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ 
+        if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){use_icc=Our->icc_LinearsRGB;use_icc_size=Our->iccsize_LinearsRGB;}
+        elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){use_icc=Our->icc_LinearClay;use_icc_size=Our->iccsize_LinearClay;}
+    }
+    if(use_icc){ png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,use_icc,use_icc_size); }
 
     png_write_info(png_ptr, info_ptr);
     png_set_swap(png_ptr);
 
-    uint16_t* temp_row=calloc(W,sizeof(uint16_t)*4);
+    char* temp_row=calloc(W,ElemSize*4);
 
     for(int i=0;i<H;i++){
-        uint16_t* final=our_GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
+        char* final=GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
         png_write_row(png_ptr, (png_const_bytep)final);
     }
 
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
-    free(Our->ImageBuffer); Our->ImageBuffer=0;
+    if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
 
     if(WriteToBuffer){ *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData; }
 
@@ -996,7 +1031,7 @@ cleanup_png_read:
     if(output_buffer_profile) cmsCloseProfile(output_buffer_profile);
     if(cmsTransform) cmsDeleteTransform(cmsTransform);
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
-    if(Our->ImageBuffer) free(Our->ImageBuffer); Our->ImageBuffer=0;
+    if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
 
     return result;
 }
@@ -1249,7 +1284,7 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
             our_LayerToImageBuffer(ol, 0);
-            our_ImageExportPNG(fp, 0, 0, 0, 0);
+            our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT);
             fclose(fp);
         }
         return LA_FINISHED;
@@ -1288,13 +1323,17 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
-                memFree(ex);
                 fclose(fp);
             }
             return LA_FINISHED;
         }
     }
     return LA_RUNNING;
+}
+void ourexit_ImportLayer(laOperator* a, int result){
+    OurPNGReadExtra* ex=a->CustomData;
+    strSafeDestroy(&ex->FilePath);
+    memFree(ex);
 }
 void ourui_ImportLayer(laUiList *uil, laPropPack *This, laPropPack *Operator, laColumn *UNUSED, int context){
     laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
@@ -1325,26 +1364,61 @@ int ourchk_ExportImage(laPropPack *This, laStringSplitor *ss){
 }
 int ourinv_ExportImage(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
-    laInvoke(a, "LA_file_dialog", e, 0, "warn_file_exists=true;", 0);
+    a->CustomData=memAcquire(sizeof(OurPNGWriteExtra));
+    laInvoke(a, "LA_file_dialog", e, 0, "warn_file_exists=true;filter_extensions=png;use_extension=png", 0);
     return LA_RUNNING;
 }
 int ourmod_ExportImage(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
-    if (a->ConfirmData){
-        if (a->ConfirmData->StrData){
-            if(!our_CanvasEnsureImageBuffer()) return LA_FINISHED;
-            FILE* fp=fopen(a->ConfirmData->StrData,"wb");
-            if(!fp) return LA_FINISHED;
-            our_CanvasFillImageBufferBackground();
-            for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
-                our_LayerToImageBuffer(ol, 1);
+    OurPNGWriteExtra* ex=a->CustomData;
+    if(!ex->Confirming){
+       if (a->ConfirmData){
+            if (a->ConfirmData->StrData){
+                strSafeSet(&ex->FilePath,a->ConfirmData->StrData); ex->Confirming=1;
+                ex->ColorProfile=Our->DefaultColorProfile; ex->BitDepth=Our->DefaultBitDepth;
+                laEnableOperatorPanel(a,a->This,e->x,e->y,200,200,0,0,0,0,0,0,0,0,e); return LA_RUNNING;
             }
-            our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder);
-            fclose(fp);
+            return LA_FINISHED;
         }
-        return LA_FINISHED;
+    }else{
+         if (a->ConfirmData){
+            if (a->ConfirmData->Mode==LA_CONFIRM_OK){
+                if(!our_CanvasEnsureImageBuffer()) return LA_FINISHED;
+                FILE* fp=fopen(ex->FilePath->Ptr,"wb");
+                if(!fp) return LA_FINISHED;
+                our_CanvasFillImageBufferBackground();
+                for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
+                    our_LayerToImageBuffer(ol, 1);
+                }
+                our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
+                our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
+                fclose(fp);
+            }
+            return LA_FINISHED;
+        }
     }
     return LA_RUNNING;
+}
+void ourexit_ExportImage(laOperator* a, int result){
+    OurPNGWriteExtra* ex=a->CustomData;
+    strSafeDestroy(&ex->FilePath);
+    memFree(ex);
+}
+void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, laColumn *UNUSED, int context){
+    laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laUiItem* b;
+
+    laShowLabel(uil,c,"Select the exporting behavior:",0,0);
+    laShowLabel(uil,cl,"Bit Depth:",0,0);  laShowItem(uil,cl,Operator,"bit_depth");
+    b=laOnConditionThat(uil,c,laEqual(laPropExpression(Operator,"bit_depth"),laIntExpression(OUR_EXPORT_BIT_DEPTH_16)));{
+        laShowLabel(uil,c,"16 bit images would be exported in the same linear color space as the canvas",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP;
+    }laElse(uil,b);{
+        laShowLabel(uil,cr,"Color Space:",0,0); laShowItem(uil,cr,Operator,"color_profile");
+    }laEndCondition(uil,b);
+
+    laShowLabel(uil,cl,"Canvas Current:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,cr,0,"our.canvas.color_interpretation");
+
+    b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
 }
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
@@ -1484,7 +1558,7 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     void* buf=0;
     if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
-    if(our_ImageExportPNG(0,1,&buf,r_size, 0)){ *r_is_copy=1; return buf; }
+    if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
 }
 void ourset_LayerImage(OurLayer* l, void* data, int size){
@@ -1593,7 +1667,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
     laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",ourchk_ExportLayer,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
-    at=laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,0,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
+    at=laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,ourexit_ImportLayer,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
     at->UiDefine=ourui_ImportLayer; pc=laDefineOperatorProps(at, 1);
     laAddStringProperty(pc,"icc_name","ICC Name","The name of the icc profile comes with the image",LA_WIDGET_STRING_PLAIN,0,0,0,1,offsetof(OurPNGReadExtra,iccName),0,0,0,0,LA_READ_ONLY);
     laAddIntProperty(pc,"has_profile","Has Profile","If the importing image has a built-in icc profile",0,0,0,0,0,0,0,0,offsetof(OurPNGReadExtra,HasProfile),0,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
@@ -1622,7 +1696,15 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_brush_resize","Brush Resize","Brush resize",0,0,0,ourinv_BrushResize,0,0,0);
     laCreateOperatorType("OUR_action","Action","Doing action on a layer",0,0,0,ourinv_Action,ourmod_Action,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
-    laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,0,ourinv_ExportImage,ourmod_ExportImage,L'🖼',0);
+    at=laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,ourexit_ExportImage,ourinv_ExportImage,ourmod_ExportImage,L'🖼',0);
+    at->UiDefine=ourui_ExportImage; pc=laDefineOperatorProps(at, 1);
+    p=laAddEnumProperty(pc, "bit_depth","Bit Depth","How many bits per channel should be used",0,0,0,0,0,offsetof(OurPNGWriteExtra,BitDepth),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
+    laAddEnumItemAs(p,"D16","16 Bits","Use 16 bits per channel",OUR_EXPORT_BIT_DEPTH_16,0);
+    p=laAddEnumProperty(pc, "color_profile","Output Mode","Transform the input pixels to one of the supported formats",0,0,0,0,0,offsetof(OurPNGWriteExtra,ColorProfile),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
+    laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
+    laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0);

@@ -174,6 +174,13 @@ STRUCTURE(OurUndo){
 #define OUR_CANVAS_INTERPRETATION_SRGB 0
 #define OUR_CANVAS_INTERPRETATION_CLAY 1
 
+#define OUR_EXPORT_BIT_DEPTH_8  0
+#define OUR_EXPORT_BIT_DEPTH_16 1
+
+#define OUR_EXPORT_COLOR_MODE_SRGB 0
+#define OUR_EXPORT_COLOR_MODE_CLAY 1
+#define OUR_EXPORT_COLOR_MODE_FLAT 2
+
 STRUCTURE(OurPNGReadExtra){
     int Confirming;
     laSafeString* FilePath;
@@ -182,6 +189,12 @@ STRUCTURE(OurPNGReadExtra){
     int HasProfile;
     int InputMode;
     int OutputMode;
+};
+STRUCTURE(OurPNGWriteExtra){
+    int Confirming;
+    laSafeString* FilePath;
+    int BitDepth;
+    int ColorProfile;
 };
 
 STRUCTURE(OurPaint){
@@ -208,6 +221,8 @@ STRUCTURE(OurPaint){
 
     int LockRadius;
     int EnableBrushCircle;
+    int DefaultBitDepth;
+    int DefaultColorProfile;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
