@@ -281,6 +281,8 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     }laElse(uil,b);{
         laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
     }laEndCondition(uil,b);
+
+    laShowItem(uil,c,0,"our.current_color");
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -1718,7 +1720,7 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
-    laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
+    laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,L'🖌');
     laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,L'🖼');
@@ -1786,7 +1788,7 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
-    laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,0,0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
+    laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
