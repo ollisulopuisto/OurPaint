@@ -153,6 +153,8 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowHeightAdjuster(uil,cl,This,"__move",0);
     laShowItemFull(uil,cl,This,"name",LA_WIDGET_STRING_PLAIN,0,0,0)->Expand=1;
+    laShowItemFull(uil,cl,This,"lock",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
+    laShowItemFull(uil,cl,This,"hide",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laEndRow(uil,b);
     laUiItem* b1=laOnConditionToggle(uil,cr,0,0,0,0,0);{ strSafeSet(&b1->ExtraInstructions,"text=☰");
         b=laBeginRow(uil,c,0,0);
@@ -171,6 +173,7 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItem(uil,c,0,"our.canvas.current_layer.name")->Expand=1;
         laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b1);
+        laShowItem(uil,c,0,"our.canvas.current_layer.transparency");
     }laElse(uil,b);{
         laShowItem(uil,c,0,"OUR_new_layer");
     }laEndCondition(uil,b);
@@ -187,7 +190,12 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
 
     laShowSeparator(uil,c);
     b=laBeginRow(uil,c,0,0);
-    lui=laShowLabel(uil,c,"Background:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+    lui=laShowLabel(uil,c,"Background:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT;
+        laUiItem* b2=laOnConditionThat(uil,c,laPropExpression(0,"our.lock_background"));{
+            laShowItemFull(uil,c,0,"our.lock_background",LA_WIDGET_ENUM_CYCLE,0,0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+        }laElse(uil,b2);{
+            laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+        }laEndCondition(uil,b2);
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0);
     lui=laShowLabel(uil,c,"Color Space:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,c,0,"our.canvas.color_interpretation");
@@ -322,6 +330,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
+    laShowItem(uil,c,0,"our.preferences.paint_undo_limit");
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Exporting Defaults:",0,0);
@@ -334,16 +343,16 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 }
 
 void our_CanvasDrawTextures(){
-    tnsUseImmShader; tnsEnableShaderv(T->immShader);
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); real MultiplyColor[4];
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
-        int any=0;
+        if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency; tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
             for(int col=0;col<OUR_TILES_PER_ROW;col++){
                 if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
                 int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
                 real pad=(real)OUR_TILE_SEAM/OUR_TILE_W; int seam=OUR_TILE_SEAM;
-                tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TILE_W-seam,OUR_TILE_W-seam*2,-OUR_TILE_W+seam*2,0,pad,pad,pad,pad);
+                tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TILE_W-seam,OUR_TILE_W-seam*2,-OUR_TILE_W+seam*2,MultiplyColor,pad,pad,pad,pad);
                 any=1;
             }
         }
@@ -636,7 +645,7 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
     if(!undo->Tiles.pFirst){ memFree(undo); return; /*unlikely;*/ }
     laFreeNewerDifferences();
     laRecordCustomDifferences(undo,ourundo_Tiles,ourredo_Tiles,ourundo_Free);
-    if(Push){ laPushDifferences("Paint",0); }
+    if(Push){ laPushDifferences("Paint",0); laFreeOlderDifferences(3); }
 }
 void our_LayerRefreshLocal(OurLayer* ol){
     //OurUndo* undo=memAcquire(sizeof(OurUndo)); undo->Layer=ol;
@@ -1255,7 +1264,7 @@ int ourinv_NewLayer(laOperator* a, laEvent* e){
 }
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
-    our_RemoveLayer(l); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    our_RemoveLayer(l); laNotifyUsers("our.canvas.layers"); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("Remove Layer",0);
     return LA_FINISHED;
 }
@@ -1476,6 +1485,8 @@ int ourinv_Action(laOperator* a, laEvent* e){
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
+    if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
+    Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
     laHideCursor();
     return LA_RUNNING;
@@ -1576,6 +1587,12 @@ void ourset_LayerMove(OurLayer* l, int move){
     if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas"); }
     elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas"); }
 }
+void ourset_LayerAlpha(OurLayer* l, real a){
+    l->Transparency=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
+void ourset_LayerHide(OurLayer* l, int hide){
+    l->Hide=hide; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 void ourset_BrushMove(OurBrush* b, int move){
     if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
     elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
@@ -1656,11 +1673,9 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     }
 }
 
-
 void ourPreFrame(){
     if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
 }
-
 void ourPushEverything(){
     laFreeOlderDifferences(0);
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
@@ -1726,7 +1741,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,L'🖌');
     laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,L'🖼');
-    
+    p=laAddEnumProperty(pc,"lock_background","Lock background","Lock background color to prevent accidental changes",0,0,0,0,0,offsetof(OurPaint,LockBackground),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","Unlocked","You can change background color",0,0);
+    laAddEnumItemAs(p,"LOCK","Locked","Background color is locked to prevent accidental changes",1,L'🔏');
     p=laAddEnumProperty(pc,"erasing","Erasing","Is in erasing mode",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,Erasing),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","Draw","Is drawing mode",0,0);
     laAddEnumItemAs(p,"TRUE","Erase","Is erasing mode",1,0);
@@ -1749,7 +1766,8 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
-
+    laAddIntProperty(pc,"paint_undo_limit","Paint Undo Limit","Undo step limit for painting actions.",0,0," Steps",256,5,1,100,0,offsetof(OurPaint,PaintUndoLimit),0,0,0,0,0,0,0,0,0,0,0);
+    
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
     laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,0,0,offsetof(OurPaint,Brushes),0);
@@ -1812,6 +1830,13 @@ void ourRegisterEverything(){
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_LayerMove,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"offset","Offset","Offset of the layer",0,"X,Y","px",0,0,0,0,0,offsetof(OurLayer,OffsetX),0,0,2,0,0,0,0,ourset_LayerPosition,0,0,0);
     laAddIntProperty(pc,"tile_start","Tile Start","Tile starting position for loading",0,0,0,0,0,0,0,0,0,0,0,2,0,0,ourget_LayerTileStart,0,ourset_LayerTileStart,0,0,LA_UDF_ONLY);
+    p=laAddEnumProperty(pc,"lock","Lock","Lock this layer",0,0,0,0,0,offsetof(OurLayer,Lock),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","Paintable","You can paint on this layer",0,L'🖌');
+    laAddEnumItemAs(p,"LOCK","Locked","This layer is locked from modification",1,L'🔏');
+    p=laAddEnumProperty(pc,"hide","Hide","Hide this layer",0,0,0,0,0,offsetof(OurLayer,Hide),0,ourset_LayerHide,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","Visible","Layer is visible",0,L'🌑');
+    laAddEnumItemAs(p,"HIDE","Hidden","Layer is hidden",1,L'🌔');
+    laAddFloatProperty(pc,"transparency","Transparency","Alpha of the layer",0,0,0,1,0,0.05,1,0,offsetof(OurLayer,Transparency),0,0,0,0,0,0,0,ourset_LayerAlpha,0,0,0);
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
@@ -1855,7 +1880,6 @@ void ourRegisterEverything(){
     laSetFrameCallbacks(ourPreFrame,0,0);
     laSetDiffCallback(ourPushEverything);
 }
-
 
 int ourInit(){
     Our=memAcquire(sizeof(OurPaint));
@@ -1921,6 +1945,7 @@ int ourInit(){
 
     Our->LockRadius=1;
     Our->EnableBrushCircle=1;
+    Our->PaintUndoLimit=100;
 
     Our->PenID=-1;
     Our->EraserID=-1;

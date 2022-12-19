@@ -42,6 +42,9 @@ STRUCTURE(OurLayer){
     laListItem Item;
     laSafeString Name;
     int OffsetX,OffsetY;
+    real Transparency;
+    int Lock;
+    int Hide;
     OurTexTile** TexTiles[OUR_TILES_PER_ROW];
 };
 
@@ -213,6 +216,7 @@ STRUCTURE(OurPaint){
     real CurrentScale;
 
     int Tool,ActiveTool,Erasing,EventErasing;
+    int LockBackground;
     int PenID,EraserID;
     int X,Y,W,H; //border
     int ColorInterpretation;
@@ -223,6 +227,7 @@ STRUCTURE(OurPaint){
     int EnableBrushCircle;
     int DefaultBitDepth;
     int DefaultColorProfile;
+    int PaintUndoLimit;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
