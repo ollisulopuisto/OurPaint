@@ -1219,7 +1219,7 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glReadPixels(x,y,1,1, GL_RGBA, GL_FLOAT, color);
-    color[0]*=color[3];color[1]*=color[3];color[2]*=color[3];orSet3v(Our->CurrentColor,color);
+    color[0]*=color[3];color[1]*=color[3];color[2]*=color[3];tnsVectorSet3v(Our->CurrentColor,color);
 }
 
 void our_StartCropping(OurCanvasDraw* cd){
