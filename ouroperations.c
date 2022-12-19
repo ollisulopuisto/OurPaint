@@ -645,7 +645,7 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
     if(!undo->Tiles.pFirst){ memFree(undo); return; /*unlikely;*/ }
     laFreeNewerDifferences();
     laRecordCustomDifferences(undo,ourundo_Tiles,ourredo_Tiles,ourundo_Free);
-    if(Push){ laPushDifferences("Paint",0); laFreeOlderDifferences(3); }
+    if(Push){ laPushDifferences("Paint",0); laFreeOlderDifferences(Our->PaintUndoLimit); }
 }
 void our_LayerRefreshLocal(OurLayer* ol){
     //OurUndo* undo=memAcquire(sizeof(OurUndo)); undo->Layer=ol;
@@ -1849,6 +1849,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_UP, 0, "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ',', "direction=out");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, '.', "direction=in");
+    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
