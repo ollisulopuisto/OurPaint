@@ -187,10 +187,10 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
 
     laShowSeparator(uil,c);
     b=laBeginRow(uil,c,0,0);
-    laShowLabel(uil,c,"Background",0,0)->Expand=1;
-    laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
-    laShowLabel(uil,c,"Color Space",0,0)->Expand=1;
-    laShowItem(uil,c,0,"our.canvas.color_interpretation");
+    lui=laShowLabel(uil,c,"Background:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+    lui=laShowLabel(uil,c,"Color Space:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,c,0,"our.canvas.color_interpretation");
     laEndRow(uil,b);
 }
 void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -275,9 +275,12 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
 }
 void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
-    
-    laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0);
-    laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
+
+    laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_SRGB)));{
+        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0);
+    }laElse(uil,b);{
+        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
+    }laEndCondition(uil,b);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -1684,11 +1687,6 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Write sRGB pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
 
-
-#define OUR_PNG_READ_OUTPUT_CANVAS 0
-#define OUR_PNG_READ_OUTPUT_LINEAR_SRGB OUR_PNG_READ_INPUT_SRGB
-#define OUR_PNG_READ_OUTPUT_LINEAR_CLAY OUR_PNG_READ_INPUT_LINEAR_CLAY
-
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,L'🗴',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
@@ -1710,7 +1708,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0);
     laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0);
-    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F);
     laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0);
     
     pc=laDefineRoot();
