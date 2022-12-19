@@ -982,7 +982,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
         output_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
         if(input_buffer_profile && output_buffer_profile){
             cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
-            cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,sizeof(uint16_t)*W*H);
+            cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,Our->ImageW*Our->ImageH);
         }
     }
 
@@ -996,7 +996,7 @@ cleanup_png_read:
     if(output_buffer_profile) cmsCloseProfile(output_buffer_profile);
     if(cmsTransform) cmsDeleteTransform(cmsTransform);
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
-    free(Our->ImageBuffer); Our->ImageBuffer=0;
+    if(Our->ImageBuffer) free(Our->ImageBuffer); Our->ImageBuffer=0;
 
     return result;
 }
@@ -1288,6 +1288,7 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
+                memFree(ex);
                 fclose(fp);
             }
             return LA_FINISHED;
