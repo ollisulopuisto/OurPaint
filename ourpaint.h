@@ -38,6 +38,10 @@ STRUCTURE(OurTexTile){
     uint16_t* CopyBuffer;
     int cl,cr,cu,cb;
 };
+
+#define OUR_BLEND_NORMAL 0
+#define OUR_BLEND_ADD 1
+
 STRUCTURE(OurLayer){
     laListItem Item;
     laSafeString Name;
@@ -45,6 +49,7 @@ STRUCTURE(OurLayer){
     real Transparency;
     int Lock;
     int Hide;
+    int BlendMode;
     OurTexTile** TexTiles[OUR_TILES_PER_ROW];
 };
 
@@ -245,7 +250,9 @@ STRUCTURE(OurPaint){
     GLint uBrushErasing;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
-    GLint uMode;
+    GLint uBlendMode;
+    GLint uAlphaTop;
+    GLint uAlphaBottom;
 
     real CurrentColor[3];
     real BackgroundColor[3];

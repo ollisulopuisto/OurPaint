@@ -85,16 +85,24 @@ const char OUR_COMPOSITION_SHADER[]="#version 430\n\
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
 layout(rgba16, binding = 0) uniform image2D top;\n\
 layout(rgba16, binding = 1) uniform image2D bottom;\n\
-uniform int uMode;\n\
+uniform int uBlendMode;\n\
+uniform float uAlphaTop;\n\
+uniform float uAlphaBottom;\n\
 vec4 mix_over(vec4 colora, vec4 colorb){\n\
+    colora=colora*uAlphaTop/uAlphaBottom;\n\
     vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
     c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
     return c;\n\
 }\n\
+vec4 add_over(vec4 colora, vec4 colorb){\n\
+    colora=colora*uAlphaTop/uAlphaBottom;\n\
+    vec4 a=colora+colorb; a.a=clamp(a.a,0,1); return a;\n\
+}\n\
 void main() {\n\
     ivec2 px=ivec2(gl_GlobalInvocationID.xy);\n\
     vec4 c1=imageLoad(top,px); vec4 c2=imageLoad(bottom,px);\n\
-    imageStore(bottom,px,mix_over(c1,c2));\n\
+    vec4 c=(uBlendMode==0)?mix_over(c1,c2):add_over(c1,c2);\n\
+    imageStore(bottom,px,c);\n\
     imageStore(top,px,vec4(0,0,0,0));\n\
 }";
 
@@ -166,14 +174,15 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     }laEndCondition(uil,b1);
 }
 void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c=laFirstColumn(uil);
+    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
 
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.current_layer"));{
         laUiItem* b1=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,0,"our.canvas.current_layer.name")->Expand=1;
         laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b1);
-        laShowItem(uil,c,0,"our.canvas.current_layer.transparency");
+        laShowItem(uil,cl,0,"our.canvas.current_layer.transparency");
+        laShowItem(uil,cr,0,"our.canvas.current_layer.blend_mode");
     }laElse(uil,b);{
         laShowItem(uil,c,0,"OUR_new_layer");
     }laEndCondition(uil,b);
@@ -346,6 +355,8 @@ void our_CanvasDrawTextures(){
     tnsUseImmShader; tnsEnableShaderv(T->immShader); real MultiplyColor[4];
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency; tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
+        if(l->BlendMode==OUR_BLEND_NORMAL){ glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA); }
+        if(l->BlendMode==OUR_BLEND_ADD){ glBlendFunc(GL_ONE,GL_ONE); }
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
             for(int col=0;col<OUR_TILES_PER_ROW;col++){
@@ -358,6 +369,7 @@ void our_CanvasDrawTextures(){
         }
         if(any) tnsFlush();
     }
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
 }
 void our_CanvasDrawTiles(){
     OurLayer* l=Our->CurrentLayer; if(!l) return;
@@ -445,7 +457,6 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     }
 
     //our_CANVAS_TEST(bt,ui);
-    glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
 
     tnsDrawToOffscreen(e->OffScr,1,0);
@@ -456,8 +467,6 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     our_CanvasDrawTextures();
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
-
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
 }
 void our_CanvasDrawOverlay(laUiItem* ui,int h){
     laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
@@ -509,6 +518,9 @@ void our_RemoveLayer(OurLayer* l){
 int our_MergeLayer(OurLayer* l){
     OurLayer* ol=l->Item.pNext; if(!ol) return 0; int xmin=INT_MAX,xmax=-INT_MAX,ymin=INT_MAX,ymax=-INT_MAX; int seam=OUR_TILE_SEAM;
     glUseProgram(Our->CompositionProgram);
+    glUniform1i(Our->uBlendMode, l->BlendMode);
+    glUniform1f(Our->uAlphaTop, 1-l->Transparency);
+    glUniform1f(Our->uAlphaBottom, 1-ol->Transparency);
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;// Should not happen.
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue; OurTexTile*t=l->TexTiles[row][col];
             int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
@@ -1277,10 +1289,13 @@ int ourinv_MoveLayer(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 int ourchk_MergeLayer(laPropPack *This, laStringSplitor *ss){
-    OurLayer* l=This->EndInstance; if(!l || !l->Item.pNext) return 0; return 1;
+    OurLayer* l=This->EndInstance; if(!l || !l->Item.pNext) return 0;
+    OurLayer* nl=l->Item.pNext; if(l->Lock || l->Transparency==1 || nl->Lock || nl->Transparency==1) return 0;
+    return 1;
 }
 int ourinv_MergeLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l || !l->Item.pNext) return LA_CANCELED;
+    OurLayer* nl=l->Item.pNext; if(l->Lock || l->Transparency==1 || nl->Lock || nl->Transparency==1) return LA_CANCELED;
     if(our_MergeLayer(l)){ laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
     return LA_FINISHED;
 }
@@ -1593,6 +1608,9 @@ void ourset_LayerAlpha(OurLayer* l, real a){
 void ourset_LayerHide(OurLayer* l, int hide){
     l->Hide=hide; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
+void ourset_LayerBlendMode(OurLayer* l, int mode){
+    l->BlendMode=mode; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 void ourset_BrushMove(OurBrush* b, int move){
     if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
     elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
@@ -1837,6 +1855,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","Visible","Layer is visible",0,L'🌑');
     laAddEnumItemAs(p,"HIDE","Hidden","Layer is hidden",1,L'🌔');
     laAddFloatProperty(pc,"transparency","Transparency","Alpha of the layer",0,0,0,1,0,0.05,1,0,offsetof(OurLayer,Transparency),0,0,0,0,0,0,0,ourset_LayerAlpha,0,0,0);
+    p=laAddEnumProperty(pc,"blend_mode","Blend Mode","How this layer is blended onto the stuff below",0,0,0,0,0,offsetof(OurLayer,BlendMode),0,ourset_LayerBlendMode,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Normal alpha blend",OUR_BLEND_NORMAL,0);
+    laAddEnumItemAs(p,"ADD","Add","Pixel values are simply added together",OUR_BLEND_ADD,0);
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
@@ -1938,7 +1959,9 @@ int ourInit(){
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
     Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
 
-    Our->uMode=glGetUniformLocation(Our->CompositionProgram,"uMode");
+    Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
+    Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
+    Our->uAlphaBottom=glGetUniformLocation(Our->CompositionProgram,"uAlphaBottom");
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
