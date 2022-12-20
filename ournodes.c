@@ -238,7 +238,7 @@ int ourRebuildBrushEval(){
     if(!Our->CurrentBrush || !Our->CurrentBrush->Rack) return LA_DAG_FLAG_PERM;
     laListHandle pending={0}; laRackPage* rp=Our->CurrentBrush->Rack; if(!rp)return LA_DAG_FLAG_PERM;
     for(laNodeRack* ir=rp->Racks.pFirst;ir;ir=ir->Item.pNext){
-        for(laBaseNode*bn=ir->Nodes.pFirst;bn;bn=bn->Item.pNext){ lstAppendPointer(&pending,bn); bn->Eval=0; }
+        for(laBaseNode*bn=ir->Nodes.pFirst;bn;bn=bn->Item.pNext){ if(!bn->InitDone){ bn->Type->Init(bn,1); bn->InitDone=1; } lstAppendPointer(&pending,bn); bn->Eval=0; }
     }
     laBaseNode*n;int result=LA_DAG_FLAG_PERM; laListItemPointer*NextLip;
     for(laListItemPointer*lip=pending.pFirst;lip;lip=NextLip){ n=lip->p; NextLip=lip->pNext;
