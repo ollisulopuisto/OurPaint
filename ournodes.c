@@ -255,7 +255,7 @@ void ourRegisterNodes(){
     laOperatorType *at;
     laEnumProp *ep;
 
-    pc=laAddPropertyContainer("our_node_brush_settings", "Brush Settings", "Brush settings node to read from",0,ui_BrushSettingsNode,sizeof(OurBrushSettingsNode),0,0,1);
+    pc=laAddPropertyContainer("our_node_brush_settings", "Brush Settings", "Brush settings node to read from",0,ui_BrushSettingsNode,sizeof(OurBrushSettingsNode),lapost_Node,0,1);
     OUR_PC_IDN_BRUSH_SETTINGS=pc; laPropContainerExtraFunctions(pc,0,0,0,0,laui_DefaultNodeOperationsPropUiDefine);
     laAddSubGroup(pc,"base","Base","Base node","la_base_node",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"canvas_scale", "Canvas scale","Canvas scale","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,CanvasScale),0,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -269,7 +269,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"angle", "Angle","Angle","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
 
-    pc=laAddPropertyContainer("our_node_brush_outputs", "Brush Outputs", "Brush outputs to draw actual dabs",0,ui_BrushOutputsNode,sizeof(OurBrushOutputsNode),0,0,1);
+    pc=laAddPropertyContainer("our_node_brush_outputs", "Brush Outputs", "Brush outputs to draw actual dabs",0,ui_BrushOutputsNode,sizeof(OurBrushOutputsNode),lapost_Node,0,1);
     OUR_PC_IDN_BRUSH_OUTPUTS=pc; laPropContainerExtraFunctions(pc,0,0,0,0,laui_DefaultNodeOperationsPropUiDefine);
     laAddSubGroup(pc,"base","Base","Base node","la_base_node",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"offset", "Offset","Offset","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Offset),0,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -283,7 +283,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"angle", "Angle","Angle","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
 
-    pc=laAddPropertyContainer("our_node_brush_device", "Brush Device", "Brush device input",0,ui_BrushDeviceNode,sizeof(OurBrushDeviceNode),0,0,1);
+    pc=laAddPropertyContainer("our_node_brush_device", "Brush Device", "Brush device input",0,ui_BrushDeviceNode,sizeof(OurBrushDeviceNode),lapost_Node,0,1);
     OUR_PC_IDN_BRUSH_DEVICE =pc; laPropContainerExtraFunctions(pc,0,0,0,0,laui_DefaultNodeOperationsPropUiDefine);
     laAddSubGroup(pc,"base","Base","Base node","la_base_node",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"pressure","Pressure","Pressure of the input","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Pressure),0,0,0,0,0,0,0,LA_UDF_SINGLE);
