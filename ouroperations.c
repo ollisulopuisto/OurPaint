@@ -1092,6 +1092,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/b->Size;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
+    if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
+    elif(this_angle-b->LastAngle>TNS_PI){ b->LastAngle+=(TNS_PI*2); }
 
     while(1){
         arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
@@ -1124,6 +1126,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
         }else{od->Recentness=0;}
         if(step+uselen<alllen)uselen+=step; else break;
     }
+    if(this_angle>TNS_PI*2){ this_angle-=(TNS_PI*2); }
     b->LastAngle=this_angle;
     b->BrushRemainingDist=alllen-uselen;
     if(Our->NextDab) {
