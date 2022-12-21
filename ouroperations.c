@@ -64,13 +64,14 @@ subroutine(BrushRoutines) void DoSample(){\n\
     ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n\
     if(p.y!=0) return;\n\
     vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
-    ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;\n\
+    ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024) return;\n\
+    ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
     vec4 color=imageLoad(img, px);\n\
     imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
     memoryBarrier();barrier();\n\
     if(uBrushErasing==0 || p.x!=0) return;\n\
     color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
-    color=color/64+imageLoad(img, uBrushCorner)/2; vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
+    color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),uBrushSmudge); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
     imageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);\n\
     imageStore(smudge_buckets,ivec2(0,0),color);\n\
 }\n\
@@ -111,9 +112,19 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
 
-void our_CanvasAlphaMix(uint16_t* target, uint16_t* source){
-    real a_1=(real)(65535-source[3])/65535;
-    target[3]=source[3]+target[3]*a_1; target[0]=source[0]+target[0]*a_1; target[1]=source[1]+target[1]*a_1; target[2]=source[2]+target[2]*a_1;
+void our_CanvasAlphaMix(uint16_t* target, uint16_t* source, real alpha){
+    real a_1=(real)(65535-source[3])/65535*alpha;
+    target[3]=source[3]*alpha+target[3]*a_1;
+    target[0]=source[0]*alpha+target[0]*a_1;
+    target[1]=source[1]*alpha+target[1]*a_1;
+    target[2]=source[2]*alpha+target[2]*a_1;
+}
+void our_CanvasAdd(uint16_t* target, uint16_t* source, real alpha){
+    int a=(int)(source[3]+target[3])*alpha; TNS_CLAMP(a,0,65535);
+    int r=(int)(source[0]+target[0])*alpha; TNS_CLAMP(r,0,65535);
+    int g=(int)(source[1]+target[1])*alpha; TNS_CLAMP(g,0,65535);
+    int b=(int)(source[2]+target[2])*alpha; TNS_CLAMP(b,0,65535);
+    target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 
 void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
@@ -673,9 +684,9 @@ void our_LayerRefreshLocal(OurLayer* ol){
 }
 void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
     if(!ol->TexTiles[row]){ol->TexTiles[row]=memAcquireSimple(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);}
-    if(ol->TexTiles[row][col]) return;
-    ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
+    if(!ol->TexTiles[row][col]) ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
     OurTexTile*t=ol->TexTiles[row][col];
+    if(t->Texture) return;
     t->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
     int sx=((real)col-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE,sy=((real)row-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     t->l=sx-OUR_TILE_SEAM,t->b=sy-OUR_TILE_SEAM; t->r=t->l+OUR_TILE_W; t->u=t->b+OUR_TILE_W;
@@ -693,7 +704,7 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
-void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite){
+void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int BlendMode, real alpha){
     if(!ot->Texture) return;
     int bufsize=sizeof(uint16_t)*OUR_TILE_W_USE*OUR_TILE_W_USE*4;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
@@ -702,7 +713,11 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite){
     if(composite){
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
-                our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4]);
+                if(BlendMode==OUR_BLEND_NORMAL){
+                    our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                }elif(BlendMode==OUR_BLEND_ADD){
+                    our_CanvasAdd(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                }
             }
         }
     }else{
@@ -767,10 +782,11 @@ void our_CanvasFillImageBufferBackground(){
     }
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
+    if(ol->Hide || ol->Transparency==1) return;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             int sx=ol->TexTiles[row][col]->l+OUR_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TILE_SEAM;
-            our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY, composite);
+            our_TileTextureToImage(ol->TexTiles[row][col], sx-Our->ImageX, sy-Our->ImageY, composite, ol->BlendMode, 1.0f-ol->Transparency);
         }
     }
 }
@@ -1422,7 +1438,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 if(!fp) return LA_FINISHED;
                 our_CanvasFillImageBufferBackground();
                 for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
-                    our_LayerToImageBuffer(ol, 1);
+                    our_LayerToImageBuffer(l, 1);
                 }
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
@@ -1698,6 +1714,7 @@ void ourPreFrame(){
     if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
 }
 void ourPushEverything(){
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
     laFreeOlderDifferences(0);
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
 }
@@ -1873,7 +1890,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_UP, 0, "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ',', "direction=out");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, '.', "direction=in");
-    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, "direction=in");
+    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_M_MOUSE_DOWN, 0, "mode=mouse;lock=true;");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
