@@ -313,11 +313,11 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laShowItem(uil,c,0,"our.current_color");
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c=laFirstColumn(uil);
+    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,15);
     
-    laShowItemFull(uil,c,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
+    laShowItemFull(uil,cr,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
-        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Extra->HeightCoeff=-1;
+        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     }laEndCondition(uil,b);
 }
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -326,7 +326,10 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     gu = g->Page;{
         gc = laFirstColumn(gu);
         laShowLabel(gu,gc,"OurPaint is made by Wu Yiming.",0,0)->Flags|=LA_TEXT_LINE_WRAP;
+        laUiItem* b =laBeginRow(gu,gc,0,0);
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaint;text=OurPaint Blog", 0, 0);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Dev log", 0, 0);
+        laEndRow(gu,b);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -335,6 +338,7 @@ void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     gu = g->Page;{
         gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"OurPaint %d.%d",OUR_VERSION_MAJOR,OUR_VERSION_MINOR);
         laShowLabel(gu,gc,buf,0,0)->Flags|=LA_TEXT_MONO;
+        laShowLabel(gu, gc, "Single canvas implementation.", 0, 0)->Flags|=LA_TEXT_MONO|LA_TEXT_LINE_WRAP;
     }
 }
 void ourui_AboutContent(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -602,6 +606,7 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
     for(int row=0;row<rows;row++){
         memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
     }
+    free(temp);
 }
 void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r, int u, int b){
     int rows=u-b,cols=r-l; int bufsize=rows*cols*sizeof(uint16_t)*4;
@@ -1696,8 +1701,8 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         laShowLabel(muil, mc, "Image", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItem(muil, mc, 0, "OUR_export_image");
         laShowLabel(muil, mc, "Layer", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
-        laShowItem(muil, mc, 0, "OUR_export_layer");
         laShowItem(muil, mc, 0, "OUR_import_layer");
+        laShowItem(muil, mc, 0, "OUR_export_layer");
         laShowLabel(muil, mc, "Others", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItem(muil, mc, 0, "LA_terminate_program");
         //laui_DefaultMenuButtonsFileEntries(muil,pp,actinst,extracol,0);
@@ -1717,6 +1722,15 @@ void ourPushEverything(){
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
     laFreeOlderDifferences(0);
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
+}
+void ourCleanUp(){
+    while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst); }
+    while(Our->Brushes.pFirst){ our_RemoveBrush(Our->Brushes.pFirst); }
+    free(Our->icc_Clay);free(Our->icc_sRGB);free(Our->icc_LinearClay);free(Our->icc_LinearsRGB);
+    tnsDeleteTexture(Our->SmudgeTexture);
+    glDeleteShader(Our->CanvasShader); glDeleteProgram(Our->CanvasProgram);
+    glDeleteShader(Our->CompositionShader); glDeleteProgram(Our->CompositionProgram);
+    arrFree(&Our->Dabs,&Our->MaxDab);
 }
 
 void ourRegisterEverything(){
@@ -1921,6 +1935,7 @@ void ourRegisterEverything(){
 
     laSetFrameCallbacks(ourPreFrame,0,0);
     laSetDiffCallback(ourPushEverything);
+    laSetCleanupCallback(ourCleanUp);
 }
 
 int ourInit(){
