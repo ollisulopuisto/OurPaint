@@ -86,7 +86,7 @@ subroutine(BrushRoutines) void DoSample(){\n\
     ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
     vec4 color=imageLoad(img, px);\n\
     imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
-    memoryBarrier();barrier();\n\
+    memoryBarrier();/*barrier();*/\n\
     if(uBrushErasing==0 || p.x!=0) return;\n\
     color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
     color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),uBrushSmudge); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
@@ -1582,8 +1582,9 @@ int ourmod_Crop(laOperator* a, laEvent* e){
 }
 int ourmod_Action(laOperator* a, laEvent* e){
     OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_CANCELED;
+    OurLayer* l=Our->CurrentLayer; OurBrush* ob=Our->CurrentBrush;
     switch(Our->ActiveTool){
-    case OUR_TOOL_PAINT: OurLayer* l=Our->CurrentLayer; OurBrush* ob=Our->CurrentBrush; if(!l||!ob) return LA_CANCELED;
+    case OUR_TOOL_PAINT: if(!l||!ob) return LA_CANCELED;
         return ourmod_Paint(a,e);
     case OUR_TOOL_CROP:
         return ourmod_Crop(a,e);
@@ -1935,6 +1936,9 @@ void ourRegisterEverything(){
     }
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, '[', "direction=smaller");
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
+
+    laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
+    laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
 
     laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
 
