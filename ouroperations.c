@@ -911,9 +911,11 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
 
     char* temp_row=calloc(W,ElemSize*4);
 
+    int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
         char* final=GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
         png_write_row(png_ptr, (png_const_bytep)final);
+        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H,0); }
     }
 
     png_write_end(png_ptr, info_ptr);
@@ -969,7 +971,7 @@ int our_PeekPNG(FILE* fp, int* HasProfile, int* HassRGB, laSafeString** iccName)
             char* desc="UNAMED PROFILE";
             cmsUInt32Number len=cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",0,0);
             if(len){ desc=calloc(1,sizeof(char)*len); cmsGetProfileInfoASCII(input_buffer_profile,cmsInfoDescription,"en","US",desc,len); }
-            logPrint("    png has iCCP: %s.\n", desc); strSafeSet(iccName, desc); if(len){ free(desc); }
+            logPrint("    png has iCCP: %s.\n", desc); strSafeSet(iccName, desc); if(len){ free(desc); } *HasProfile=1;
         }
     }elif(png_get_sRGB(png_ptr,info_ptr,&srgb_intent)){
         logPrint("    png is sRGB.\n");
@@ -1356,8 +1358,11 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
             if(!our_LayerEnsureImageBuffer(ol, 0)) return LA_FINISHED;
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
+            laShowProgress(0,-1,0);
             our_LayerToImageBuffer(ol, 0);
+            laShowProgress(0.5,-1,0);
             our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT);
+            laHideProgress();
             fclose(fp);
         }
         return LA_FINISHED;
@@ -1459,12 +1464,16 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 if(!our_CanvasEnsureImageBuffer()) return LA_FINISHED;
                 FILE* fp=fopen(ex->FilePath->Ptr,"wb");
                 if(!fp) return LA_FINISHED;
+                static int LayerCount=0; static int CurrentLayer=0; LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0;
                 our_CanvasFillImageBufferBackground();
+                laShowProgress(0,-1,0);
                 for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
                     our_LayerToImageBuffer(l, 1);
+                    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1,0);
                 }
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
+                laHideProgress();
                 fclose(fp);
             }
             return LA_FINISHED;
@@ -1631,7 +1640,9 @@ void ourset_LayerTileStart(OurLayer* l, int* xy){
     Our->TempLoadX = xy[0]; Our->TempLoadY = xy[1];
 }
 void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
-    void* buf=0;
+    static int LayerCount=0; static int CurrentLayer=0;
+    void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
+    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1,0);
     if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
