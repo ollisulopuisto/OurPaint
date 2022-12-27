@@ -536,16 +536,17 @@ void ourbeforefree_Layer(OurLayer* l){
             if(l->TexTiles[row][col]->Texture) tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0;
             if(l->TexTiles[row][col]->Data) free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0;
             if(l->TexTiles[row][col]->FullData) free(l->TexTiles[row][col]->FullData); l->TexTiles[row][col]->FullData=0;
+            if(l->TexTiles[row][col]->CopyBuffer) free(l->TexTiles[row][col]->CopyBuffer); l->TexTiles[row][col]->CopyBuffer=0;
             memFree(l->TexTiles[row][col]);
         }
         memFree(l->TexTiles[row]); l->TexTiles[row]=0;
     }
 }
-void our_RemoveLayer(OurLayer* l){
+void our_RemoveLayer(OurLayer* l, int cleanup){
     strSafeDestroy(&l->Name);
     if(Our->CurrentLayer==l){ OurLayer* nl=l->Item.pPrev?l->Item.pPrev:l->Item.pNext; memAssignRef(Our, &Our->CurrentLayer, nl); }
     lstRemoveItem(&Our->Layers, l);
-    ourbeforefree_Layer(l);
+    if(cleanup) ourbeforefree_Layer(l);
     memLeave(l);
 }
 int our_MergeLayer(OurLayer* l){
@@ -570,7 +571,7 @@ int our_MergeLayer(OurLayer* l){
 
     our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
     our_RecordUndo(ol,xmin,xmax,ymin,ymax,1,0);
-    our_RemoveLayer(l);
+    our_RemoveLayer(l,0);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
     laPushDifferences("Merge layers",0);
 
@@ -1320,7 +1321,7 @@ int ourinv_NewLayer(laOperator* a, laEvent* e){
 }
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
-    our_RemoveLayer(l); laNotifyUsers("our.canvas.layers"); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    our_RemoveLayer(l,0); laNotifyUsers("our.canvas.layers"); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("Remove Layer",0);
     return LA_FINISHED;
 }
@@ -1697,7 +1698,7 @@ void ourset_LayerPosition(OurLayer* l, int* xy){
     l->OffsetX=xy[0]; l->OffsetY=xy[1]; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourreset_Canvas(OurPaint* op){
-    while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst); }
+    while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst,1); }
 }
 void ourreset_Preferences(OurPaint* op){
     return; //does nothing.
@@ -1754,7 +1755,7 @@ void ourPushEverything(){
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
 }
 void ourCleanUp(){
-    while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst); }
+    while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst,1); }
     while(Our->Brushes.pFirst){ our_RemoveBrush(Our->Brushes.pFirst); }
     free(Our->icc_Clay);free(Our->icc_sRGB);free(Our->icc_LinearClay);free(Our->icc_LinearsRGB);
     tnsDeleteTexture(Our->SmudgeTexture);
