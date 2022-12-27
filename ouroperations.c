@@ -2035,7 +2035,7 @@ int ourInit(){
 
     tnsVectorSet3(Our->BackgroundColor,0.2,0.2,0.2);
     our_NewLayer("Our Layer");
-    OurBrush* ob=our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laset_InstanceUID(ob,"OURBRUSH_DEFAULT_YIMING");
+    OurBrush* ob=our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laset_InstanceUID(ob,"OURBRUSH_Default_Yiming");
     laMarkMemClean(ob); laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
     laAddRootDBInst("our.canvas");
