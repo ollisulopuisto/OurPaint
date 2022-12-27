@@ -830,10 +830,10 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
     if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
     int userow=(h-row-1)-(Our->ImageY-(y-h));\
-    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }  return temp; }\
-    int sstart=x>Our->ImageX?x-Our->ImageX:0, tstart=x>Our->ImageX?0:Our->ImageX-x;\
+    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); } return temp; }\
+    int sstart=x>Our->ImageX?(x-Our->ImageX):0, tstart=x>Our->ImageX?0:(Our->ImageX-x);\
     int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));\
-    for(int i=0;i<sstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
+    for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
     for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
     memcpy(&temp[tstart*4],&((TYPE*)Our->ImageBuffer)[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
     return temp;\
