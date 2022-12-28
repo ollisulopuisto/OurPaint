@@ -30,13 +30,6 @@ int main(int argc, char *argv[]){
     laRefreshUDFRegistries();
     laEnsureUserPreferences();
 
-    real i=0;
-    while(1){
-        laShowProgress(i/1000,i/2000,"Hi!");
-        usleep(1000); i++;
-        if(i>2500){ laHideProgress(); break; }
-    }
-
     for(int i=1;i<argc;i++){
         char* file=argv[i]; 
         laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);

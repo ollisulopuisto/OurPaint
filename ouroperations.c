@@ -80,13 +80,17 @@ subroutine(BrushRoutines) void DoDabs(){\n\
 }\n\
 subroutine(BrushRoutines) void DoSample(){\n\
     ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n\
-    if(p.y!=0) return;\n\
-    vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
-    ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024) return;\n\
-    ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
-    vec4 color=imageLoad(img, px);\n\
-    imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
-    memoryBarrier();/*barrier();*/\n\
+    int DoSample=1; vec4 color;\n\
+    if(p.y==0){\n\
+        vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
+        ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024){ DoSample=0; }\n\
+        if(DoSample!=0){\n\
+            ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
+            color=imageLoad(img, px);\n\
+            imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
+        }\n\
+    }else{DoSample=0;}\n\
+    memoryBarrier();barrier(); if(DoSample==0) return;\n\
     if(uBrushErasing==0 || p.x!=0) return;\n\
     color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
     color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),uBrushSmudge); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
@@ -916,7 +920,7 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     for(int i=0;i<H;i++){
         char* final=GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
         png_write_row(png_ptr, (png_const_bytep)final);
-        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H,0); }
+        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
     png_write_end(png_ptr, info_ptr);
@@ -1072,8 +1076,10 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
 
     our_EnsureImageBufferOnRead(l,W,H,UseOffsets,StartX,StartY);
 
+    int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
         png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
+        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
     if(InputProfileMode && OutputProfileMode && (InputProfileMode!=OutputProfileMode)){
@@ -1359,9 +1365,9 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
             if(!our_LayerEnsureImageBuffer(ol, 0)) return LA_FINISHED;
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
-            laShowProgress(0,-1,0);
+            laShowProgress(0,-1);
             our_LayerToImageBuffer(ol, 0);
-            laShowProgress(0.5,-1,0);
+            laShowProgress(0.5,-1);
             our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT);
             laHideProgress();
             fclose(fp);
@@ -1467,10 +1473,10 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 if(!fp) return LA_FINISHED;
                 static int LayerCount=0; static int CurrentLayer=0; LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0;
                 our_CanvasFillImageBufferBackground();
-                laShowProgress(0,-1,0);
+                laShowProgress(0,-1);
                 for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
                     our_LayerToImageBuffer(l, 1);
-                    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1,0);
+                    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
                 }
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
@@ -1643,7 +1649,7 @@ void ourset_LayerTileStart(OurLayer* l, int* xy){
 void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     static int LayerCount=0; static int CurrentLayer=0;
     void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
-    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1,0);
+    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
     if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
@@ -1894,7 +1900,7 @@ void ourRegisterEverything(){
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
-    laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),0);
+    laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),LA_PROP_READ_PROGRESS);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
