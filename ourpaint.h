@@ -293,4 +293,5 @@ int ourInit();
 void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();
+void ourMakeTranslations();
 

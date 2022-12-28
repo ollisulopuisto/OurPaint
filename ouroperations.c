@@ -775,7 +775,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     int l=1000,r=-1000,u=-1000,b=1000; int any=0;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         if(row<b) b=row; if(row>u) u=row;
-        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col] || !ol->TexTiles[row][col]->Texture) continue;
             if(col<l) l=col; if(col>r) r=col; any++;
         }
     }
@@ -928,6 +928,8 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
 
     if(WriteToBuffer){ *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData; }
+
+    free(temp_row);
 
     return 1;
 }
@@ -1863,7 +1865,7 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,ourset_CurrentBrush,0,0,0,LA_UDF_REFER);
     
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
-    laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
+    laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"binding","Binding","Keyboard binding for shortcut access of the brush",0,0,0,9,-1,1,0,0,offsetof(OurBrush,Binding),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"size_10","~10","Base size(radius) of the brush (max at 10)",0,0,"px",10,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
@@ -1976,6 +1978,8 @@ void ourRegisterEverything(){
     laSetFrameCallbacks(ourPreFrame,0,0);
     laSetDiffCallback(ourPushEverything);
     laSetCleanupCallback(ourCleanUp);
+
+    ourMakeTranslations();
 }
 
 int ourInit(){

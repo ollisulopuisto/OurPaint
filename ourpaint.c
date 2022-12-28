@@ -30,6 +30,8 @@ int main(int argc, char *argv[]){
     laRefreshUDFRegistries();
     laEnsureUserPreferences();
 
+    laLoadHyperResources("OURBRUSH");
+
     for(int i=1;i<argc;i++){
         char* file=argv[i]; 
         laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);
