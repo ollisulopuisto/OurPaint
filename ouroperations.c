@@ -1410,6 +1410,7 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
+                laHideProgress();
                 fclose(fp);
             }
             return LA_FINISHED;
