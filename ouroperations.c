@@ -1552,6 +1552,11 @@ int ourinv_BrushResize(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int ourinv_ToggleErase(laOperator* a, laEvent* e){
+    OurBrush* b=Our->CurrentBrush; if(!b) return LA_FINISHED;
+    if(Our->Erasing){ Our->Erasing=0; }else{ Our->Erasing=1; } laNotifyUsers("our.erasing");
+    return LA_FINISHED;
+}
 
 int ourinv_Action(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
@@ -1756,6 +1761,12 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil); laui_DefaultMenuButtonsOptionEntries(muil,pp,actinst,extracol,0);
     }
 }
+void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
+    laColumn *c = laFirstColumn(uil);
+    laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+    laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
+    laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
+}
 
 void ourPreFrame(){
     if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
@@ -1816,6 +1827,8 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
+
+    laCreateOperatorType("OUR_toggle_erasing","Toggle Erasing","Toggle erasing",0,0,0,ourinv_ToggleErase,0,0,0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
@@ -1959,11 +1972,12 @@ void ourRegisterEverything(){
     }
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, '[', "direction=smaller");
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
+    laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_KEY_DOWN, 'e', 0);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
 
-    laSetMenuBarTemplates(ourui_MenuButtons, laui_DefaultMenuExtras, "OurPaint v0.1");
+    laSetMenuBarTemplates(ourui_MenuButtons, ourui_ToolExtras, "OurPaint v0.1");
 
     ourRegisterNodes();
 
