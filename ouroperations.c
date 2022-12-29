@@ -1736,6 +1736,8 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil);
         laShowLabel(muil, mc, "OurPaint", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItem(muil, mc, 0, "LA_udf_read");
+        laShowItemFull(muil, mc, 0, "LA_udf_read",0,"mode=append;text=Append",0,0);
+        laShowSeparator(muil,mc);
         laShowItemFull(muil, mc, 0, "LA_managed_save",0,"quiet=true;text=Save;",0,0);
         laShowItem(muil, mc, 0, "LA_managed_save");
         laShowLabel(muil, mc, "Image", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
@@ -1815,12 +1817,12 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
 
-    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F);
-    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0);
-    laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0);
-    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0);
-    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F);
-    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0);
+    laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
+    laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
+    laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
+    laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0,10,15);
+    laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F,0,0);
+    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -1867,7 +1869,7 @@ void ourRegisterEverything(){
     
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
-    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,0);
+    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddIntProperty(pc,"binding","Binding","Keyboard binding for shortcut access of the brush",0,0,0,9,-1,1,0,0,offsetof(OurBrush,Binding),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"size_10","~10","Base size(radius) of the brush (max at 10)",0,0,"px",10,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddFloatProperty(pc,"size_100","~100","Base size(radius) of the brush (max at 100)",0,0,"px",100,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
@@ -1919,7 +1921,7 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
-    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_LayerMove,0,0,0,0,0,0,0,0,0);
+    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_LayerMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddIntProperty(pc,"offset","Offset","Offset of the layer",0,"X,Y","px",0,0,0,0,0,offsetof(OurLayer,OffsetX),0,0,2,0,0,0,0,ourset_LayerPosition,0,0,0);
     laAddIntProperty(pc,"tile_start","Tile Start","Tile starting position for loading",0,0,0,0,0,0,0,0,0,0,0,2,0,0,ourget_LayerTileStart,0,ourset_LayerTileStart,0,0,LA_UDF_ONLY);
     p=laAddEnumProperty(pc,"lock","Lock","Lock this layer",0,0,0,0,0,offsetof(OurLayer,Lock),0,0,0,0,0,0,0,0,0,0);
