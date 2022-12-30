@@ -39,12 +39,17 @@ uniform float uBrushRecentness;\n\
 uniform vec4 uBrushColor;\n\
 uniform vec4 uBackgroundColor;\n\
 uniform int uBrushErasing;\n\
+const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);\n\
+const vec4 p22=vec4(2.2,2.2,2.2,2.2);\n\
 float atan2(in float y, in float x){\n\
     bool s = (abs(x) > abs(y)); return mix(3.1415926535/2.0 - atan(x,y), atan(y,x), s);\n\
 }\n\
 vec2 rotate(vec2 v, float angle) {\n\
   float s = sin(angle); float c = cos(angle);\n\
   return mat2(c,-s,s,c) * v;\n\
+}\n\
+float brightness(vec4 color) {\n\
+    return color.r*0.2126+color.b*0.7152+color.g*0.0722;\n\
 }\n\
 vec4 mix_over(vec4 colora, vec4 colorb){\n\
     vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
@@ -57,8 +62,10 @@ int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smud
     cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
     float erasing=float(uBrushErasing);\n\
     cc=cc*(1-erasing);\n\
-    vec4 c2=mix(last_color,smudge_color,smudge*fac*color.a);\n\
-    c2=mix_over(cc,c2);\n\
+    //vec4 c2=mix(last_color,smudge_color,smudge*fac*color.a);\n\
+    //c2=mix_over(cc,c2);\n\
+    vec4 c2=mix_over(cc,last_color);\n\
+    c2=mix(c2,smudge_color,smudge*fac*color.a);\n\
     c2=mix(c2,c2*(1-fac*color.a),erasing);\n\
     final=c2;\n\
     return 1;\n\
@@ -72,7 +79,7 @@ subroutine(BrushRoutines) void DoDabs(){\n\
     fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1+uBrushSlender);\n\
     float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;\n\
     vec4 dabc=imageLoad(img, px);\n\
-    vec4 smudgec=mix(imageLoad(smudge_buckets,ivec2(1,0)),imageLoad(smudge_buckets,ivec2(0,0)),uBrushRecentness);\n\
+    vec4 smudgec=pow(mix(pow(imageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(imageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);\n\
     vec4 final_color;\n\
     dab(dd,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);\n\
     dabc=final_color;\n\
@@ -93,7 +100,7 @@ subroutine(BrushRoutines) void DoSample(){\n\
     memoryBarrier();barrier(); if(DoSample==0) return;\n\
     if(uBrushErasing==0 || p.x!=0) return;\n\
     color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
-    color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),uBrushSmudge); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
+    color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),0.6*(1-uBrushColor.a)); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
     imageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);\n\
     imageStore(smudge_buckets,ivec2(0,0),color);\n\
 }\n\
@@ -1246,7 +1253,8 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
-            int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float ssize=Our->Dabs[oss->Start].Size+1.5;
+            int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
+            float ssize=(usize>15)?(usize+1.5):(usize*1.1);
             int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
             int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
             int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
