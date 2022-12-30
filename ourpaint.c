@@ -42,7 +42,7 @@ int main(int argc, char *argv[]){
     //laAddRootDBInst("la.drivers");
     //laAddRootDBInst("our.tools");
 
-    laWindow* w = laDesignWindow(-1,-1,600,600);
+    laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
 
     laLayout* l = laDesignLayout(w, "Our Paint");
     laBlock* b = l->FirstBlock;
