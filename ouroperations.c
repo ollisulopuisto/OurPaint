@@ -1554,7 +1554,7 @@ int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
 int ourinv_BrushResize(laOperator* a, laEvent* e){
     OurBrush* b=Our->CurrentBrush; if(!b) return LA_CANCELED;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"bigger")){ b->Size*=1.1; }else{ b->Size/=1.1; }
+    if(strSame(direction,"bigger")){ b->Size*=1.25; }else{ b->Size/=1.25; }
     TNS_CLAMP(b->Size,0,1000);
     laNotifyUsers("our.tools.current_brush.size");
     return LA_FINISHED;

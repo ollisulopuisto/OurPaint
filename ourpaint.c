@@ -41,20 +41,20 @@ int main(int argc, char *argv[]){
     //laAddRootDBInst("la.input_mapping");
     //laAddRootDBInst("la.drivers");
     //laAddRootDBInst("our.tools");
+    if(!MAIN.Windows.pFirst){
+        laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
+        laLayout* l = laDesignLayout(w, "Our Paint");
+        laBlock* b = l->FirstBlock;
+        laSplitBlockHorizon(b,0.7);
+        laCreatePanel(b->B1, "panel_canvas");
+        laBlock* br=b->B2;
+        laSplitBlockVertical(br,0.6);
+        laCreatePanel(br->B1, "panel_color");
+        laCreatePanel(br->B1, "panel_tools");
+        laCreatePanel(br->B1, "panel_brushes");
+        laCreatePanel(br->B2, "panel_layers");
+        laStartWindow(w);
+    }
 
-    laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
-
-    laLayout* l = laDesignLayout(w, "Our Paint");
-    laBlock* b = l->FirstBlock;
-    laSplitBlockHorizon(b,0.7);
-    laCreatePanel(b->B1, "panel_canvas");
-    laBlock* br=b->B2;
-    laSplitBlockVertical(br,0.6);
-    laCreatePanel(br->B1, "panel_color");
-    laCreatePanel(br->B1, "panel_tools");
-    laCreatePanel(br->B1, "panel_brushes");
-    laCreatePanel(br->B2, "panel_layers");
-
-    laStartWindow(w);
     laMainLoop();
 }
