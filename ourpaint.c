@@ -55,6 +55,6 @@ int main(int argc, char *argv[]){
         laCreatePanel(br->B2, "panel_layers");
         laStartWindow(w);
     }
-
+    our_EnableSplashPanel();
     laMainLoop();
 }

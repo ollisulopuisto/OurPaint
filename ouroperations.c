@@ -351,21 +351,22 @@ void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
 }
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* g; laUiList* gu; laColumn* gc;
-    g = laMakeGroup(uil, c, "OurPaint", 0);
+    g = laMakeGroup(uil, c, "Our Paint", 0);
     gu = g->Page;{
         gc = laFirstColumn(gu);
-        laShowLabel(gu,gc,"OurPaint is made by Wu Yiming.",0,0)->Flags|=LA_TEXT_LINE_WRAP;
+        laShowLabel(gu,gc,"Our Paint is made by Wu Yiming.",0,0)->Flags|=LA_TEXT_LINE_WRAP;
         laUiItem* b =laBeginRow(gu,gc,0,0);
-        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaint;text=OurPaint Blog", 0, 0);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Dev log", 0, 0);
         laEndRow(gu,b);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* g; laUiList* gu; laColumn* gc;
-    g = laMakeGroup(uil, c, "OurPaint", 0);
+    g = laMakeGroup(uil, c, "Our Paint", 0);
     gu = g->Page;{
-        gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"OurPaint %d.%d",OUR_VERSION_MAJOR,OUR_VERSION_MINOR);
+        gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"Our Paint %d.%d",OUR_VERSION_MAJOR,OUR_VERSION_MINOR);
         laShowLabel(gu,gc,buf,0,0)->Flags|=LA_TEXT_MONO;
         laShowLabel(gu, gc, "Single canvas implementation.", 0, 0)->Flags|=LA_TEXT_MONO|LA_TEXT_LINE_WRAP;
     }
@@ -373,7 +374,7 @@ void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
 void ourui_AboutContent(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); 
 
-    laShowLabel(uil, c, "OurPaint", 0, 0);
+    laShowLabel(uil, c, "Our Paint", 0, 0);
     laShowLabel(uil, c, "A simple yet flexible node-based GPU painting program.", 0, 0)->Flags|=LA_TEXT_LINE_WRAP;
     laShowLabel(uil, c, "(C)Yiming Wu", 0, 0);
 }
@@ -393,6 +394,35 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 
     laShowLabel(uil,c,"Developer:",0,0);
     laShowItem(uil,cl,0,"our.preferences.show_debug_tiles");
+}
+void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    if(MAIN.CurrentWindow->CW>2500){
+        laShowImage(uil,c,Our->SplashImageHigh,5)->Flags|=LA_UI_IMAGE_FULL_W;
+    }else{
+        laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
+    }
+    laShowLabel(uil,cl,"Our Paint v0.1",0,0);
+    laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
+    laShowLabel(uil,cl," ",0,0);
+    
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🗩;link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Development logs", 0, 0);
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
+    laShowLabel(uil,cr," ",0,0);
+    laShowLabel(uil,cr,"Support the development:",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
+
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
+
+    laShowLabel(uil,cl,"Cover author:",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    laShowLabel(uil,cl,"吴奕茗 Wu Yiming",0,0);
+    laUiItem* b=laBeginRow(uil,cl,0,0);
+    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "text=Website;link=http://www.ChengduLittleA.com", 0, 0);
+    laEndRow(uil,b);
+}
+void our_EnableSplashPanel(){
+    laEnableSplashPanel(ourui_SplashPanel,0,100,0,2000,1500,0);
 }
 
 void our_CanvasDrawTextures(){
@@ -979,7 +1009,7 @@ int our_PeekPNG(FILE* fp, int* HasProfile, int* HassRGB, laSafeString** iccName)
         input_buffer_profile = cmsOpenProfileFromMem(icc_profile, icc_proflen);
         if(!input_buffer_profile) { goto cleanup_png_peek; }
         cmsColorSpaceSignature cs_sig = cmsGetColorSpace(input_buffer_profile);
-        if (cs_sig != cmsSigRgbData) { logPrint("    png has grayscale iCCP, OurPaint doesn't supported that yet, will load as sRGB.\n");
+        if (cs_sig != cmsSigRgbData) { logPrint("    png has grayscale iCCP, Our Paint doesn't supported that yet, will load as sRGB.\n");
             cmsCloseProfile(input_buffer_profile); input_buffer_profile = NULL; }
         else{
             char* desc="UNAMED PROFILE";
@@ -1328,6 +1358,10 @@ void our_DoCropping(OurCanvasDraw* cd, real x, real y){
     if(cd->AtCrop==OUR_AT_CROP_CENTER){ Our->Y+=dy; Our->X+=dx; }
     if(Our->W<32) Our->W=32; if(Our->H<32) Our->H=32; 
     cd->CanvasLastX+=dx; cd->CanvasLastY+=dy;
+}
+
+int ourinv_ShowSplash(laOperator* a, laEvent* e){
+    our_EnableSplashPanel();return LA_FINISHED;
 }
 
 int ourinv_NewLayer(laOperator* a, laEvent* e){
@@ -1747,7 +1781,7 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     laUiList *muil; laColumn *mc,*c = laFirstColumn(uil);
     muil = laMakeMenuPage(uil, c, "File");{
         mc = laFirstColumn(muil);
-        laShowLabel(muil, mc, "OurPaint", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+        laShowLabel(muil, mc, "Our Paint", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItem(muil, mc, 0, "LA_udf_read");
         laShowItemFull(muil, mc, 0, "LA_udf_read",0,"mode=append;text=Append",0,0);
         laShowSeparator(muil,mc);
@@ -1773,7 +1807,10 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     laColumn *c = laFirstColumn(uil);
     laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
-    laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
+    char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
+    laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+    laShowSeparator(uil,c)->Expand=1;
+    //laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
 }
 
 void ourPreFrame(){
@@ -1797,6 +1834,7 @@ void ourCleanUp(){
 void ourRegisterEverything(){
     laPropContainer* pc; laKeyMapper* km; laProp* p; laOperatorType* at;
 
+    laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
@@ -1985,7 +2023,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
 
-    laSetMenuBarTemplates(ourui_MenuButtons, ourui_ToolExtras, "OurPaint v0.1");
+    laSetMenuBarTemplates(ourui_MenuButtons, ourui_ToolExtras, "Our Paint v0.1");
 
     ourRegisterNodes();
 
@@ -1996,7 +2034,7 @@ void ourRegisterEverything(){
 
     laAddExtraExtension(LA_FILETYPE_UDF,"ourpaint","ourbrush",0);
     laAddExtraPreferencePath("our.preferences");
-    laAddExtraPreferencePage("OurPaint",ourui_OurPreference);
+    laAddExtraPreferencePage("Our Paint",ourui_OurPreference);
 
     laSetAboutTemplates(ourui_AboutContent,ourui_AboutVersion,ourui_AboutAuthor);
 
@@ -2086,6 +2124,9 @@ int ourInit(){
     laMarkMemClean(ob); laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
     laAddRootDBInst("our.canvas");
+
+    Our->SplashImage=tnsNewImage(DATA_SPLASH);
+    Our->SplashImageHigh=tnsNewImage(DATA_SPLASH_HIGHDPI);
 
     return 1;
 }

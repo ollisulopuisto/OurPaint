@@ -18,6 +18,9 @@
 
 #include "la_5.h"
 
+extern unsigned char DATA_SPLASH[];
+extern unsigned char DATA_SPLASH_HIGHDPI[];
+
 #define OUR_AT_CROP_CENTER 0
 #define OUR_AT_CROP_L 1
 #define OUR_AT_CROP_R 2
@@ -229,6 +232,9 @@ STRUCTURE(OurPaint){
     laListHandle CanvasSaverDummyList;
     laProp*      CanvasSaverDummyProp;
 
+    tnsImage* SplashImage;
+    tnsImage* SplashImageHigh;
+
     laListHandle Layers;
     OurLayer*    CurrentLayer;
     laListHandle Brushes;
@@ -294,4 +300,5 @@ void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();
 void ourMakeTranslations();
+void our_EnableSplashPanel();
 
