@@ -25,7 +25,7 @@ extern OurPaint *Our;
 static const char *entries[]={
 "Website","网站",
 "Save on exit:","退出时保存：",
-"Cover author:","封面作者：",
+"Cover artist:","封面作者：",
 "Donate","打钱",
 "Donate (China)","打钱（支付宝）",
 "Development logs","开发日志",

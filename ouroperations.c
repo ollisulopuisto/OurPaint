@@ -359,7 +359,10 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Dev log", 0, 0);
         laEndRow(gu,b);
-        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
+        b=laBeginRow(gu,gc,0,0);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
+        laEndRow(gu,b);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -411,13 +414,14 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
     laShowLabel(uil,cr," ",0,0);
     laShowLabel(uil,cr,"Support the development:",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
-
+    laUiItem* b=laBeginRow(uil,cr,1,0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
+    laEndRow(uil,b);
 
-    laShowLabel(uil,cl,"Cover author:",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    laShowLabel(uil,cl,"Cover artist:",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    b=laBeginRow(uil,cl,0,0);
     laShowLabel(uil,cl,"吴奕茗 Wu Yiming",0,0);
-    laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "text=Website;link=http://www.ChengduLittleA.com", 0, 0);
     laEndRow(uil,b);
 }
@@ -1800,7 +1804,12 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil); laui_DefaultMenuButtonsEditEntries(muil,pp,actinst,extracol,0);
     }
     muil = laMakeMenuPage(uil, c, "Options"); {
-        mc = laFirstColumn(muil); laui_DefaultMenuButtonsOptionEntries(muil,pp,actinst,extracol,0);
+        mc = laFirstColumn(muil);
+        laShowLabel(muil, mc, "Settings", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_user_preferences;", 0, 0);
+        laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_about;text=About;", 0, 0);
     }
 }
 void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
