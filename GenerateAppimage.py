@@ -44,11 +44,10 @@ AppImage:
   update-information: guess
 """
 
-script="proxychains appimage-builder --recipe AppImageBuilder.yml"
+script="appimage-builder --recipe AppImageBuilder.yml"
 
 os.system("rm -rf ../OurPaintApp/AppDir")
-os.system("mkdir ../OurPaintApp")
-os.system("mkdir ../OurPaintApp/AppDir")
+os.system("mkdir -p ../OurPaintApp/AppDir")
 os.system("cp build/OurPaint ../OurPaintApp/AppDir")
 
 additional=""
