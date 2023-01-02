@@ -42,6 +42,21 @@ file(GLOB_RECURSE OurPaintFiles
 
 add_executable(OurPaint ${OurPaintFiles})
 
+execute_process(
+    COMMAND git rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE OURPAINT_GIT_BRANCH
+	OUTPUT_STRIP_TRAILING_WHITESPACE)
+	
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE OURPAINT_GIT_HASH
+	OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_BRANCH=\"${OURPAINT_GIT_BRANCH}\"")
+target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_HASH=\"${OURPAINT_GIT_HASH}\"")
+
 target_link_libraries(OurPaint
     ${LAGUI_SHARED_LIBS}
     ${PNG_LIBRARY}

@@ -1,6 +1,6 @@
 /*
 * Our Paint: A light weight GPU powered painting program.
-* Copyright (C) 2022 Wu Yiming
+* Copyright (C) 2022-2023 Wu Yiming
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by

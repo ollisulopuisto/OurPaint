@@ -1,6 +1,6 @@
 /*
 * Our Paint: A light weight GPU powered painting program.
-* Copyright (C) 2022 Wu Yiming
+* Copyright (C) 2022-2023 Wu Yiming
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -371,6 +371,10 @@ void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     gu = g->Page;{
         gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"Our Paint %d.%d",OUR_VERSION_MAJOR,OUR_VERSION_MINOR);
         laShowLabel(gu,gc,buf,0,0)->Flags|=LA_TEXT_MONO;
+        laShowLabel(gu, gc, OURPAINT_GIT_BRANCH,0,0)->Flags|=LA_TEXT_MONO;
+#ifdef OURPAINT_GIT_HASH
+        laShowLabel(gu, gc, OURPAINT_GIT_HASH,0,0)->Flags|=LA_TEXT_MONO;
+#endif
         laShowLabel(gu, gc, "Single canvas implementation.", 0, 0)->Flags|=LA_TEXT_MONO|LA_TEXT_LINE_WRAP;
     }
 }
@@ -508,21 +512,23 @@ void our_CanvasDrawInit(laUiItem* ui){
     ocd->Base.AdaptiveLineWidth = 1;
     ocd->Base.ClearBackground = 1;
 
+    logPrintNew("Our Paint initialization:\n");
+
     int work_grp_cnt[3];
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
-    printf("max global (total) work group counts x:%i y:%i z:%i\n", work_grp_cnt[0], work_grp_cnt[1], work_grp_cnt[2]);
+    logPrint("GPU max global (total) work group counts x:%i y:%i z:%i\n", work_grp_cnt[0], work_grp_cnt[1], work_grp_cnt[2]);
 
     int work_grp_size[3];
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
-    printf("max local (in one shader) work group sizes x:%i y:%i z:%i\n", work_grp_size[0], work_grp_size[1], work_grp_size[2]);
+    logPrint("GPU max local (in one shader) work group sizes x:%i y:%i z:%i\n", work_grp_size[0], work_grp_size[1], work_grp_size[2]);
 
     int work_grp_inv;
     glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
-    printf("max local work group invocations %i\n", work_grp_inv);
+    logPrint("GPU max local work group invocations %i\n", work_grp_inv);
 }
 void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     OurCanvasDraw* ocd=ui->Extra; OurPaint* oc=ui->PP.EndInstance; laCanvasExtra*e=&ocd->Base;

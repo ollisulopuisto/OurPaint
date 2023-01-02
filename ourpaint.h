@@ -1,6 +1,6 @@
 /*
 * Our Paint: A light weight GPU powered painting program.
-* Copyright (C) 2022 Wu Yiming
+* Copyright (C) 2022-2023 Wu Yiming
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,15 @@
 */
 
 #include "la_5.h"
+
+#ifndef OURPAINT_GIT_BRANCH
+#define OURPAINT_GIT_BRANCH "Release 1"
+#endif
+
+// No need to show hash when not compiled from git repo.
+//#ifndef OURPAINT_GIT_HASH
+//#define OURPAINT_GIT_HASH "?"
+//#endif
 
 extern unsigned char DATA_SPLASH[];
 extern unsigned char DATA_SPLASH_HIGHDPI[];
