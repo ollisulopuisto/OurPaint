@@ -411,6 +411,12 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     }
     laShowLabel(uil,cl,"Our Paint v0.1",0,0);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
+    laUiItem* b=laBeginRow(uil,cl,0,0);
+    laShowLabel(uil, cl, OURPAINT_GIT_BRANCH,0,0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+#ifdef OURPAINT_GIT_HASH
+    laShowLabel(uil, cl, OURPAINT_GIT_HASH,0,0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+#endif
+    laEndRow(uil,b);
     laShowLabel(uil,cl," ",0,0);
     
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🗩;link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
@@ -418,7 +424,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
     laShowLabel(uil,cr," ",0,0);
     laShowLabel(uil,cr,"Support the development:",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
-    laUiItem* b=laBeginRow(uil,cr,1,0);
+    b=laBeginRow(uil,cr,1,0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
     laEndRow(uil,b);
