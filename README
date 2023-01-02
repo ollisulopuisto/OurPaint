@@ -9,6 +9,11 @@
 好得涂 采用 GNU GPL v3 许可证，Noto 字体采用 SIL Open Font 许可证
 您将在源代码文件夹找到许可证的具体信息。
 
+Resources 中的启动画面采用 Creative Commons Attribution-NonCommercial 2.0 Generic (CC BY-NC 2.0) 协议。
+您不能将这些图片用作商业用途，但您可以联系作者以了解如印刷品等其他产品的授权。
+
+随 Our Paint 发行版附带的默认笔刷文件采用 Creative Commons Attribution-NonCommercial 2.0 Generic (CC BY-NC 2.0) 协议。
+
 -----------------
 
 # Our Paint
@@ -21,3 +26,10 @@ Learn more about LaGUI: https://ChengduLittleA.com/lagui
 
 Our Paint is licensed with GNU GPL v3, and Noto fonts are licensed with SIL Open Font license.
 You should be able to find details about the license in the source code directory.
+
+The splash screen images under Resources are licensed with Creative Commons Attribution-NonCommercial 2.0 Generic (CC BY-NC 2.0).
+You can not use these images commercially, but you are free to contact the author for licensing info on other products such as prints.
+
+The brushe files packed with Our Paint distribustion are licensed with Creative Commons Attribution-NonCommercial 2.0 Generic (CC BY-NC 2.0).
+
+
