@@ -5,7 +5,7 @@ AppDir:
   path: /home/yiming/Documents/sync/Projects/2022/laprograms/app/AppDir
   app_info:
     id: chengdu.littlea.ourpaint
-    name: Our Paint
+    name: OurPaint
     icon: application-vnd.appimage
     version: latest
     exec: OurPaint
