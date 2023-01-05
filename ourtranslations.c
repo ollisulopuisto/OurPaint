@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Help","帮助",
+"Report a Bug","报告程序问题",
 "Bad Event Tolerance","容忍错误笔触事件",
 "Allow Non-pressure","允许非压感",
 "Undo:","撤销：",
