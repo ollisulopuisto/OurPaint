@@ -391,7 +391,14 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
+    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
+    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
+
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Undo:",0,0);
     laShowItem(uil,c,0,"our.preferences.paint_undo_limit");
+    
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Exporting Defaults:",0,0);
@@ -1623,6 +1630,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
+    Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
     if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
     if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
@@ -1633,19 +1641,34 @@ int ourinv_Action(laOperator* a, laEvent* e){
 int ourmod_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){
-        our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1); ex->HideBrushCircle=0; laShowCursor();
+        if(Our->PaintProcessedEvents) our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1);
+        ex->HideBrushCircle=0; laShowCursor();
+        laEvent* ue; while(ue=lstPopItem(&Our->BadEvents)){ memFree(ue); }
         return LA_FINISHED;
     }
 
     if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
-        real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
-        int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=e->Pressure; }
-        if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,
-            ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],e->Pressure,e->AngleX,e->AngleY,&tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
-            our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
-            laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+        if((!e->GoodPressure) && ((!Our->BadEventsGiveUp)||(!Our->AllowNonPressure))){
+            laEvent* be=memAcquire(sizeof(laEvent)); memcpy(be,e,sizeof(laEvent)); be->Item.pNext=be->Item.pPrev=0;
+            lstAppendItem(&Our->BadEvents,be); Our->BadEventCount++;
+            if(Our->BadEventCount>=Our->BadEventsLimit){ Our->BadEventsGiveUp=1; }
+        }else{
+            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,AngleX=e->AngleX,AngleY=e->AngleY;
+            while(1){
+                printf("pres %lf\n",Pressure);
+                UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
+                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y);
+                int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
+                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,AngleX,AngleY,
+                    &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
+                    our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
+                    laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+                }
+                ex->LastPressure=Pressure;ex->LastTilt[0]=AngleX;ex->LastTilt[1]=AngleY;
+                if(UseEvent==e){ break; }
+                else{ memFree(UseEvent); }
+            }
         }
-        ex->LastPressure=e->Pressure;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
     }
 
     return LA_RUNNING;
@@ -1925,13 +1948,17 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
     p=laAddEnumProperty(pc,"lock_radius","Lock Radius","Lock radius when changing brushes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,LockRadius),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' lock radius",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt lock radius",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Lock radius when changing brushes",1,0);
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' show brush circle",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
+    p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);
+    laAddIntProperty(pc,"bad_event_tolerance","Bad Event Tolerance","Try to recieve more events before painting starts to get around some stylus hardware issue",0,0,0,16,0,1,0,0,offsetof(OurPaint,BadEventsLimit),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_debug_tiles","Show debug tiles","Whether to show debug tiles",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowTiles),0,ourset_ShowTiles,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' show debug tiles on the canvas",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt show debug tiles on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show debug tiles on the canvas",1,0);
     p=laAddEnumProperty(pc,"export_default_bit_depth","Export Default Bit Depth","Default bit depth when exporting images",0,0,0,0,0,offsetof(OurPaint,DefaultBitDepth),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
@@ -2133,6 +2160,9 @@ int ourInit(){
     Our->LockRadius=1;
     Our->EnableBrushCircle=1;
     Our->PaintUndoLimit=100;
+
+    Our->AllowNonPressure=1;
+    Our->BadEventsLimit=7;
 
     Our->PenID=-1;
     Our->EraserID=-1;

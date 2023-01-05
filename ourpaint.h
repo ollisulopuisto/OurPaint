@@ -241,6 +241,8 @@ STRUCTURE(OurPaint){
     laListHandle CanvasSaverDummyList;
     laProp*      CanvasSaverDummyProp;
 
+    laListHandle BadEvents;
+
     tnsImage* SplashImage;
     tnsImage* SplashImageHigh;
 
@@ -260,6 +262,8 @@ STRUCTURE(OurPaint){
     int ColorInterpretation;
     int ShowBorder,UseBorder;
     int ShowTiles;
+    int AllowNonPressure,PaintProcessedEvents;
+    int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
     int LockRadius;
     int EnableBrushCircle;

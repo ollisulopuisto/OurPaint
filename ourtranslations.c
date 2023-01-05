@@ -23,6 +23,9 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Bad Event Tolerance","容忍错误笔触事件",
+"Allow Non-pressure","允许非压感",
+"Undo:","撤销：",
 "Website","网站",
 "Save on exit:","退出时保存：",
 "Cover artist:","封面作者：",
