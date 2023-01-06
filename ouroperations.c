@@ -24,119 +24,6 @@ OurPaint *Our;
 extern LA MAIN;
 extern tnsMain* T;
 
-const char OUR_CANVAS_SHADER[]="#version 430\n\
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
-layout(rgba16, binding = 0) uniform image2D img;\n\
-layout(rgba16, binding = 1) coherent uniform image2D smudge_buckets;\n\
-uniform ivec2 uBrushCorner;\n\
-uniform vec2 uBrushCenter;\n\
-uniform float uBrushSize;\n\
-uniform float uBrushHardness;\n\
-uniform float uBrushSmudge;\n\
-uniform float uBrushSlender;\n\
-uniform float uBrushAngle;\n\
-uniform float uBrushRecentness;\n\
-uniform vec4 uBrushColor;\n\
-uniform vec4 uBackgroundColor;\n\
-uniform int uBrushErasing;\n\
-const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);\n\
-const vec4 p22=vec4(2.2,2.2,2.2,2.2);\n\
-float atan2(in float y, in float x){\n\
-    bool s = (abs(x) > abs(y)); return mix(3.1415926535/2.0 - atan(x,y), atan(y,x), s);\n\
-}\n\
-vec2 rotate(vec2 v, float angle) {\n\
-  float s = sin(angle); float c = cos(angle);\n\
-  return mat2(c,-s,s,c) * v;\n\
-}\n\
-float brightness(vec4 color) {\n\
-    return color.r*0.2126+color.b*0.7152+color.g*0.0722;\n\
-}\n\
-vec4 mix_over(vec4 colora, vec4 colorb){\n\
-    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
-    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
-    return c;\n\
-}\n\
-int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){\n\
-    vec4 cc=color;\n\
-    float fac=1-pow(d/size,1+1/(1-hardness+1e-4));\n\
-    cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
-    float erasing=float(uBrushErasing);\n\
-    cc=cc*(1-erasing);\n\
-    //vec4 c2=mix(last_color,smudge_color,smudge*fac*color.a);\n\
-    //c2=mix_over(cc,c2);\n\
-    vec4 c2=mix_over(cc,last_color);\n\
-    c2=mix(c2,smudge_color,smudge*fac*color.a);\n\
-    c2=mix(c2,c2*(1-fac*color.a),erasing);\n\
-    final=c2;\n\
-    return 1;\n\
-}\n\
-subroutine void BrushRoutines();\n\
-subroutine(BrushRoutines) void DoDabs(){\n\
-    ivec2 px = ivec2(gl_GlobalInvocationID.xy)+uBrushCorner;\n\
-    if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;\n\
-    vec2 fpx=vec2(px);\n\
-    fpx=uBrushCenter+rotate(fpx-uBrushCenter,uBrushAngle);\n\
-    fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1+uBrushSlender);\n\
-    float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;\n\
-    vec4 dabc=imageLoad(img, px);\n\
-    vec4 smudgec=pow(mix(pow(imageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(imageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);\n\
-    vec4 final_color;\n\
-    dab(dd,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);\n\
-    dabc=final_color;\n\
-    imageStore(img, px, dabc);\n\
-}\n\
-subroutine(BrushRoutines) void DoSample(){\n\
-    ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n\
-    int DoSample=1; vec4 color;\n\
-    if(p.y==0){\n\
-        vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
-        ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024){ DoSample=0; }\n\
-        if(DoSample!=0){\n\
-            ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
-            color=imageLoad(img, px);\n\
-            imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
-        }\n\
-    }else{DoSample=0;}\n\
-    memoryBarrier();barrier(); if(DoSample==0) return;\n\
-    if(uBrushErasing==0 || p.x!=0) return;\n\
-    color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
-    color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),0.6*(1-uBrushColor.a)); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
-    imageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);\n\
-    imageStore(smudge_buckets,ivec2(0,0),color);\n\
-}\n\
-subroutine uniform BrushRoutines uBrushRoutineSelection;\n\
-\n\
-void main() {\n\
-    uBrushRoutineSelection();\n\
-}\n\
-";
-
-const char OUR_COMPOSITION_SHADER[]="#version 430\n\
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
-layout(rgba16, binding = 0) uniform image2D top;\n\
-layout(rgba16, binding = 1) uniform image2D bottom;\n\
-uniform int uBlendMode;\n\
-uniform float uAlphaTop;\n\
-uniform float uAlphaBottom;\n\
-vec4 mix_over(vec4 colora, vec4 colorb){\n\
-    colora=colora*uAlphaTop/uAlphaBottom;\n\
-    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
-    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
-    return c;\n\
-}\n\
-vec4 add_over(vec4 colora, vec4 colorb){\n\
-    colora=colora*uAlphaTop/uAlphaBottom;\n\
-    vec4 a=colora+colorb; a.a=clamp(a.a,0,1); return a;\n\
-}\n\
-void main() {\n\
-    ivec2 px=ivec2(gl_GlobalInvocationID.xy);\n\
-    vec4 c1=imageLoad(top,px); vec4 c2=imageLoad(bottom,px);\n\
-    vec4 c=(uBlendMode==0)?mix_over(c1,c2):add_over(c1,c2);\n\
-    imageStore(bottom,px,c);\n\
-    imageStore(top,px,vec4(0,0,0,0));\n\
-}";
-
-
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb);
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
@@ -1656,7 +1543,6 @@ int ourmod_Paint(laOperator* a, laEvent* e){
         }else{
             Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,AngleX=e->AngleX,AngleY=e->AngleY;
             while(1){
-                printf("pres %lf\n",Pressure);
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
                 real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y);
                 int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }

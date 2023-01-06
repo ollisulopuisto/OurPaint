@@ -30,6 +30,15 @@
 extern unsigned char DATA_SPLASH[];
 extern unsigned char DATA_SPLASH_HIGHDPI[];
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char OUR_CANVAS_SHADER[];
+extern const char OUR_COMPOSITION_SHADER[];
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #define OUR_AT_CROP_CENTER 0
 #define OUR_AT_CROP_L 1
 #define OUR_AT_CROP_R 2
