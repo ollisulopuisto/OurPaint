@@ -1692,8 +1692,13 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
 }
 void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r; if(Our->LockRadius) r=Our->CurrentBrush?Our->CurrentBrush->Size:15;
-    Our->CurrentBrush=b; if(b && Our->LockRadius) b->Size=r;
-    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; }else{ Our->Erasing=0; Our->PenID=b->Binding; }
+    OurBrush* ob=Our->CurrentBrush;
+    if(ob){
+        if(ob->DefaultAsEraser){ Our->SaveEraserSize=ob->Size; }else{ Our->SaveBrushSize=ob->Size; }
+    }
+    Our->CurrentBrush=b;
+    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
+    else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
     laNotifyUsers("our.tools.current_brush"); laDriverRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){

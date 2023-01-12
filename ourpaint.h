@@ -259,6 +259,7 @@ STRUCTURE(OurPaint){
     OurLayer*    CurrentLayer;
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
+    real SaveBrushSize,SaveEraserSize;
     OurDab* Dabs; int NextDab,MaxDab;
     laListHandle BrushEval;
 
