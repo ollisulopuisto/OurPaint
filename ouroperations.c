@@ -1120,7 +1120,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
         od->ResampleSmudge=0;
         if(b->Smudge>1e-3){ b->SmudgeAccum+=step;
             if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; }
-            od->Recentness=b->SmudgeAccum/b->EvalSmudgeLength/od->Size;
+            od->Recentness=b->SmudgeAccum/b->EvalSmudgeLength/od->Size; TNS_CLAMP(od->Recentness,0,1);
         }else{od->Recentness=0;}
         if(step+uselen<alllen)uselen+=step; else break;
     }
@@ -1195,7 +1195,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
-            float ssize=(usize>15)?(usize+1.5):(usize*1.1);
+            float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
             int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
             int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
             int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
