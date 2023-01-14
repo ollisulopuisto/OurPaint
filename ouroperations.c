@@ -509,8 +509,10 @@ int our_MergeLayer(OurLayer* l){
     glUniform1f(Our->uAlphaBottom, 1-ol->Transparency);
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;// Should not happen.
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue; OurTexTile*t=l->TexTiles[row][col];
+            if(!t->Texture) continue;
             int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
-            OurTexTile*ot=ol->TexTiles[row][col]; if(!ot) continue;
+            OurTexTile*ot=ol->TexTiles[row][col];
+            if((!ot) || (!ot->Texture)) our_LayerEnsureTileDirect(ol,row,col);
             glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             glDispatchCompute(32,32,1);
