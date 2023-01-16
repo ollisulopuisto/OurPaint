@@ -82,6 +82,7 @@ void our_InitColorProfiles(){
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
+    laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
 }
 void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
@@ -280,6 +281,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
+    laShowItem(uil,cl,0,"our.preferences.canvas_default_scale");
 
     laShowSeparator(uil,c);
 
@@ -467,6 +469,11 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 
     tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0); tnsUniformOutputColorSpace(T->immShader, MAIN.CurrentWindow->OutputColorSpace);
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
+
+    if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
+        char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
+        tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
+    }
     
     la_CanvasDefaultOverlay(ui, h);
 }
@@ -1866,6 +1873,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
     laAddIntProperty(pc,"paint_undo_limit","Paint Undo Limit","Undo step limit for painting actions.",0,0," Steps",256,5,1,100,0,offsetof(OurPaint,PaintUndoLimit),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"canvas_default_scale","Canvas Default Scale","Default scale of the canvas",0,0,0,4,0.25,0.1,0.5,0,offsetof(OurPaint,DefaultScale),0,0,0,0,0,0,0,0,0,0,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -2050,6 +2058,8 @@ int ourInit(){
     Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
     Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
     Our->uAlphaBottom=glGetUniformLocation(Our->CompositionProgram,"uAlphaBottom");
+
+    Our->DefaultScale=0.5;
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;

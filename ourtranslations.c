@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Canvas Default Scale","画布默认比例",
 "Help","帮助",
 "Report a Bug","报告程序问题",
 "Bad Event Tolerance","容忍错误笔触事件",

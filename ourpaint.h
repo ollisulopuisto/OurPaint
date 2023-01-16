@@ -264,6 +264,7 @@ STRUCTURE(OurPaint){
     laListHandle BrushEval;
 
     real CurrentScale;
+    real DefaultScale;
 
     int Tool,ActiveTool,Erasing,EventErasing;
     int LockBackground;
