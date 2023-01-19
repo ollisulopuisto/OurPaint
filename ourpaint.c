@@ -23,7 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 int main(int argc, char *argv[]){
-    laGetReady();
+    laGetReadyWith(4,5,0);
 
     if(!ourInit()){ laShutoff(0); return -1; }
 

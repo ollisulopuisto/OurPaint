@@ -23,6 +23,14 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Spectral Brush","光谱笔刷",
+"Spectral","光谱",
+"Canvas Default Scale","画布默认比例",
+"Help","帮助",
+"Report a Bug","报告程序问题",
+"Bad Event Tolerance","容忍错误笔触事件",
+"Allow Non-pressure","允许非压感",
+"Undo:","撤销：",
 "Website","网站",
 "Save on exit:","退出时保存：",
 "Cover artist:","封面作者：",

@@ -6,6 +6,8 @@
 
 了解更多: https://ChengduLittleA.com/ourpaint
 
+赞助：https://patreon.com/ChengduLittleA
+
 好得涂 采用 GNU GPL v3 许可证，Noto 字体采用 SIL Open Font 许可证
 您将在源代码文件夹找到许可证的具体信息。
 
@@ -36,6 +38,8 @@ Our Paint is a painting application.
 Copyright (C) 2022-2023 Wu Yiming
 
 Learn more about LaGUI: https://ChengduLittleA.com/lagui
+
+Support the development: https://patreon.com/ChengduLittleA
 
 Our Paint is licensed with GNU GPL v3, and Noto fonts are licensed with SIL Open Font license.
 You should be able to find details about the license in the source code directory.

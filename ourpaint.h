@@ -30,6 +30,15 @@
 extern unsigned char DATA_SPLASH[];
 extern unsigned char DATA_SPLASH_HIGHDPI[];
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char OUR_CANVAS_SHADER[];
+extern const char OUR_COMPOSITION_SHADER[];
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #define OUR_AT_CROP_CENTER 0
 #define OUR_AT_CROP_L 1
 #define OUR_AT_CROP_R 2
@@ -241,6 +250,8 @@ STRUCTURE(OurPaint){
     laListHandle CanvasSaverDummyList;
     laProp*      CanvasSaverDummyProp;
 
+    laListHandle BadEvents;
+
     tnsImage* SplashImage;
     tnsImage* SplashImageHigh;
 
@@ -248,10 +259,12 @@ STRUCTURE(OurPaint){
     OurLayer*    CurrentLayer;
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
+    real SaveBrushSize,SaveEraserSize;
     OurDab* Dabs; int NextDab,MaxDab;
     laListHandle BrushEval;
 
     real CurrentScale;
+    real DefaultScale;
 
     int Tool,ActiveTool,Erasing,EventErasing;
     int LockBackground;
@@ -260,12 +273,15 @@ STRUCTURE(OurPaint){
     int ColorInterpretation;
     int ShowBorder,UseBorder;
     int ShowTiles;
+    int AllowNonPressure,PaintProcessedEvents;
+    int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
     int LockRadius;
     int EnableBrushCircle;
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;
+    int SpectralMode;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
@@ -280,9 +296,12 @@ STRUCTURE(OurPaint){
     GLint uBrushSlender;
     GLint uBrushAngle;
     GLint uBrushRoutineSelection;
+    GLint uMixRoutineSelection;
     GLint uBrushErasing;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
+    GLint RoutineDoMixNormal;
+    GLint RoutineDoMixSpectral;
     GLint uBlendMode;
     GLint uAlphaTop;
     GLint uAlphaBottom;

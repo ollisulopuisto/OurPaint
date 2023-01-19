@@ -62,6 +62,7 @@ additional="""
     - libfreetype6
     - liblcms2-2
     - libpng16-16
+    - libglew2.1
 """
 template=template.replace("---includes---",additional)
 

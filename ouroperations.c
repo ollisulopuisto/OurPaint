@@ -24,119 +24,6 @@ OurPaint *Our;
 extern LA MAIN;
 extern tnsMain* T;
 
-const char OUR_CANVAS_SHADER[]="#version 430\n\
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
-layout(rgba16, binding = 0) uniform image2D img;\n\
-layout(rgba16, binding = 1) coherent uniform image2D smudge_buckets;\n\
-uniform ivec2 uBrushCorner;\n\
-uniform vec2 uBrushCenter;\n\
-uniform float uBrushSize;\n\
-uniform float uBrushHardness;\n\
-uniform float uBrushSmudge;\n\
-uniform float uBrushSlender;\n\
-uniform float uBrushAngle;\n\
-uniform float uBrushRecentness;\n\
-uniform vec4 uBrushColor;\n\
-uniform vec4 uBackgroundColor;\n\
-uniform int uBrushErasing;\n\
-const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);\n\
-const vec4 p22=vec4(2.2,2.2,2.2,2.2);\n\
-float atan2(in float y, in float x){\n\
-    bool s = (abs(x) > abs(y)); return mix(3.1415926535/2.0 - atan(x,y), atan(y,x), s);\n\
-}\n\
-vec2 rotate(vec2 v, float angle) {\n\
-  float s = sin(angle); float c = cos(angle);\n\
-  return mat2(c,-s,s,c) * v;\n\
-}\n\
-float brightness(vec4 color) {\n\
-    return color.r*0.2126+color.b*0.7152+color.g*0.0722;\n\
-}\n\
-vec4 mix_over(vec4 colora, vec4 colorb){\n\
-    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
-    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
-    return c;\n\
-}\n\
-int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){\n\
-    vec4 cc=color;\n\
-    float fac=1-pow(d/size,1+1/(1-hardness+1e-4));\n\
-    cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;\n\
-    float erasing=float(uBrushErasing);\n\
-    cc=cc*(1-erasing);\n\
-    //vec4 c2=mix(last_color,smudge_color,smudge*fac*color.a);\n\
-    //c2=mix_over(cc,c2);\n\
-    vec4 c2=mix_over(cc,last_color);\n\
-    c2=mix(c2,smudge_color,smudge*fac*color.a);\n\
-    c2=mix(c2,c2*(1-fac*color.a),erasing);\n\
-    final=c2;\n\
-    return 1;\n\
-}\n\
-subroutine void BrushRoutines();\n\
-subroutine(BrushRoutines) void DoDabs(){\n\
-    ivec2 px = ivec2(gl_GlobalInvocationID.xy)+uBrushCorner;\n\
-    if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;\n\
-    vec2 fpx=vec2(px);\n\
-    fpx=uBrushCenter+rotate(fpx-uBrushCenter,uBrushAngle);\n\
-    fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1+uBrushSlender);\n\
-    float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;\n\
-    vec4 dabc=imageLoad(img, px);\n\
-    vec4 smudgec=pow(mix(pow(imageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(imageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);\n\
-    vec4 final_color;\n\
-    dab(dd,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);\n\
-    dabc=final_color;\n\
-    imageStore(img, px, dabc);\n\
-}\n\
-subroutine(BrushRoutines) void DoSample(){\n\
-    ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n\
-    int DoSample=1; vec4 color;\n\
-    if(p.y==0){\n\
-        vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);\n\
-        ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024){ DoSample=0; }\n\
-        if(DoSample!=0){\n\
-            ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ imageStore(smudge_buckets,ivec2(128+32,0),imageLoad(img, b)); }\n\
-            color=imageLoad(img, px);\n\
-            imageStore(smudge_buckets,ivec2(p.x+128,0),color);\n\
-        }\n\
-    }else{DoSample=0;}\n\
-    memoryBarrier();barrier(); if(DoSample==0) return;\n\
-    if(uBrushErasing==0 || p.x!=0) return;\n\
-    color=vec4(0,0,0,0); for(int i=0;i<32;i++){ color=color+imageLoad(smudge_buckets, ivec2(i+128,0)); }\n\
-    color=mix(color/32,imageLoad(smudge_buckets, ivec2(128+32,0)),0.6*(1-uBrushColor.a)); vec4 oldcolor=imageLoad(smudge_buckets, ivec2(0,0));\n\
-    imageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);\n\
-    imageStore(smudge_buckets,ivec2(0,0),color);\n\
-}\n\
-subroutine uniform BrushRoutines uBrushRoutineSelection;\n\
-\n\
-void main() {\n\
-    uBrushRoutineSelection();\n\
-}\n\
-";
-
-const char OUR_COMPOSITION_SHADER[]="#version 430\n\
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;\n\
-layout(rgba16, binding = 0) uniform image2D top;\n\
-layout(rgba16, binding = 1) uniform image2D bottom;\n\
-uniform int uBlendMode;\n\
-uniform float uAlphaTop;\n\
-uniform float uAlphaBottom;\n\
-vec4 mix_over(vec4 colora, vec4 colorb){\n\
-    colora=colora*uAlphaTop/uAlphaBottom;\n\
-    vec4 c; c.a=colora.a+colorb.a*(1-colora.a);\n\
-    c.rgb=(colora.rgb+colorb.rgb*(1-colora.a));\n\
-    return c;\n\
-}\n\
-vec4 add_over(vec4 colora, vec4 colorb){\n\
-    colora=colora*uAlphaTop/uAlphaBottom;\n\
-    vec4 a=colora+colorb; a.a=clamp(a.a,0,1); return a;\n\
-}\n\
-void main() {\n\
-    ivec2 px=ivec2(gl_GlobalInvocationID.xy);\n\
-    vec4 c1=imageLoad(top,px); vec4 c2=imageLoad(bottom,px);\n\
-    vec4 c=(uBlendMode==0)?mix_over(c1,c2):add_over(c1,c2);\n\
-    imageStore(bottom,px,c);\n\
-    imageStore(top,px,vec4(0,0,0,0));\n\
-}";
-
-
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb);
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
@@ -195,6 +82,7 @@ void our_InitColorProfiles(){
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
+    laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
 }
 void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
@@ -270,7 +158,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laUiItem* b1, *b2;
 #define OUR_BR b1=laBeginRow(uil,c,0,0);
 #define OUR_ER laEndRow(uil,b1);
-#define OUR_PRESSURE(a)\
+#define OUR_PRESSURE(a) \
     b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
     laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=P",0,0);\
     laEndCondition(uil,b2);
@@ -338,8 +226,10 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     }laElse(uil,b);{
         laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
     }laEndCondition(uil,b);
-
-    laShowItem(uil,c,0,"our.current_color");
+    b=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"our.preferences.spectral_mode");
+    laShowItem(uil,c,0,"our.current_color")->Expand=1;
+    laEndRow(uil,b);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,15);
@@ -391,7 +281,16 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
+    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
+    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
+    laShowItem(uil,cl,0,"our.preferences.spectral_mode");
+    laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
+
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Undo:",0,0);
     laShowItem(uil,c,0,"our.preferences.paint_undo_limit");
+    
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Exporting Defaults:",0,0);
@@ -422,6 +321,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🗩;link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Development logs", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
     laShowLabel(uil,cr," ",0,0);
     laShowLabel(uil,cr,"Support the development:",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     b=laBeginRow(uil,cr,1,0);
@@ -572,6 +472,11 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 
     tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0); tnsUniformOutputColorSpace(T->immShader, MAIN.CurrentWindow->OutputColorSpace);
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
+
+    if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
+        char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
+        tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
+    }
     
     la_CanvasDefaultOverlay(ui, h);
 }
@@ -614,8 +519,10 @@ int our_MergeLayer(OurLayer* l){
     glUniform1f(Our->uAlphaBottom, 1-ol->Transparency);
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;// Should not happen.
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue; OurTexTile*t=l->TexTiles[row][col];
+            if(!t->Texture) continue;
             int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
-            OurTexTile*ot=ol->TexTiles[row][col]; if(!ot) continue;
+            OurTexTile*ot=ol->TexTiles[row][col];
+            if((!ot) || (!ot->Texture)) our_LayerEnsureTileDirect(ol,row,col);
             glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
             glDispatchCompute(32,32,1);
@@ -718,13 +625,13 @@ void ourundo_Free(OurUndo* undo,int FromLeft){
     while(ut=lstPopItem(&undo->Tiles)){ free(ut->CopyData); memFree(ut); }
     memFree(undo);
 }
-#define OUR_XXYY_TO_COL_ROW_RANGE\
+#define OUR_XXYY_TO_COL_ROW_RANGE \
     l=(int)(floor(OUR_TILE_CTR+(xmin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     r=(int)(floor(OUR_TILE_CTR+(xmax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     u=(int)(floor(OUR_TILE_CTR+(ymax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     b=(int)(floor(OUR_TILE_CTR+(ymin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     TNS_CLAMP(l,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(r,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(u,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(b,0,OUR_TILES_PER_ROW-1);
-#define OUR_XXYY_TO_COL_ROW_ALIGNED\
+#define OUR_XXYY_TO_COL_ROW_ALIGNED \
     l=(int)(floor(OUR_TILE_CTR+(xmin)/OUR_TILE_W_USE+0.5));\
     r=(int)(floor(OUR_TILE_CTR+(xmax-1)/OUR_TILE_W_USE+0.5));\
     u=(int)(floor(OUR_TILE_CTR+(ymax-1)/OUR_TILE_W_USE+0.5));\
@@ -863,7 +770,7 @@ void our_CanvasFillImageBufferBackground(){
     }
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
-    if(ol->Hide || ol->Transparency==1) return;
+    if(composite && (ol->Hide || ol->Transparency==1)) return;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             int sx=ol->TexTiles[row][col]->l+OUR_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TILE_SEAM;
@@ -884,7 +791,7 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
     else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
     printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
 }
-#define GET_FINAL_ROW_TYPE(TYPE)\
+#define GET_FINAL_ROW_TYPE(TYPE) \
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
     if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
     int userow=(h-row-1)-(Our->ImageY-(y-h));\
@@ -1225,7 +1132,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
         od->ResampleSmudge=0;
         if(b->Smudge>1e-3){ b->SmudgeAccum+=step;
             if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; }
-            od->Recentness=b->SmudgeAccum/b->EvalSmudgeLength/od->Size;
+            od->Recentness=b->SmudgeAccum/b->EvalSmudgeLength/od->Size; TNS_CLAMP(od->Recentness,0,1);
         }else{od->Recentness=0;}
         if(step+uselen<alllen)uselen+=step; else break;
     }
@@ -1283,7 +1190,7 @@ STRUCTURE(OurSmudgeSegement){
 };
 void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int tb){
     laListHandle Segments={0}; int from=0,to=Our->NextDab; if(!Our->NextDab) return;
-    OurSmudgeSegement* oss;
+    OurSmudgeSegement* oss; unsigned int uniforms[2];
     oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
     for(int i=1;i<to;i++){
         if(Our->Dabs[i].ResampleSmudge){ oss->Start=from; oss->End=i; from=i;
@@ -1295,12 +1202,17 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     glUseProgram(Our->CanvasProgram);
     glUniform1i(Our->uBrushErasing,Our->Erasing);
+    uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+    uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
+    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+    
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
+            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoSample;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
-            float ssize=(usize>15)?(usize+1.5):(usize*1.1);
+            float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
             int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
             int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
             int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
@@ -1314,7 +1226,8 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
                 }
             }
             Our->CurrentBrush->SmudgeRestart=0;
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoDabs);
+            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
             glUniform1i(Our->uBrushErasing,Our->Erasing);
         }
 
@@ -1623,6 +1536,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
+    Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
     if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
     if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
@@ -1633,19 +1547,33 @@ int ourinv_Action(laOperator* a, laEvent* e){
 int ourmod_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){
-        our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1); ex->HideBrushCircle=0; laShowCursor();
+        if(Our->PaintProcessedEvents) our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1);
+        ex->HideBrushCircle=0; laShowCursor();
+        laEvent* ue; while(ue=lstPopItem(&Our->BadEvents)){ memFree(ue); }
         return LA_FINISHED;
     }
 
     if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
-        real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
-        int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=e->Pressure; }
-        if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,
-            ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],e->Pressure,e->AngleX,e->AngleY,&tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
-            our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
-            laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+        if((!e->GoodPressure) && ((!Our->BadEventsGiveUp)||(!Our->AllowNonPressure))){
+            laEvent* be=memAcquire(sizeof(laEvent)); memcpy(be,e,sizeof(laEvent)); be->Item.pNext=be->Item.pPrev=0;
+            lstAppendItem(&Our->BadEvents,be); Our->BadEventCount++;
+            if(Our->BadEventCount>=Our->BadEventsLimit){ Our->BadEventsGiveUp=1; }
+        }else{
+            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,AngleX=e->AngleX,AngleY=e->AngleY;
+            while(1){
+                UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
+                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y);
+                int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
+                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,AngleX,AngleY,
+                    &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
+                    our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
+                    laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+                }
+                ex->LastPressure=Pressure;ex->LastTilt[0]=AngleX;ex->LastTilt[1]=AngleY;
+                if(UseEvent==e){ break; }
+                else{ memFree(UseEvent); }
+            }
         }
-        ex->LastPressure=e->Pressure;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
     }
 
     return LA_RUNNING;
@@ -1782,14 +1710,19 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
 }
 void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r; if(Our->LockRadius) r=Our->CurrentBrush?Our->CurrentBrush->Size:15;
-    Our->CurrentBrush=b; if(b && Our->LockRadius) b->Size=r;
-    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; }else{ Our->Erasing=0; Our->PenID=b->Binding; }
+    OurBrush* ob=Our->CurrentBrush;
+    if(ob){
+        if(ob->DefaultAsEraser){ Our->SaveEraserSize=ob->Size; }else{ Our->SaveBrushSize=ob->Size; }
+    }
+    Our->CurrentBrush=b;
+    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
+    else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
     laNotifyUsers("our.tools.current_brush"); laDriverRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
 }
-#define OUR_ADD_PRESSURE_SWITCH(p)\
+#define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
 
@@ -1819,8 +1752,12 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil);
         laShowLabel(muil, mc, "Settings", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_user_preferences;", 0, 0);
-        laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+        
+        laShowLabel(muil, mc, "Help", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
+        
+        laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_about;text=About;", 0, 0);
     }
 }
@@ -1925,13 +1862,17 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
     p=laAddEnumProperty(pc,"lock_radius","Lock Radius","Lock radius when changing brushes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,LockRadius),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' lock radius",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt lock radius",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Lock radius when changing brushes",1,0);
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' show brush circle",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
+    p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);
+    laAddIntProperty(pc,"bad_event_tolerance","Bad Event Tolerance","Try to recieve more events before painting starts to get around some stylus hardware issue",0,0,0,16,0,1,0,0,offsetof(OurPaint,BadEventsLimit),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_debug_tiles","Show debug tiles","Whether to show debug tiles",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowTiles),0,ourset_ShowTiles,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dont' show debug tiles on the canvas",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Dontt show debug tiles on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show debug tiles on the canvas",1,0);
     p=laAddEnumProperty(pc,"export_default_bit_depth","Export Default Bit Depth","Default bit depth when exporting images",0,0,0,0,0,offsetof(OurPaint,DefaultBitDepth),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
@@ -1941,6 +1882,10 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
     laAddIntProperty(pc,"paint_undo_limit","Paint Undo Limit","Undo step limit for painting actions.",0,0," Steps",256,5,1,100,0,offsetof(OurPaint,PaintUndoLimit),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"canvas_default_scale","Canvas Default Scale","Default scale of the canvas",0,0,0,4,0.25,0.1,0.5,0,offsetof(OurPaint,DefaultScale),0,0,0,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
+    laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -2121,18 +2066,29 @@ int ourInit(){
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
     Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
+    
+    Our->uMixRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uMixRoutineSelection");
+    Our->RoutineDoMixNormal=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixNormal");
+    Our->RoutineDoMixSpectral=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixSpectral");
 
     Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
     Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
     Our->uAlphaBottom=glGetUniformLocation(Our->CompositionProgram,"uAlphaBottom");
 
+    Our->DefaultScale=0.5;
+
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
     Our->BorderAlpha=0.6;
 
+    Our->SpectralMode=1;
+
     Our->LockRadius=1;
     Our->EnableBrushCircle=1;
     Our->PaintUndoLimit=100;
+
+    Our->AllowNonPressure=1;
+    Our->BadEventsLimit=7;
 
     Our->PenID=-1;
     Our->EraserID=-1;
