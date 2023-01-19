@@ -7,6 +7,9 @@ find_package(lagui REQUIRED)
 find_package(PNG REQUIRED)
 find_package(LCMS2 REQUIRED)
 
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
 add_definitions(-w)
 
 # embed_resource("data.dat" "data.h" "DATA")

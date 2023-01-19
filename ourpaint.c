@@ -25,7 +25,7 @@ extern OurPaint *Our;
 int main(int argc, char *argv[]){
     laGetReady();
 
-    if(!ourInit()){ laShutoff(); return -1; }
+    if(!ourInit()){ laShutoff(0); return -1; }
 
     laRefreshUDFRegistries();
     laEnsureUserPreferences();

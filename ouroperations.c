@@ -1323,6 +1323,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         our_PaintDoDabs(l,tl,tr,tu,tb,oss->Start,oss->End);
     }
 }
+void ourset_CurrentBrush(void* unused, OurBrush* b);
 void our_EnsureEraser(int EventIsEraser){
     if(EventIsEraser==Our->EventErasing){ return; }
     printf("ev e %d %d\n", Our->EventErasing, Our->Erasing);
@@ -1590,7 +1591,6 @@ int ourinv_MoveBrush(laOperator* a, laEvent* e){
     laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Move brush",0);
     return LA_FINISHED;
 }
-void ourset_CurrentBrush(void* unused, OurBrush* b);
 int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
     char* id=strGetArgumentString(a->ExtraInstructionsP,"binding"); if(!id){ return LA_CANCELED; }
     int num; int ret=sscanf(id,"%d",&num); if(ret>9||ret<0){ return LA_CANCELED; }
