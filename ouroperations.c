@@ -158,7 +158,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laUiItem* b1, *b2;
 #define OUR_BR b1=laBeginRow(uil,c,0,0);
 #define OUR_ER laEndRow(uil,b1);
-#define OUR_PRESSURE(a)\
+#define OUR_PRESSURE(a) \
     b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
     laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=P",0,0);\
     laEndCondition(uil,b2);
@@ -625,13 +625,13 @@ void ourundo_Free(OurUndo* undo,int FromLeft){
     while(ut=lstPopItem(&undo->Tiles)){ free(ut->CopyData); memFree(ut); }
     memFree(undo);
 }
-#define OUR_XXYY_TO_COL_ROW_RANGE\
+#define OUR_XXYY_TO_COL_ROW_RANGE \
     l=(int)(floor(OUR_TILE_CTR+(xmin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     r=(int)(floor(OUR_TILE_CTR+(xmax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     u=(int)(floor(OUR_TILE_CTR+(ymax+OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     b=(int)(floor(OUR_TILE_CTR+(ymin-OUR_TILE_SEAM)/OUR_TILE_W_USE+0.5));\
     TNS_CLAMP(l,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(r,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(u,0,OUR_TILES_PER_ROW-1); TNS_CLAMP(b,0,OUR_TILES_PER_ROW-1);
-#define OUR_XXYY_TO_COL_ROW_ALIGNED\
+#define OUR_XXYY_TO_COL_ROW_ALIGNED \
     l=(int)(floor(OUR_TILE_CTR+(xmin)/OUR_TILE_W_USE+0.5));\
     r=(int)(floor(OUR_TILE_CTR+(xmax-1)/OUR_TILE_W_USE+0.5));\
     u=(int)(floor(OUR_TILE_CTR+(ymax-1)/OUR_TILE_W_USE+0.5));\
@@ -791,7 +791,7 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
     else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
     printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
 }
-#define GET_FINAL_ROW_TYPE(TYPE)\
+#define GET_FINAL_ROW_TYPE(TYPE) \
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
     if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
     int userow=(h-row-1)-(Our->ImageY-(y-h));\
@@ -1722,7 +1722,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
 }
-#define OUR_ADD_PRESSURE_SWITCH(p)\
+#define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
 

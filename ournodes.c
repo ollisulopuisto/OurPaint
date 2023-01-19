@@ -123,7 +123,7 @@ void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
 }
 int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
     LA_GUARD_THIS_NODE(n);
-#define BRUSH_OUT_VISIT(a)\
+#define BRUSH_OUT_VISIT(a) \
     if(LA_SRC_AND_PARENT(n->a)){ laBaseNode*bn=n->a->Source->Parent; LA_VISIT_NODE(bn); }
     BRUSH_OUT_VISIT(Offset)
     BRUSH_OUT_VISIT(Size)
@@ -141,7 +141,7 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
 }
 int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     if(!Our->CurrentBrush) return 0;
-#define BRUSH_OUT_EVAL(a)\
+#define BRUSH_OUT_EVAL(a) \
     if(LA_SRC_AND_PARENT(n->a) && (n->a->Source->DataType&LA_PROP_FLOAT)){ Our->CurrentBrush->Eval##a=*((real*)n->a->Source->Data); }
     if(LA_SRC_AND_PARENT(n->Offset) && (n->Offset->Source->DataType&LA_PROP_FLOAT|LA_PROP_ARRAY) && n->Offset->Source->ArrLen>=2){
         Our->CurrentBrush->EvalOffset[0]=((real*)n->Offset->Source->Data)[0];
