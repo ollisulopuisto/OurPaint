@@ -281,6 +281,7 @@ STRUCTURE(OurPaint){
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;
+    int SpectralMode;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
@@ -295,9 +296,12 @@ STRUCTURE(OurPaint){
     GLint uBrushSlender;
     GLint uBrushAngle;
     GLint uBrushRoutineSelection;
+    GLint uMixRoutineSelection;
     GLint uBrushErasing;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
+    GLint RoutineDoMixNormal;
+    GLint RoutineDoMixSpectral;
     GLint uBlendMode;
     GLint uAlphaTop;
     GLint uAlphaBottom;

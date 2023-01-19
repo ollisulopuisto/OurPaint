@@ -77,7 +77,11 @@ vec3 spectral_to_rgb (float spectral[10]) {
     for (int i=0; i<3; i++) {rgb_[i] = clamp((tmp[i] - WGM_EPSILON) / offset, 0.0f, 1.0f);}
     return rgb_;
 }
-vec4 spectral_mix(vec4 a, vec4 b, float fac_a){
+subroutine vec4 MixRoutines(vec4 a, vec4 b, float fac_a);
+subroutine(MixRoutines) vec4 DoMixNormal(vec4 a, vec4 b, float fac_a){
+    return mix(a,b,1-fac_a);
+}
+subroutine(MixRoutines) vec4 DoMixSpectral(vec4 a, vec4 b, float fac_a){
     vec4 result = vec4(0,0,0,0);
     result.a=mix(a.a,b.a,1-fac_a);
     float spec_a[10] = {0,0,0,0,0,0,0,0,0,0}; rgb_to_spectral(a.rgb, spec_a);
@@ -86,6 +90,10 @@ vec4 spectral_mix(vec4 a, vec4 b, float fac_a){
     for (int i=0; i < 10; i++) { spectralmix[i] = pow(spec_a[i], fac_a) * pow(spec_b[i], 1-fac_a); }
     result.rgb=spectral_to_rgb(spectralmix);
     return result;
+}
+subroutine uniform MixRoutines uMixRoutineSelection;
+vec4 spectral_mix(vec4 a, vec4 b, float fac_a){
+    return uMixRoutineSelection(a,b,fac_a);
 }
 vec4 spectral_mix_unpre(vec4 colora, vec4 colorb, float fac){
     vec4 ca=(colora.a==0)?colora:vec4(colora.rgb/colora.a,colora.a);

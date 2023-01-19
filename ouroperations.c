@@ -226,8 +226,10 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     }laElse(uil,b);{
         laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
     }laEndCondition(uil,b);
-
-    laShowItem(uil,c,0,"our.current_color");
+    b=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"our.preferences.spectral_mode");
+    laShowItem(uil,c,0,"our.current_color")->Expand=1;
+    laEndRow(uil,b);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,15);
@@ -281,7 +283,8 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.lock_radius");
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
-    laShowItem(uil,cl,0,"our.preferences.canvas_default_scale");
+    laShowItem(uil,cl,0,"our.preferences.spectral_mode");
+    laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
 
     laShowSeparator(uil,c);
 
@@ -1187,7 +1190,7 @@ STRUCTURE(OurSmudgeSegement){
 };
 void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int tb){
     laListHandle Segments={0}; int from=0,to=Our->NextDab; if(!Our->NextDab) return;
-    OurSmudgeSegement* oss;
+    OurSmudgeSegement* oss; unsigned int uniforms[2];
     oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
     for(int i=1;i<to;i++){
         if(Our->Dabs[i].ResampleSmudge){ oss->Start=from; oss->End=i; from=i;
@@ -1199,10 +1202,15 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     glUseProgram(Our->CanvasProgram);
     glUniform1i(Our->uBrushErasing,Our->Erasing);
+    uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+    uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
+    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+    
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoSample);
+            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoSample;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
             float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
             int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
@@ -1218,7 +1226,8 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
                 }
             }
             Our->CurrentBrush->SmudgeRestart=0;
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,1,&Our->RoutineDoDabs);
+            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
             glUniform1i(Our->uBrushErasing,Our->Erasing);
         }
 
@@ -1874,6 +1883,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
     laAddIntProperty(pc,"paint_undo_limit","Paint Undo Limit","Undo step limit for painting actions.",0,0," Steps",256,5,1,100,0,offsetof(OurPaint,PaintUndoLimit),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"canvas_default_scale","Canvas Default Scale","Default scale of the canvas",0,0,0,4,0.25,0.1,0.5,0,offsetof(OurPaint,DefaultScale),0,0,0,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
+    laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -2054,6 +2066,10 @@ int ourInit(){
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
     Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
+    
+    Our->uMixRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uMixRoutineSelection");
+    Our->RoutineDoMixNormal=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixNormal");
+    Our->RoutineDoMixSpectral=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixSpectral");
 
     Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
     Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
@@ -2064,6 +2080,8 @@ int ourInit(){
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
     Our->BorderAlpha=0.6;
+
+    Our->SpectralMode=1;
 
     Our->LockRadius=1;
     Our->EnableBrushCircle=1;

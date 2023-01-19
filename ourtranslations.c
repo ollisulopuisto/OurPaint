@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Spectral Brush","光谱笔刷",
+"Spectral","光谱",
 "Canvas Default Scale","画布默认比例",
 "Help","帮助",
 "Report a Bug","报告程序问题",
