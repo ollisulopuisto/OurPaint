@@ -313,9 +313,9 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"length","Length","Length of this brush stroke","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Length),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"length_accum","Accumulated Length","Accumulated stroke length","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,LengthAccum),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     
-    LA_IDN_REGISTER("Brush Settings",L'🖌',OUR_IDN_BRUSH_SETTINGS,OUR_PC_IDN_BRUSH_SETTINGS, IDN_BrushSettingsInit, IDN_BrushSettingsDestroy, IDN_BrushSettingsVisit, IDN_BrushSettingsEval, OurBrushSettingsNode);
-    LA_IDN_REGISTER("Brush Outputs",L'🖌',OUR_IDN_BRUSH_OUTPUTS,OUR_PC_IDN_BRUSH_OUTPUTS, IDN_BrushOutputsInit, IDN_BrushOutputsDestroy, IDN_BrushOutputsVisit, IDN_BrushOutputsEval, OurBrushOutputsNode);
-    LA_IDN_REGISTER("Brush Device",L'🖳',OUR_IDN_BRUSH_DEVICE,OUR_PC_IDN_BRUSH_DEVICE, IDN_BrushDeviceInit, IDN_BrushDeviceDestroy, IDN_BrushDeviceVisit, IDN_BrushDeviceEval, OurBrushDeviceNode);
+    LA_IDN_REGISTER("Brush Settings",U'🖌',OUR_IDN_BRUSH_SETTINGS,OUR_PC_IDN_BRUSH_SETTINGS, IDN_BrushSettingsInit, IDN_BrushSettingsDestroy, IDN_BrushSettingsVisit, IDN_BrushSettingsEval, OurBrushSettingsNode);
+    LA_IDN_REGISTER("Brush Outputs",U'🖌',OUR_IDN_BRUSH_OUTPUTS,OUR_PC_IDN_BRUSH_OUTPUTS, IDN_BrushOutputsInit, IDN_BrushOutputsDestroy, IDN_BrushOutputsVisit, IDN_BrushOutputsEval, OurBrushOutputsNode);
+    LA_IDN_REGISTER("Brush Device",U'🖳',OUR_IDN_BRUSH_DEVICE,OUR_PC_IDN_BRUSH_DEVICE, IDN_BrushDeviceInit, IDN_BrushDeviceDestroy, IDN_BrushDeviceVisit, IDN_BrushDeviceEval, OurBrushDeviceNode);
     
     laNodeCategory* nc=laAddNodeCategory("Our Paint",0,LA_RACK_TYPE_DRIVER);
 

@@ -1794,11 +1794,11 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
-    laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,L'🗴',0);
+    laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,U'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
-    laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",ourchk_ExportLayer,0,0,ourinv_ExportLayer,ourmod_ExportLayer,L'🖫',0);
-    at=laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,ourexit_ImportLayer,ourinv_ImportLayer,ourmod_ImportLayer,L'🗁',0);
+    laCreateOperatorType("OUR_export_layer","Export Layer","Export this layer",ourchk_ExportLayer,0,0,ourinv_ExportLayer,ourmod_ExportLayer,U'🖫',0);
+    at=laCreateOperatorType("OUR_import_layer","Import Layer","Import a PNG into a layer",0,0,ourexit_ImportLayer,ourinv_ImportLayer,ourmod_ImportLayer,U'🗁',0);
     at->UiDefine=ourui_ImportLayer; pc=laDefineOperatorProps(at, 1);
     laAddStringProperty(pc,"icc_name","ICC Name","The name of the icc profile comes with the image",LA_WIDGET_STRING_PLAIN,0,0,0,1,offsetof(OurPNGReadExtra,iccName),0,0,0,0,LA_READ_ONLY);
     laAddIntProperty(pc,"has_profile","Has Profile","If the importing image has a built-in icc profile",0,0,0,0,0,0,0,0,offsetof(OurPNGReadExtra,HasProfile),0,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
@@ -1816,13 +1816,13 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
 
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
-    laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,L'🗴',0);
+    laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,U'🗴',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
     laCreateOperatorType("OUR_brush_quick_switch","Brush Quick Switch","Brush quick switch",0,0,0,ourinv_BrushQuickSwitch,0,0,0);
     laCreateOperatorType("OUR_brush_resize","Brush Resize","Brush resize",0,0,0,ourinv_BrushResize,0,0,0);
     laCreateOperatorType("OUR_action","Action","Doing action on a layer",0,0,0,ourinv_Action,ourmod_Action,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
-    at=laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,ourexit_ExportImage,ourinv_ExportImage,ourmod_ExportImage,L'🖼',0);
+    at=laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,ourexit_ExportImage,ourinv_ExportImage,ourmod_ExportImage,U'🖼',0);
     at->UiDefine=ourui_ExportImage; pc=laDefineOperatorProps(at, 1);
     p=laAddEnumProperty(pc, "bit_depth","Bit Depth","How many bits per channel should be used",0,0,0,0,0,offsetof(OurPNGWriteExtra,BitDepth),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
@@ -1850,11 +1850,11 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,L'🖌');
-    laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,L'🖼');
+    laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,U'🖌');
+    laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,U'🖼');
     p=laAddEnumProperty(pc,"lock_background","Lock background","Lock background color to prevent accidental changes",0,0,0,0,0,offsetof(OurPaint,LockBackground),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","Unlocked","You can change background color",0,0);
-    laAddEnumItemAs(p,"LOCK","Locked","Background color is locked to prevent accidental changes",1,L'🔏');
+    laAddEnumItemAs(p,"LOCK","Locked","Background color is locked to prevent accidental changes",1,U'🔏');
     p=laAddEnumProperty(pc,"erasing","Erasing","Is in erasing mode",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,Erasing),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","Draw","Is drawing mode",0,0);
     laAddEnumItemAs(p,"TRUE","Erase","Is erasing mode",1,0);
@@ -1924,7 +1924,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"ENABLED","Enabled","Default as eraser",1,0);
     
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
-    laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",L'🗴',0);
+    laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
@@ -1950,19 +1950,19 @@ void ourRegisterEverything(){
     laAddIntProperty(pc,"offset","Offset","Offset of the layer",0,"X,Y","px",0,0,0,0,0,offsetof(OurLayer,OffsetX),0,0,2,0,0,0,0,ourset_LayerPosition,0,0,0);
     laAddIntProperty(pc,"tile_start","Tile Start","Tile starting position for loading",0,0,0,0,0,0,0,0,0,0,0,2,0,0,ourget_LayerTileStart,0,ourset_LayerTileStart,0,0,LA_UDF_ONLY);
     p=laAddEnumProperty(pc,"lock","Lock","Lock this layer",0,0,0,0,0,offsetof(OurLayer,Lock),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"NONE","Paintable","You can paint on this layer",0,L'🖌');
-    laAddEnumItemAs(p,"LOCK","Locked","This layer is locked from modification",1,L'🔏');
+    laAddEnumItemAs(p,"NONE","Paintable","You can paint on this layer",0,U'🖌');
+    laAddEnumItemAs(p,"LOCK","Locked","This layer is locked from modification",1,U'🔏');
     p=laAddEnumProperty(pc,"hide","Hide","Hide this layer",0,0,0,0,0,offsetof(OurLayer,Hide),0,ourset_LayerHide,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"NONE","Visible","Layer is visible",0,L'🌑');
-    laAddEnumItemAs(p,"HIDE","Hidden","Layer is hidden",1,L'🌔');
+    laAddEnumItemAs(p,"NONE","Visible","Layer is visible",0,U'🌑');
+    laAddEnumItemAs(p,"HIDE","Hidden","Layer is hidden",1,U'🌔');
     laAddFloatProperty(pc,"transparency","Transparency","Alpha of the layer",0,0,0,1,0,0.05,1,0,offsetof(OurLayer,Transparency),0,0,0,0,0,0,0,ourset_LayerAlpha,0,0,0);
     p=laAddEnumProperty(pc,"blend_mode","Blend Mode","How this layer is blended onto the stuff below",0,0,0,0,0,offsetof(OurLayer,BlendMode),0,ourset_LayerBlendMode,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Normal alpha blend",OUR_BLEND_NORMAL,0);
     laAddEnumItemAs(p,"ADD","Add","Pixel values are simply added together",OUR_BLEND_ADD,0);
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
-    laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",L'🗴',0);
-    laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",L'🠳',0);
+    laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
+    laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",U'🠳',0);
     
     laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", ourextramod_Canvas, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
