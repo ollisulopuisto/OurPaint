@@ -47,8 +47,15 @@ AppImage:
 script="appimage-builder --recipe AppImageBuilder.yml"
 
 os.system("rm -rf ../OurPaintApp/AppDir")
+os.system("rm -rf ../OurPaintApp/OurPaint")
 os.system("mkdir -p ../OurPaintApp/AppDir")
+os.system("mkdir -p ../OurPaintApp/OurPaint/fonts")
 os.system("cp build/OurPaint ../OurPaintApp/AppDir")
+os.system("cp README.md ../OurPaintApp/OurPaint")
+os.system("cp default_brushes.udf ../OurPaintApp/OurPaint")
+os.system("cp COPYING ../OurPaintApp/OurPaint")
+os.system("cp COPYING_CC_BY_NC ../OurPaintApp/OurPaint")
+os.system("cp %s/.local/share/fonts/lagui/*.* ../OurPaintApp/OurPaint/fonts"%os.path.expanduser("~"))
 
 additional=""
 # bundle everything?
@@ -63,6 +70,7 @@ additional="""
     - liblcms2-2
     - libpng16-16
     - libglew2.1
+    - libxi6
 """
 template=template.replace("---includes---",additional)
 

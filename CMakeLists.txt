@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.1)
 project(OurPaint)
 
-set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  SET(CMAKE_INSTALL_PREFIX $ENV{HOME}/OurPaint CACHE PATH "Where to install Our Paint" FORCE)
+ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
 include (InstallRequiredSystemLibraries)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -70,13 +73,21 @@ target_link_libraries(OurPaint
     ${LCMS2_LIBRARIES}
 )
 
-SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to install lagui fonts")
+SET(INSTALL_EXTRAS
+    README.md default_brushes.udf COPYING COPYING_CC_BY_NC)
+
+SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to find lagui fonts")
 
 if (NOT DEFINED ${LAGUI_FONT_CUSTOM_PATH})
     set(LAGUI_FONT_CUSTOM_PATH $ENV{HOME}/.local/share/fonts/lagui)
 endif()
 
-install(TARGETS OurPaint RUNTIME_DEPENDENCY_SET runtime_deps DESTINATION ".")
+set(INSTALL_PATH_BIN ".")
+
+if(${CMAKE_VERSION} VERSION_LESS "3.21")
+install(TARGETS OurPaint DESTINATION ${INSTALL_PATH_BIN})
+else()
+install(TARGETS OurPaint RUNTIME_DEPENDENCY_SET runtime_deps DESTINATION ${INSTALL_PATH_BIN})
 LIST(APPEND pre_exclude_regexes "api-ms-.*")
 LIST(APPEND pre_exclude_regexes "ext-ms-.*")
 LIST(APPEND post_exclude_regexes ".*WINDOWS[\\/]system32.*")
@@ -84,6 +95,8 @@ LIST(APPEND post_exclude_regexes "^/lib" "^/usr" "^/bin")
 install(RUNTIME_DEPENDENCY_SET runtime_deps
     PRE_EXCLUDE_REGEXES ${pre_exclude_regexes}
     POST_EXCLUDE_REGEXES ${post_exclude_regexes}
-    DESTINATION "."
+    DESTINATION ${INSTALL_PATH_BIN}
 )
-install(DIRECTORY "${LAGUI_FONT_CUSTOM_PATH}/" DESTINATION "fonts" PATTERN "*.*")
+endif()
+install(DIRECTORY "${LAGUI_FONT_CUSTOM_PATH}/" DESTINATION ${INSTALL_PATH_BIN}/fonts PATTERN "*.*")
+install(FILES ${INSTALL_EXTRAS} DESTINATION ${INSTALL_PATH_BIN})
