@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.1)
 project(OurPaint)
 
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
+
+include (InstallRequiredSystemLibraries)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(lagui REQUIRED)
@@ -65,3 +69,21 @@ target_link_libraries(OurPaint
     ${PNG_LIBRARY}
     ${LCMS2_LIBRARIES}
 )
+
+SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to install lagui fonts")
+
+if (NOT DEFINED ${LAGUI_FONT_CUSTOM_PATH})
+    set(LAGUI_FONT_CUSTOM_PATH $ENV{HOME}/.local/share/fonts/lagui)
+endif()
+
+install(TARGETS OurPaint RUNTIME_DEPENDENCY_SET runtime_deps DESTINATION ".")
+LIST(APPEND pre_exclude_regexes "api-ms-.*")
+LIST(APPEND pre_exclude_regexes "ext-ms-.*")
+LIST(APPEND post_exclude_regexes ".*WINDOWS[\\/]system32.*")
+LIST(APPEND post_exclude_regexes "^/lib" "^/usr" "^/bin")
+install(RUNTIME_DEPENDENCY_SET runtime_deps
+    PRE_EXCLUDE_REGEXES ${pre_exclude_regexes}
+    POST_EXCLUDE_REGEXES ${post_exclude_regexes}
+    DESTINATION "."
+)
+install(DIRECTORY "${LAGUI_FONT_CUSTOM_PATH}/" DESTINATION "fonts" PATTERN "*.*")

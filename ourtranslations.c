@@ -97,7 +97,7 @@ static const char *entries[]={
 "Canvas Scale","画布缩放",
 "Others","其他",
 "Bit Depth:","位深度：",
-"Our Paint v0.1","好得涂 v0.1",
+"Our Paint v0.1a","好得涂 v0.1a",
 "New Layer","新图层",
 "Color Space:","色彩空间：",
 "Our Paint","好得涂",

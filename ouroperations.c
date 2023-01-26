@@ -308,7 +308,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     }else{
         laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
     }
-    laShowLabel(uil,cl,"Our Paint v0.1",0,0);
+    laShowLabel(uil,cl,"Our Paint v0.1a",0,0);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowLabel(uil, cl, OURPAINT_GIT_BRANCH,0,0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
@@ -1989,7 +1989,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
 
-    laSetMenuBarTemplates(ourui_MenuButtons, ourui_ToolExtras, "Our Paint v0.1");
+    laSetMenuBarTemplates(ourui_MenuButtons, ourui_ToolExtras, "Our Paint v0.1a");
 
     ourRegisterNodes();
 
