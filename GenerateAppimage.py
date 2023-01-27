@@ -44,7 +44,10 @@ AppImage:
   update-information: guess
 """
 
-script="appimage-builder --recipe AppImageBuilder.yml"
+script="""appimage-builder --recipe AppImageBuilder.yml
+mv OurPaint*.AppImage OurPaint/
+tar -cvzf OurPaint.tar.gz OurPaint/
+"""
 
 os.system("rm -rf ../OurPaintApp/AppDir")
 os.system("rm -rf ../OurPaintApp/OurPaint")
