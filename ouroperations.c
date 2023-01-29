@@ -1955,7 +1955,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"hide","Hide","Hide this layer",0,0,0,0,0,offsetof(OurLayer,Hide),0,ourset_LayerHide,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","Visible","Layer is visible",0,U'🌑');
     laAddEnumItemAs(p,"HIDE","Hidden","Layer is hidden",1,U'🌔');
-    laAddFloatProperty(pc,"transparency","Transparency","Alpha of the layer",0,0,0,1,0,0.05,1,0,offsetof(OurLayer,Transparency),0,0,0,0,0,0,0,ourset_LayerAlpha,0,0,0);
+    laAddFloatProperty(pc,"transparency","Transparency","Alpha of the layer",0,0,0,1,0,0.05,1,0,offsetof(OurLayer,Transparency),0, ourset_LayerAlpha,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"blend_mode","Blend Mode","How this layer is blended onto the stuff below",0,0,0,0,0,offsetof(OurLayer,BlendMode),0,ourset_LayerBlendMode,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Normal alpha blend",OUR_BLEND_NORMAL,0);
     laAddEnumItemAs(p,"ADD","Add","Pixel values are simply added together",OUR_BLEND_ADD,0);
@@ -1974,6 +1974,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_M_MOUSE_DOWN, 0, "mode=mouse;lock=true;");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ' ', 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, 0);
