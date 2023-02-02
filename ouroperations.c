@@ -763,8 +763,9 @@ int our_CanvasEnsureImageBuffer(){
 }
 void our_CanvasFillImageBufferBackground(){
     int count=Our->ImageW*Our->ImageH;
-    Our->BColorU16[0]=Our->BackgroundColor[0]*65535; Our->BColorU16[1]=Our->BackgroundColor[1]*65535;
-    Our->BColorU16[2]=Our->BackgroundColor[2]*65535; Our->BColorU16[3]=65535;
+    real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
+    Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
+    Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255;
     for(int i=0;i<count;i++){
         uint16_t* p=&Our->ImageBuffer[i*4]; tnsVectorSet4v(p,Our->BColorU16);
     }
@@ -791,20 +792,20 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
     else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
     printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
 }
-#define GET_FINAL_ROW_TYPE(TYPE) \
+#define GET_FINAL_ROW_TYPE(TYPE,BCOLOR) \
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
     if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
     int userow=(h-row-1)-(Our->ImageY-(y-h));\
-    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); } return temp; }\
+    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); } return temp; }\
     int sstart=x>Our->ImageX?(x-Our->ImageX):0, tstart=x>Our->ImageX?0:(Our->ImageX-x);\
     int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));\
-    for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
-    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],Our->BColorU16); }\
+    for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); }\
+    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); }\
     memcpy(&temp[tstart*4],&((TYPE*)Our->ImageBuffer)[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
     return temp;\
 }
-GET_FINAL_ROW_TYPE(uint16_t)
-GET_FINAL_ROW_TYPE(uint8_t)
+GET_FINAL_ROW_TYPE(uint16_t,Our->BColorU16)
+GET_FINAL_ROW_TYPE(uint8_t,Our->BColorU8)
 typedef void* (*ourGetFinalRowFunc)(int UseFrame, int row, int x, int y, int w, int h, void* temp);
 static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t length){
     OurLayerWrite* LayerWrite=png_get_io_ptr(png_ptr);
@@ -841,6 +842,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
 int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
     if((!fp)&&(!WriteToBuffer)) return 0;
     if(!Our->ImageBuffer) return 0;
+    real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
 
     int UseBitDepth,ElemSize; void* use_icc=0; int use_icc_size;
     ourGetFinalRowFunc GetFinalRow;
@@ -863,8 +865,8 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     int X,Y,W,H; our_GetFinalDimension(UseFrame, &X,&Y,&W,&H);
     
     png_set_IHDR(png_ptr, info_ptr,W,H,UseBitDepth,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
-    if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);use_icc=Our->icc_sRGB;use_icc_size=Our->iccsize_sRGB; }
-    elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ use_icc=Our->icc_Clay;use_icc_size=Our->iccsize_Clay; }
+    if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);use_icc=Our->icc_sRGB;use_icc_size=Our->iccsize_sRGB;tns2LogsRGB(bk); }
+    elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ use_icc=Our->icc_Clay;use_icc_size=Our->iccsize_Clay;tns2LogsRGB(bk);/* should be clay */ }
     elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ 
         if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){use_icc=Our->icc_LinearsRGB;use_icc_size=Our->iccsize_LinearsRGB;}
         elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){use_icc=Our->icc_LinearClay;use_icc_size=Our->iccsize_LinearClay;}
@@ -873,6 +875,9 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
 
     png_write_info(png_ptr, info_ptr);
     png_set_swap(png_ptr);
+
+    Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
+    Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255;
 
     char* temp_row=calloc(W,ElemSize*4);
 

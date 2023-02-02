@@ -309,6 +309,7 @@ STRUCTURE(OurPaint){
     real CurrentColor[3];
     real BackgroundColor[3];
     uint16_t BColorU16[4];
+    uint8_t  BColorU8[4];
     real BorderAlpha;
 
     real xmin,xmax,ymin,ymax; // stroke bbox for undo region
