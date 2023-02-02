@@ -99,7 +99,7 @@ vec4 spectral_mix_unpre(vec4 colora, vec4 colorb, float fac){
     vec4 ca=(colora.a==0)?colora:vec4(colora.rgb/colora.a,colora.a);
     vec4 cb=(colorb.a==0)?colorb:vec4(colorb.rgb/colorb.a,colorb.a);
     float af=colora.a*(1-fac);
-    float aa=af/(af+(1-af)*colorb.a+0.000001);
+    float aa=af/(af+fac*colorb.a+0.000001);
     vec4 result=spectral_mix(ca,cb,aa);
     result.a=mix(colora.a,colorb.a,fac);
     return vec4(result.rgb*result.a,result.a);
