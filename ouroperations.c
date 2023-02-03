@@ -1100,6 +1100,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
     real smfac=(1-b->Smoothness/1.1); xto=tnsLinearItp(x,xto,smfac); yto=tnsLinearItp(y,yto,smfac);  *r_xto=xto; *r_yto=yto;
     real size=b->Size; real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
+    if(len>1000){ *r_xto=xto; *r_yto=yto; b->BrushRemainingDist=0; return 0; /* Prevent crazy events causing GPU hang. */ }
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
     b->EvalSize=b->Size; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
