@@ -29,17 +29,17 @@ void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
 
 void our_CanvasAlphaMix(uint16_t* target, uint16_t* source, real alpha){
-    real a_1=(real)(65535-source[3])/65535*alpha;
+    real a_1=(real)(65535-source[3]*alpha)/65535;
     target[3]=source[3]*alpha+target[3]*a_1;
     target[0]=source[0]*alpha+target[0]*a_1;
     target[1]=source[1]*alpha+target[1]*a_1;
     target[2]=source[2]*alpha+target[2]*a_1;
 }
 void our_CanvasAdd(uint16_t* target, uint16_t* source, real alpha){
-    int a=(int)(source[3]+target[3])*alpha; TNS_CLAMP(a,0,65535);
-    int r=(int)(source[0]+target[0])*alpha; TNS_CLAMP(r,0,65535);
-    int g=(int)(source[1]+target[1])*alpha; TNS_CLAMP(g,0,65535);
-    int b=(int)(source[2]+target[2])*alpha; TNS_CLAMP(b,0,65535);
+    int a=(int)(source[3]*alpha+target[3]); TNS_CLAMP(a,0,65535);
+    int r=(int)(source[0]*alpha+target[0]); TNS_CLAMP(r,0,65535);
+    int g=(int)(source[1]*alpha+target[1]); TNS_CLAMP(g,0,65535);
+    int b=(int)(source[2]*alpha+target[2]); TNS_CLAMP(b,0,65535);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 
@@ -1096,6 +1096,10 @@ real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto,
     real last_pressure, real last_angle_x, real last_angle_y, real pressure, real angle_x, real angle_y,
     int *tl, int *tr, int* tu, int* tb, real* r_xto, real* r_yto){
+    if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||
+        isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
+        printf("what\n"); return 0;
+    }
     Our->NextDab=0;
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
     real smfac=(1-b->Smoothness/1.1); xto=tnsLinearItp(x,xto,smfac); yto=tnsLinearItp(y,yto,smfac);  *r_xto=xto; *r_yto=yto;
