@@ -44,6 +44,9 @@ void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
         n->Color=laCreateOutSocket(n,"COLOR",LA_PROP_FLOAT|LA_PROP_ARRAY);
         strSafeSet(&n->Base.Name, "Brush Settings");
     }
+    if(!n->Iteration) n->Iteration=laCreateOutSocket(n,"ITER",LA_PROP_INT);
+    if(!n->Custom1) n->Custom1=laCreateOutSocket(n,"C1",LA_PROP_FLOAT);
+    if(!n->Custom2) n->Custom2=laCreateOutSocket(n,"C2",LA_PROP_FLOAT);
     n->CanvasScale->Data=&n->rCanvasScale;
     n->Size->Data=&n->rSize;
     n->Transparency->Data=&n->rTransparency;
@@ -54,11 +57,15 @@ void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
     n->Slender->Data=&n->rSlender;
     n->Angle->Data=&n->rAngle;
     n->Color->Data=Our->CurrentColor; n->Color->ArrLen=3;
+    n->Iteration->Data=&n->rIteration;
+    n->Custom1->Data=&n->rCustom1;
+    n->Custom2->Data=&n->rCustom2;
 }
 void IDN_BrushSettingsDestroy(OurBrushSettingsNode* n){
     laDestroyOutSocket(n->Size); laDestroyOutSocket(n->Transparency); laDestroyOutSocket(n->Hardness); laDestroyOutSocket(n->Smudge);
     laDestroyOutSocket(n->SmudgeLength); laDestroyOutSocket(n->DabsPerSize); laDestroyOutSocket(n->Slender); laDestroyOutSocket(n->Angle);
-    laDestroyOutSocket(n->CanvasScale); strSafeDestroy(&n->Base.Name);
+    laDestroyOutSocket(n->CanvasScale); laDestroyOutSocket(n->Iteration); laDestroyOutSocket(n->Custom1); laDestroyOutSocket(n->Custom2);
+    strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laListHandle* l){
     LA_GUARD_THIS_NODE(n); n->Base.Eval=LA_DAG_FLAG_PERM; lstAppendPointer(l, n);
@@ -75,6 +82,9 @@ int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
     n->rDabsPerSize = Our->CurrentBrush->DabsPerSize;
     n->rSlender = Our->CurrentBrush->Slender;
     n->rAngle = Our->CurrentBrush->Angle;
+    n->rIteration = Our->CurrentBrush->Iteration;
+    n->rCustom1 = Our->CurrentBrush->Custom1;
+    n->rCustom2 = Our->CurrentBrush->Custom2;
     return 1;
 }
 void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
@@ -98,27 +108,38 @@ void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, la
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Canvas Scale",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;  laShowNodeSocket(uil,c,This,"canvas_scale",0);
         u=laShowLabel(uil,c,"Dabs Per Size",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"dabs_per_size",0); laEndRow(uil,b);
+    
+    b=laBeginRow(uil,c,0,0);
+        laShowSeparator(uil,c)->Expand=1; laShowNodeSocket(uil,c,This,"iteration",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0); u=laShowItem(uil,c,0,"our.tools.current_brush.c1_name");u->Flags|=LA_UI_FLAGS_PLAIN|LA_TEXT_ALIGN_RIGHT; u->Expand=1;
+        laShowNodeSocket(uil,c,This,"c1",0); laEndRow(uil,b);
+        b=laBeginRow(uil,c,0,0); u=laShowItem(uil,c,0,"our.tools.current_brush.c2_name");u->Flags|=LA_UI_FLAGS_PLAIN|LA_TEXT_ALIGN_RIGHT; u->Expand=1;
+        laShowNodeSocket(uil,c,This,"c2",0); laEndRow(uil,b);
 }
 
 void IDN_BrushOutputsInit(OurBrushOutputsNode* n, int NoCreate){
-    if(NoCreate){ return; }
-    n->Offset=laCreateInSocket("OFFSET",LA_PROP_FLOAT);
-    n->Size=laCreateInSocket("SIZE",LA_PROP_FLOAT);
-    n->Transparency=laCreateInSocket("TRANSP",LA_PROP_FLOAT);
-    n->Hardness=laCreateInSocket("HRAD",LA_PROP_FLOAT);
-    n->Smudge=laCreateInSocket("SMUDGE",LA_PROP_FLOAT);
-    n->SmudgeLength=laCreateInSocket("LENGTH",LA_PROP_FLOAT);
-    n->DabsPerSize=laCreateInSocket("Dabs Per Size",LA_PROP_FLOAT);
-    n->Slender=laCreateInSocket("SLENDER",LA_PROP_FLOAT);
-    n->Angle=laCreateInSocket("ANGLE",LA_PROP_FLOAT);
-    n->Color=laCreateInSocket("COLOR",LA_PROP_FLOAT);
+    if(!NoCreate){
+        n->Offset=laCreateInSocket("OFFSET",LA_PROP_FLOAT);
+        n->Size=laCreateInSocket("SIZE",LA_PROP_FLOAT);
+        n->Transparency=laCreateInSocket("TRANSP",LA_PROP_FLOAT);
+        n->Hardness=laCreateInSocket("HRAD",LA_PROP_FLOAT);
+        n->Smudge=laCreateInSocket("SMUDGE",LA_PROP_FLOAT);
+        n->SmudgeLength=laCreateInSocket("LENGTH",LA_PROP_FLOAT);
+        n->DabsPerSize=laCreateInSocket("Dabs Per Size",LA_PROP_FLOAT);
+        n->Slender=laCreateInSocket("SLENDER",LA_PROP_FLOAT);
+        n->Angle=laCreateInSocket("ANGLE",LA_PROP_FLOAT);
+        n->Color=laCreateInSocket("COLOR",LA_PROP_FLOAT);
+    }
+    if(!n->Repeats) n->Repeats=laCreateInSocket("REPEATS",LA_PROP_INT);
+    if(!n->Discard) n->Discard=laCreateInSocket("DISCARD",LA_PROP_INT);
     strSafeSet(&n->Base.Name, "Brush Outputs");
 }
 void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
     laDestroyInSocket(n->Offset);
     laDestroyInSocket(n->Size); laDestroyInSocket(n->Transparency); laDestroyInSocket(n->Hardness); laDestroyInSocket(n->Smudge);
     laDestroyInSocket(n->SmudgeLength); laDestroyInSocket(n->DabsPerSize); laDestroyInSocket(n->Slender); laDestroyInSocket(n->Angle);
-    laDestroyInSocket(n->Color);
+    laDestroyInSocket(n->Color); laDestroyInSocket(n->Repeats); laDestroyInSocket(n->Discard);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
@@ -135,6 +156,8 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
     BRUSH_OUT_VISIT(Slender)
     BRUSH_OUT_VISIT(Angle)
     BRUSH_OUT_VISIT(Color)
+    BRUSH_OUT_VISIT(Repeats)
+    BRUSH_OUT_VISIT(Discard)
 #undef BRUSH_OUT_VISIT
     n->Base.Eval=LA_DAG_FLAG_PERM; lstAppendPointer(l, n);
     return LA_DAG_FLAG_PERM;
@@ -142,7 +165,10 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
 int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     if(!Our->CurrentBrush) return 0;
 #define BRUSH_OUT_EVAL(a) \
-    if(LA_SRC_AND_PARENT(n->a) && (n->a->Source->DataType&LA_PROP_FLOAT)){ Our->CurrentBrush->Eval##a=*((real*)n->a->Source->Data); }
+    if(LA_SRC_AND_PARENT(n->a)){ \
+        if(n->a->Source->DataType&LA_PROP_INT){ Our->CurrentBrush->Eval##a=*((int*)n->a->Source->Data); } \
+        if(n->a->Source->DataType&LA_PROP_FLOAT){ Our->CurrentBrush->Eval##a=*((real*)n->a->Source->Data); } \
+    }
     if(LA_SRC_AND_PARENT(n->Offset) && (n->Offset->Source->DataType&LA_PROP_FLOAT|LA_PROP_ARRAY) && n->Offset->Source->ArrLen>=2){
         Our->CurrentBrush->EvalOffset[0]=((real*)n->Offset->Source->Data)[0];
         Our->CurrentBrush->EvalOffset[1]=((real*)n->Offset->Source->Data)[1];
@@ -160,6 +186,8 @@ int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     BRUSH_OUT_EVAL(DabsPerSize)
     BRUSH_OUT_EVAL(Slender)
     BRUSH_OUT_EVAL(Angle)
+    BRUSH_OUT_EVAL(Repeats)
+    BRUSH_OUT_EVAL(Discard)
 #undef BRUSH_OUT_EVAL
     return 1;
 }
@@ -182,6 +210,10 @@ void ui_BrushOutputsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laC
         laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_E;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"dabs_per_size",0); laShowLabel(uil,c,"Dabs Per Size",0,0); laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowNodeSocket(uil,c,This,"repeats",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+        laShowNodeSocket(uil,c,This,"discard",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+    laEndRow(uil,b);
 }
 
 void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
@@ -286,6 +318,9 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"slender", "Slender","Slender","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"iteration", "Iteration","Iteration","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Iteration),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"c1", "C1","Custom 1","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Custom1),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"c2", "C2","Custom 2","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Custom2),0,0,0,0,0,0,0,LA_UDF_SINGLE);
 
     pc=laAddPropertyContainer("our_node_brush_outputs", "Brush Outputs", "Brush outputs to draw actual dabs",0,ui_BrushOutputsNode,sizeof(OurBrushOutputsNode),lapost_Node,0,1);
     OUR_PC_IDN_BRUSH_OUTPUTS=pc; laPropContainerExtraFunctions(pc,0,0,0,0,laui_DefaultNodeOperationsPropUiDefine);
@@ -300,6 +335,8 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"slender", "Slender","Slender","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"repeats", "Repeats","Repeats","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Repeats),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"discard", "Discard","Discard","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Discard),0,0,0,0,0,0,0,LA_UDF_SINGLE);
 
     pc=laAddPropertyContainer("our_node_brush_device", "Brush Device", "Brush device input",0,ui_BrushDeviceNode,sizeof(OurBrushDeviceNode),lapost_Node,0,1);
     OUR_PC_IDN_BRUSH_DEVICE =pc; laPropContainerExtraFunctions(pc,0,0,0,0,laui_DefaultNodeOperationsPropUiDefine);

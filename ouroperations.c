@@ -183,6 +183,12 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
             laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
+            b2=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush.use_nodes"));
+                laShowItem(uil,cl,0,"our.tools.current_brush.c1");
+                laShowItem(uil,cr,0,"our.tools.current_brush.c1_name");
+                laShowItem(uil,cl,0,"our.tools.current_brush.c2");
+                laShowItem(uil,cr,0,"our.tools.current_brush.c2_name");
+            laEndCondition(uil,b2);
             laShowItem(uil,c,0,"our.tools.current_brush.default_as_eraser");
         }laEndCondition(uil,b);
 
@@ -554,7 +560,7 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     return b;
 }
 void our_RemoveBrush(OurBrush* b){
-    strSafeDestroy(&b->Name);
+    strSafeDestroy(&b->Name); strSafeDestroy(&b->Custom1Name); strSafeDestroy(&b->Custom2Name);
     if(Our->CurrentBrush==b){ OurBrush* nb=b->Item.pPrev?b->Item.pPrev:b->Item.pNext; memAssignRef(Our, &Our->CurrentBrush, nb); }
     lstRemoveItem(&Our->Brushes, b);
     memLeave(b->Rack); b->Rack=0;
@@ -1096,9 +1102,8 @@ real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto,
     real last_pressure, real last_angle_x, real last_angle_y, real pressure, real angle_x, real angle_y,
     int *tl, int *tr, int* tu, int* tb, real* r_xto, real* r_yto){
-    if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||
-        isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
-        printf("what\n"); return 0;
+    if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
+        printf("brush input coordinates has nan or inf.\n"); return 0;
     }
     Our->NextDab=0;
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
@@ -1115,28 +1120,30 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
     elif(this_angle-b->LastAngle>TNS_PI){ b->LastAngle+=(TNS_PI*2); }
 
-    while(1){
-        arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); OurDab* od=&Our->Dabs[Our->NextDab];
-        real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
-        b->LastX=od->X; b->LastY=od->Y; tnsVectorSet3v(b->EvalColor, Our->CurrentColor);
-        if(b->UseNodes){
-            b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
-            b->EvalOffset[0]=0; b->EvalOffset[1]=0; b->EvalStrokeAngle=tnsInterpolate(b->LastAngle,this_angle,r);
-            b->EvalTilt[0]=tnsInterpolate(last_angle_x,angle_x,r); b->EvalTilt[1]=tnsInterpolate(last_angle_y,angle_y,r);
-            ourEvalBrush();
-            TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
-            od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
+    while(1){ int Repeat=1; OurDab* od;
+        for(b->Iteration=0;b->Iteration<Repeat;b->Iteration++){ b->EvalDiscard=0;
+            arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); od=&Our->Dabs[Our->NextDab];
+            real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
+            b->LastX=od->X; b->LastY=od->Y; tnsVectorSet3v(b->EvalColor, Our->CurrentColor);
+            if(b->UseNodes){
+                b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
+                b->EvalOffset[0]=0; b->EvalOffset[1]=0; b->EvalStrokeAngle=tnsInterpolate(b->LastAngle,this_angle,r);
+                b->EvalTilt[0]=tnsInterpolate(last_angle_x,angle_x,r); b->EvalTilt[1]=tnsInterpolate(last_angle_y,angle_y,r);
+                ourEvalBrush();  if(!b->Iteration){ Repeat=b->EvalRepeats;} if(b->EvalDiscard){ continue; }
+                TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
+                od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
+            }
+            if(!b->EvalDabsPerSize) b->EvalDabsPerSize=1;
+    #define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
+            od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
+            od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
+            tnsVectorSet3v(od->Color,b->EvalColor);
+    #undef pfac;
+            od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
+            xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
+            ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
+            if(od->Size>1e-1 && (!b->EvalDiscard)) Our->NextDab++;
         }
-        if(!b->EvalDabsPerSize) b->EvalDabsPerSize=1;
-#define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
-        od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
-        od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
-        tnsVectorSet3v(od->Color,b->EvalColor);
-#undef pfac;
-        od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
-        xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
-        ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
-        if(od->Size>1e-1) Our->NextDab++;
         step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
         b->EvalStrokeLength+=step/b->Size; b->EvalStrokeLengthAccum+=step/b->Size; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
         od->ResampleSmudge=0;
@@ -1917,6 +1924,10 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"slender","Slender","Slenderness of the brush",0,0, 0,10,0,0.1,0,0,offsetof(OurBrush,Slender),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"angle","Angle","Angle of the brush",0,0, 0,TNS_PI,-TNS_PI,0.1,0,0,offsetof(OurBrush,Angle),0,0,0,0,0,0,0,0,0,0,LA_RAD_ANGLE);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of the brush",0,0, 0,1,0,0.05,0,0,offsetof(OurBrush,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"c1","C1","Custom brush input 1",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom1),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"c2","C2","Custom brush input 2",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom2),0,0,0,0,0,0,0,0,0,0,0);
+    laAddStringProperty(pc,"c1_name","C1 Name","Custom input 1 name",0,0,0,0,1,offsetof(OurBrush,Custom1Name),0,0,0,0,0);
+    laAddStringProperty(pc,"c2_name","C2 Name","Custom input 2 name",0,0,0,0,1,offsetof(OurBrush,Custom2Name),0,0,0,0,0);
     p=laAddEnumProperty(pc,"pressure_size","Pressure Size","Use pen pressure to control size",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSize),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_transparency","Pressure Transparency","Use pen pressure to control transparency",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureTransparency),0,0,0,0,0,0,0,0,0,0);

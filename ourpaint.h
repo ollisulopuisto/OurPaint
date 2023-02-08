@@ -83,7 +83,7 @@ STRUCTURE(OurTexTile){
 
 STRUCTURE(OurLayer){
     laListItem Item;
-    laSafeString Name;
+    laSafeString* Name;
     int OffsetX,OffsetY;
     real Transparency;
     int Lock;
@@ -114,6 +114,9 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* Slender;      real rSlender;
     laNodeOutSocket* Angle;        real rAngle;
     laNodeOutSocket* Color;
+    laNodeOutSocket* Iteration;    int  rIteration;
+    laNodeOutSocket* Custom1;      real rCustom1;
+    laNodeOutSocket* Custom2;      real rCustom2;
 };
 STRUCTURE(OurBrushOutputsNode){
     laBaseNode Base;
@@ -127,6 +130,8 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* Slender;
     laNodeInSocket* Angle;
     laNodeInSocket* Color;
+    laNodeInSocket* Repeats;
+    laNodeInSocket* Discard;
 };
 STRUCTURE(OurBrushDeviceNode){
     laBaseNode Base;
@@ -142,7 +147,7 @@ STRUCTURE(OurBrushDeviceNode){
 
 STRUCTURE(OurBrush){
     laListItem Item;
-    laSafeString Name;
+    laSafeString* Name;
     real Size;
     real DabsPerSize;
     real Hardness;
@@ -153,6 +158,8 @@ STRUCTURE(OurBrush){
     real Angle;
     real Smoothness;
     real MaxStrokeLength;
+    real Custom1,Custom2; laSafeString *Custom1Name,*Custom2Name;
+    int Iteration;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
 
     int Binding,DefaultAsEraser;
@@ -181,6 +188,9 @@ STRUCTURE(OurBrush){
     real EvalTilt[2];
     real EvalStrokeAngle;
     int  EvalIsEraser;
+
+    int EvalRepeats;
+    int EvalDiscard;
 };
 STRUCTURE(OurDab){
     float X,Y;
