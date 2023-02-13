@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Release Notes","发行日志",
 "Spectral Brush","光谱笔刷",
 "Spectral","光谱",
 "Canvas Default Scale","画布默认比例",
@@ -97,7 +98,7 @@ static const char *entries[]={
 "Canvas Scale","画布缩放",
 "Others","其他",
 "Bit Depth:","位深度：",
-"Our Paint v0.1a","好得涂 v0.1a",
+"Our Paint v0.1b","好得涂 v0.1b",
 "New Layer","新图层",
 "Color Space:","色彩空间：",
 "Our Paint","好得涂",

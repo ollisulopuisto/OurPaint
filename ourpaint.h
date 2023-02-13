@@ -52,6 +52,8 @@ extern const char OUR_COMPOSITION_SHADER[];
 #define OUR_VERSION_MAJOR 0
 #define OUR_VERSION_MINOR 1
 
+#define OUR_PAINT_NAME_STRING "Our Paint v0.1b"
+
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int HideBrushCircle;
