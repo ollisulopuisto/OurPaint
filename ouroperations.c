@@ -46,7 +46,7 @@ void our_CanvasAdd(uint16_t* target, uint16_t* source, real alpha){
 void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
     cmsCIExyY d65_srgb_adobe_specs = {0.3127, 0.3290, 1.0};
     cmsToneCurve*tonecurve; cmsToneCurve*curve[3];
-    if(Linear){ tonecurve = cmsBuildGamma (NULL, 1.0f); }
+    if(Linear==1){ tonecurve = cmsBuildGamma (NULL, 1.0f); }
     elif(Linear==2){
         tonecurve=cmsBuildGamma(NULL,2.19921875);
     }else{
@@ -75,8 +75,8 @@ void our_InitColorProfiles(){
     our_InitRGBProfile(1,&srgb_primaries_pre_quantized,&Our->icc_LinearsRGB,&Our->iccsize_LinearsRGB,"Copyright Yiming 2022.",manu,"Yiming's linear sRGB icc profile.");
     our_InitRGBProfile(0,&srgb_primaries_pre_quantized,&Our->icc_sRGB,&Our->iccsize_sRGB,"Copyright Yiming 2022.",manu,"Yiming's sRGB icc profile.");
     manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
-    our_InitRGBProfile(1,&adobe_primaries_prequantized,&Our->icc_LinearClay,&Our->iccsize_LinearClay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
-    our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's Linear ClayRGB icc profile.");
+    our_InitRGBProfile(1,&adobe_primaries_prequantized,&Our->icc_LinearClay,&Our->iccsize_LinearClay,"Copyright Yiming 2022.",manu,"Yiming's Linear ClayRGB icc profile.");
+    our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
 }
 
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
