@@ -1102,7 +1102,7 @@ real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
     real d=Size/DabsPerSize; if(d<1e-2) d=1e-2; return d;
 }
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto,
-    real last_pressure, real last_angle_x, real last_angle_y, real pressure, real angle_x, real angle_y,
+    real last_pressure, real last_orientation, real last_deviation, real pressure, real Orientation, real Deviation,
     int *tl, int *tr, int* tu, int* tb, real* r_xto, real* r_yto){
     if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
         printf("brush input coordinates has nan or inf.\n"); return 0;
@@ -1130,7 +1130,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             if(b->UseNodes){
                 b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
                 b->EvalOffset[0]=0; b->EvalOffset[1]=0; b->EvalStrokeAngle=tnsInterpolate(b->LastAngle,this_angle,r);
-                b->EvalTilt[0]=tnsInterpolate(last_angle_x,angle_x,r); b->EvalTilt[1]=tnsInterpolate(last_angle_y,angle_y,r);
+                b->EvalTilt[0]=tnsInterpolate(last_orientation,Orientation,r); b->EvalTilt[1]=tnsInterpolate(last_deviation,Deviation,r);
                 ourEvalBrush();  if(!b->Iteration){ Repeat=b->EvalRepeats;} if(b->EvalDiscard){ continue; }
                 TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
                 od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
@@ -1551,7 +1551,7 @@ int ourinv_ToggleErase(laOperator* a, laEvent* e){
 int ourinv_Action(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     our_PaintResetBrushState(ob);
-    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->AngleX;ex->LastTilt[1]=e->AngleY;
+    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
@@ -1578,17 +1578,17 @@ int ourmod_Paint(laOperator* a, laEvent* e){
             lstAppendItem(&Our->BadEvents,be); Our->BadEventCount++;
             if(Our->BadEventCount>=Our->BadEventsLimit){ Our->BadEventsGiveUp=1; }
         }else{
-            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,AngleX=e->AngleX,AngleY=e->AngleY;
+            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation;
             while(1){
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
                 real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y);
                 int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
-                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,AngleX,AngleY,
+                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,Orientation,Deviation,
                     &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
                     our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
                     laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 }
-                ex->LastPressure=Pressure;ex->LastTilt[0]=AngleX;ex->LastTilt[1]=AngleY;
+                ex->LastPressure=Pressure;ex->LastTilt[0]=Orientation;ex->LastTilt[1]=Deviation;
                 if(UseEvent==e){ break; }
                 else{ memFree(UseEvent); }
             }
