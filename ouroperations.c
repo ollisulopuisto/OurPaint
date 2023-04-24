@@ -1560,7 +1560,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor();
+    //laHideCursor();
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){

@@ -67,8 +67,8 @@ void IDN_BrushSettingsDestroy(OurBrushSettingsNode* n){
     laDestroyOutSocket(n->CanvasScale); laDestroyOutSocket(n->Iteration); laDestroyOutSocket(n->Custom1); laDestroyOutSocket(n->Custom2);
     strSafeDestroy(&n->Base.Name);
 }
-int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laListHandle* l){
-    LA_GUARD_THIS_NODE(n); n->Base.Eval=LA_DAG_FLAG_PERM; lstAppendPointer(l, n);
+int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laNodeVisitInfo* vi){
+    LA_GUARD_THIS_NODE(n,vi);  LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
 }
 int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
@@ -142,10 +142,10 @@ void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
     laDestroyInSocket(n->Color); laDestroyInSocket(n->Repeats); laDestroyInSocket(n->Discard);
     strSafeDestroy(&n->Base.Name);
 }
-int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
-    LA_GUARD_THIS_NODE(n);
+int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laNodeVisitInfo* vi){
+    LA_GUARD_THIS_NODE(n,vi);
 #define BRUSH_OUT_VISIT(a) \
-    if(LA_SRC_AND_PARENT(n->a)){ laBaseNode*bn=n->a->Source->Parent; LA_VISIT_NODE(bn); }
+    if(LA_SRC_AND_PARENT(n->a)){ laBaseNode*bn=n->a->Source->Parent; LA_VISIT_NODE(bn,vi); }
     BRUSH_OUT_VISIT(Offset)
     BRUSH_OUT_VISIT(Size)
     BRUSH_OUT_VISIT(Transparency)
@@ -159,7 +159,7 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laListHandle* l){
     BRUSH_OUT_VISIT(Repeats)
     BRUSH_OUT_VISIT(Discard)
 #undef BRUSH_OUT_VISIT
-    n->Base.Eval=LA_DAG_FLAG_PERM; lstAppendPointer(l, n);
+    LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
 }
 int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
@@ -242,8 +242,8 @@ void IDN_BrushDeviceDestroy(OurBrushDeviceNode* n){
     laDestroyOutSocket(n->Angle); laDestroyOutSocket(n->Length); laDestroyOutSocket(n->LengthAccum); 
     strSafeDestroy(&n->Base.Name);
 }
-int IDN_BrushDeviceVisit(OurBrushDeviceNode* n, laListHandle* l){
-    LA_GUARD_THIS_NODE(n); n->Base.Eval=LA_DAG_FLAG_PERM; lstAppendPointer(l, n);
+int IDN_BrushDeviceVisit(OurBrushDeviceNode* n, laNodeVisitInfo* vi){
+    LA_GUARD_THIS_NODE(n,vi); LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
 }
 int IDN_BrushDeviceEval(OurBrushDeviceNode* n){
@@ -278,25 +278,10 @@ void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laCo
 }
 
 int ourEvalBrush(){
-    for(laListItemPointer*lip=Our->BrushEval.pFirst;lip;lip=lip->pNext){
-        laBaseNode* n=lip->p; if(!n->InitDone){ n->Type->Init(n,1); n->InitDone=1; } n->Type->Eval(n); 
-    }
-    return 1;
+    return Our->CurrentBrush?laRunPage(Our->CurrentBrush->Rack, 1):0;
 }
 int ourRebuildBrushEval(){
-    while(lstPopPointer(&Our->BrushEval));
-    if(!Our->CurrentBrush || !Our->CurrentBrush->Rack) return LA_DAG_FLAG_PERM;
-    laListHandle pending={0}; laRackPage* rp=Our->CurrentBrush->Rack; if(!rp)return LA_DAG_FLAG_PERM;
-    for(laNodeRack* ir=rp->Racks.pFirst;ir;ir=ir->Item.pNext){
-        for(laBaseNode*bn=ir->Nodes.pFirst;bn;bn=bn->Item.pNext){ if(!bn->InitDone){ bn->Type->Init(bn,1); bn->InitDone=1; } lstAppendPointer(&pending,bn); bn->Eval=0; }
-    }
-    laBaseNode*n;int result=LA_DAG_FLAG_PERM; laListItemPointer*NextLip;
-    for(laListItemPointer*lip=pending.pFirst;lip;lip=NextLip){ n=lip->p; NextLip=lip->pNext;
-        if(n->Eval&LA_DAG_FLAG_PERM) continue;
-        result=n->Type->Visit(n,&Our->BrushEval); if(result==LA_DAG_FLAG_ERR){ while(lstPopPointer(&pending)); break; }
-    }
-    if(result==LA_DAG_FLAG_ERR){ while(lstPopPointer(&MAIN.InputMapping->Eval)); return LA_DAG_FLAG_ERR; }
-    return LA_DAG_FLAG_PERM;
+    return Our->CurrentBrush?laRebuildPageEval(Our->CurrentBrush->Rack):0;
 }
 
 
