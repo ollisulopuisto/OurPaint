@@ -1736,7 +1736,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     Our->CurrentBrush=b;
     if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
     else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
-    laNotifyUsers("our.tools.current_brush"); laDriverRequestRebuild();
+    laNotifyUsers("our.tools.current_brush"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
@@ -1792,7 +1792,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
 }
 
 void ourPreFrame(){
-    if(MAIN.Drivers->NeedRebuild){ ourRebuildBrushEval(); }
+    if(MAIN.GraphNeedsRebuild){ ourRebuildBrushEval(); }
 }
 void ourPushEverything(){
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");

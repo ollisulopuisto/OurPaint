@@ -39,8 +39,6 @@ int main(int argc, char *argv[]){
         if(udf){ laExtractUDF(udf,m,LA_UDF_MODE_APPEND,0); laCloseUDF(udf); }
     }
 
-    //laAddRootDBInst("la.input_mapping");
-    //laAddRootDBInst("la.drivers");
     //laAddRootDBInst("our.tools");
     if(!MAIN.Windows.pFirst){
         laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
