@@ -557,7 +557,7 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     b->PressureHardness=PressureHardness; b->PressureSize=PressureSize; b->PressureTransparency=PressureTransparency; b->PressureSmudge=PressureSmudge;
     b->SmudgeResampleLength = SmudgeResampleLength;
     memAssignRef(Our, &Our->CurrentBrush, b);
-    b->Rack=memAcquireHyper(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
+    b->Rack=memAcquire(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     b->Binding=-1;
     return b;
 }
