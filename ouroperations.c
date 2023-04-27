@@ -148,6 +148,7 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         b=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowItem(uil,c,This,"binding")->Expand=1;
+        laShowItem(uil,c,This,"duplicate")->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b);
@@ -567,6 +568,15 @@ void our_RemoveBrush(OurBrush* b){
     lstRemoveItem(&Our->Brushes, b);
     memLeave(b->Rack); b->Rack=0;
     memLeave(b);
+}
+OurBrush* our_DuplicateBrush(OurBrush* b){
+    OurBrush* nb=memAcquireHyper(sizeof(OurBrush));
+    memcpy(nb,b,sizeof(OurBrush)); nb->Binding=-1; nb->Name=0; strSafePrint(&nb->Name,"%s Copy",b->Name?b->Name->Ptr:"New Brush");
+    nb->Rack=laDuplicateRackPage(0,b->Rack);
+    nb->Item.pNext=nb->Item.pPrev=0;
+    lstInsertItemAfter(&Our->Brushes,nb,b);
+    memAssignRef(Our, &Our->CurrentBrush, nb);
+    return nb;
 }
 
 int our_BufferAnythingVisible(uint16_t* buf, int elemcount){
@@ -1509,6 +1519,12 @@ int ourinv_NewBrush(laOperator* a, laEvent* e){
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add brush",0);
     return LA_FINISHED;
 }
+int ourinv_DuplicateBrush(laOperator* a, laEvent* e){
+    OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
+    our_DuplicateBrush(b);
+    laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Duplicate brush",0);
+    return LA_FINISHED;
+}
 int ourinv_RemoveBrush(laOperator* a, laEvent* e){
     OurBrush* b=a->This?a->This->EndInstance:0; if(!b) return LA_CANCELED;
     our_RemoveBrush(b);
@@ -1837,6 +1853,7 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,U'🗴',0);
+    laCreateOperatorType("OUR_duplicate_brush","Duplicate Brush","Duplicate this brush",0,0,0,ourinv_DuplicateBrush,0,U'⎘',0);
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
     laCreateOperatorType("OUR_brush_quick_switch","Brush Quick Switch","Brush quick switch",0,0,0,ourinv_BrushQuickSwitch,0,0,0);
     laCreateOperatorType("OUR_brush_resize","Brush Resize","Brush resize",0,0,0,ourinv_BrushResize,0,0,0);
@@ -1949,6 +1966,7 @@ void ourRegisterEverything(){
     
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);
+    laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate brush","OUR_duplicate_brush",U'⎘',0);
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);

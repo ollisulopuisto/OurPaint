@@ -87,6 +87,16 @@ int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
     n->rCustom2 = Our->CurrentBrush->Custom2;
     return 1;
 }
+void IDN_BrushSettingsCopy(OurBrushSettingsNode* new, OurBrushSettingsNode* old, int DoRematch){
+    if(DoRematch){ return;}
+    LA_IDN_OLD_DUPL(Angle)       LA_IDN_OLD_DUPL(CanvasScale)
+    LA_IDN_OLD_DUPL(Color)       LA_IDN_OLD_DUPL(Custom1)
+    LA_IDN_OLD_DUPL(Custom2)     LA_IDN_OLD_DUPL(DabsPerSize)
+    LA_IDN_OLD_DUPL(Hardness)    LA_IDN_OLD_DUPL(Iteration)
+    LA_IDN_OLD_DUPL(Size)        LA_IDN_OLD_DUPL(Slender)
+    LA_IDN_OLD_DUPL(Smudge)      LA_IDN_OLD_DUPL(SmudgeLength)
+    LA_IDN_OLD_DUPL(Transparency)
+}
 void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushSettingsNode*n=This->EndInstance;
     laUiItem* b,*u;
@@ -146,18 +156,10 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laNodeVisitInfo* vi){
     LA_GUARD_THIS_NODE(n,vi);
 #define BRUSH_OUT_VISIT(a) \
     if(LA_SRC_AND_PARENT(n->a)){ laBaseNode*bn=n->a->Source->Parent; LA_VISIT_NODE(bn,vi); }
-    BRUSH_OUT_VISIT(Offset)
-    BRUSH_OUT_VISIT(Size)
-    BRUSH_OUT_VISIT(Transparency)
-    BRUSH_OUT_VISIT(Hardness)
-    BRUSH_OUT_VISIT(Smudge)
-    BRUSH_OUT_VISIT(SmudgeLength)
-    BRUSH_OUT_VISIT(DabsPerSize)
-    BRUSH_OUT_VISIT(Slender)
-    BRUSH_OUT_VISIT(Angle)
-    BRUSH_OUT_VISIT(Color)
-    BRUSH_OUT_VISIT(Repeats)
-    BRUSH_OUT_VISIT(Discard)
+    BRUSH_OUT_VISIT(Offset) BRUSH_OUT_VISIT(Size) BRUSH_OUT_VISIT(Transparency)
+    BRUSH_OUT_VISIT(Hardness) BRUSH_OUT_VISIT(Smudge) BRUSH_OUT_VISIT(SmudgeLength)
+    BRUSH_OUT_VISIT(DabsPerSize) BRUSH_OUT_VISIT(Slender) BRUSH_OUT_VISIT(Angle)
+    BRUSH_OUT_VISIT(Color) BRUSH_OUT_VISIT(Repeats) BRUSH_OUT_VISIT(Discard)
 #undef BRUSH_OUT_VISIT
     LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
@@ -190,6 +192,15 @@ int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     BRUSH_OUT_EVAL(Discard)
 #undef BRUSH_OUT_EVAL
     return 1;
+}
+void IDN_BrushOutputsCopy(OurBrushOutputsNode* new, OurBrushOutputsNode* old, int DoRematch){
+    if(DoRematch){
+        LA_IDN_NEW_LINK(Offset) LA_IDN_NEW_LINK(Size) LA_IDN_NEW_LINK(Transparency) LA_IDN_NEW_LINK(Hardness)
+        LA_IDN_NEW_LINK(Smudge) LA_IDN_NEW_LINK(SmudgeLength) LA_IDN_NEW_LINK(DabsPerSize) LA_IDN_NEW_LINK(Slender)
+        LA_IDN_NEW_LINK(Angle) LA_IDN_NEW_LINK(Color) LA_IDN_NEW_LINK(Repeats) LA_IDN_NEW_LINK(Discard)
+        return;
+    }
+    return;
 }
 void ui_BrushOutputsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushOutputsNode*n=This->EndInstance;
@@ -258,6 +269,12 @@ int IDN_BrushDeviceEval(OurBrushDeviceNode* n){
     n->rLengthAccum = Our->CurrentBrush->EvalStrokeLengthAccum;
     return 1;
 }
+void IDN_BrushDeviceCopy(OurBrushDeviceNode* new, OurBrushDeviceNode* old, int DoRematch){
+    if(DoRematch){ return;}
+    LA_IDN_OLD_DUPL(Pressure) LA_IDN_OLD_DUPL(Tilt) LA_IDN_OLD_DUPL(Position)
+    LA_IDN_OLD_DUPL(IsEraser) LA_IDN_OLD_DUPL(Speed) LA_IDN_OLD_DUPL(Angle)
+    LA_IDN_OLD_DUPL(Length) LA_IDN_OLD_DUPL(LengthAccum)
+}
 void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushDeviceNode*n=This->EndInstance;
     laUiItem* b,*u;
@@ -283,7 +300,6 @@ int ourEvalBrush(){
 int ourRebuildBrushEval(){
     return Our->CurrentBrush?laRebuildPageEval(Our->CurrentBrush->Rack):0;
 }
-
 
 void ourRegisterNodes(){
     laPropContainer *pc; laProp *p;
@@ -335,9 +351,9 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"length","Length","Length of this brush stroke","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Length),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"length_accum","Accumulated Length","Accumulated stroke length","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,LengthAccum),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     
-    LA_IDN_REGISTER("Brush Settings",U'🖌',OUR_IDN_BRUSH_SETTINGS,OUR_PC_IDN_BRUSH_SETTINGS, IDN_BrushSettingsInit, IDN_BrushSettingsDestroy, IDN_BrushSettingsVisit, IDN_BrushSettingsEval, OurBrushSettingsNode);
-    LA_IDN_REGISTER("Brush Outputs",U'🖌',OUR_IDN_BRUSH_OUTPUTS,OUR_PC_IDN_BRUSH_OUTPUTS, IDN_BrushOutputsInit, IDN_BrushOutputsDestroy, IDN_BrushOutputsVisit, IDN_BrushOutputsEval, OurBrushOutputsNode);
-    LA_IDN_REGISTER("Brush Device",U'🖳',OUR_IDN_BRUSH_DEVICE,OUR_PC_IDN_BRUSH_DEVICE, IDN_BrushDeviceInit, IDN_BrushDeviceDestroy, IDN_BrushDeviceVisit, IDN_BrushDeviceEval, OurBrushDeviceNode);
+    LA_IDN_REGISTER("Brush Settings",U'🖌',OUR_IDN_BRUSH_SETTINGS,OUR_PC_IDN_BRUSH_SETTINGS, IDN_BrushSettings, OurBrushSettingsNode);
+    LA_IDN_REGISTER("Brush Outputs",U'🖌',OUR_IDN_BRUSH_OUTPUTS,OUR_PC_IDN_BRUSH_OUTPUTS, IDN_BrushOutputs, OurBrushOutputsNode);
+    LA_IDN_REGISTER("Brush Device",U'🖳',OUR_IDN_BRUSH_DEVICE,OUR_PC_IDN_BRUSH_DEVICE, IDN_BrushDevice, OurBrushDeviceNode);
     
     laNodeCategory* nc=laAddNodeCategory("Our Paint",0,LA_RACK_TYPE_DRIVER);
 
