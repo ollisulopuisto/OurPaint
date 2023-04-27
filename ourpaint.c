@@ -23,8 +23,14 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 int main(int argc, char *argv[]){
-    laProcessInitArguments(argc, argv);
-    laGetReadyWith(4,5,0);
+    laInitArguments ia={0}; laSetDefaultInitArguments(&ia);
+    ia.GLMajor=4; ia.GLMinor=5;
+    ia.UseColorManagement=1;
+    ia.HasTextureInspector=1;
+    ia.HasTerminal=1;
+    ia.HasHistories=1;
+    laProcessInitArguments(argc, argv, &ia);
+    laGetReadyWith(&ia);
 
     if(!ourInit()){ laShutoff(0); return -1; }
 
