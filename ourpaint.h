@@ -274,6 +274,9 @@ STRUCTURE(OurPaint){
     real SaveBrushSize,SaveEraserSize;
     OurDab* Dabs; int NextDab,MaxDab;
 
+    real Smoothness;
+    real LastX, LastY;
+
     real CurrentScale;
     real DefaultScale;
 

@@ -20,6 +20,9 @@
 #include "png.h"
 #include "lcms2.h"
 
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
+
 OurPaint *Our;
 extern LA MAIN;
 extern tnsMain* T;
@@ -213,6 +216,7 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laColumn* c=laFirstColumn(uil); laUiItem* b1, *b2;
     
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
+        laShowItem(uil,c,0,"our.preferences.smoothness");
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
             laShowItemFull(uil,c,0,"our.tools.current_brush.size",0,0,0,0);
             laShowItemFull(uil,c,0,"our.tools.current_brush.size_100",0,0,0,0);
@@ -292,6 +296,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
+    laShowItem(uil,cl,0,"our.preferences.smoothness");
 
     laShowSeparator(uil,c);
 
@@ -1564,10 +1569,19 @@ int ourinv_ToggleErase(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+void our_SmoothGlobalInput(real *x, real *y, int reset){
+    if(reset){ Our->LastX=*x; Our->LastY=*y; return; }
+    else{
+        real smfac=(1-Our->Smoothness/1.1);
+        real xto=tnsLinearItp(Our->LastX,*x,smfac), yto=tnsLinearItp(Our->LastY,*y,smfac);
+        *x=Our->LastX=xto; *y=Our->LastY=yto;
+    }
+}
 int ourinv_Action(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     our_PaintResetBrushState(ob);
-    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
+    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); our_SmoothGlobalInput(&x,&y,1);
+    ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
@@ -1597,7 +1611,7 @@ int ourmod_Paint(laOperator* a, laEvent* e){
             Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation;
             while(1){
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
-                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y);
+                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y); our_SmoothGlobalInput(&x,&y,0);
                 int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
                 if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,Orientation,Deviation,
                     &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
@@ -1923,6 +1937,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
     laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
+    laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
