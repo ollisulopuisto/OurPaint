@@ -20,9 +20,6 @@
 #include "png.h"
 #include "lcms2.h"
 
-#define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
-
 OurPaint *Our;
 extern LA MAIN;
 extern tnsMain* T;
@@ -158,7 +155,7 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     }laEndCondition(uil,b1);
 }
 void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.6); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
     laUiItem* b1, *b2;
 #define OUR_BR b1=laBeginRow(uil,c,0,0);
 #define OUR_ER laEndRow(uil,b1);
@@ -202,13 +199,24 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     }laEndCondition(uil,bt);
 
     bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_CROP)));{
-        laShowItemFull(uil,c,0,"our.canvas.show_border",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
-        laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.show_border"));{
-            laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cr,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
-            laShowSeparator(uil,c);
-            laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cr,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
-            laShowSeparator(uil,c);
-            laShowItem(uil,c,0,"our.canvas.border_alpha");
+        laShowItemFull(uil,cl,0,"our.canvas.show_border",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
+        laUiItem* b=laOnConditionThat(uil,cl,laPropExpression(0,"our.canvas.show_border"));{
+            laShowItem(uil,cl,0,"our.canvas.border_alpha");
+            laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
+            laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
+            laShowItem(uil,cl,0,"OUR_crop_to_ref");
+        }laEndCondition(uil,b);
+        
+        laShowLabel(uil,cr,"Reference:",0,0);
+        laShowItemFull(uil,cr,0,"our.canvas.ref_mode",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
+        b=laOnConditionThat(uil,cr,laPropExpression(0,"our.canvas.ref_mode"));{
+            laShowItem(uil,cr,0,"our.canvas.ref_alpha");
+            laShowItem(uil,cr,0,"our.canvas.ref_category")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowItem(uil,cr,0,"our.canvas.ref_size")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowItem(uil,cr,0,"our.canvas.ref_orientation")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowLabel(uil,cr,"Margins:",0,0); laShowItem(uil,cr,0,"our.canvas.ref_margins")->Flags|=LA_UI_FLAGS_TRANSPOSE;
+            laShowLabel(uil,cr,"Paddings:",0,0); laShowItem(uil,cr,0,"our.canvas.ref_paddings")->Flags|=LA_UI_FLAGS_TRANSPOSE;
+            laShowItem(uil,cr,0,"our.canvas.ref_middle_margin");
         }laEndCondition(uil,b);
     }laEndCondition(uil,bt);
 }
@@ -409,6 +417,48 @@ void our_CanvasDrawCropping(OurCanvasDraw* ocd){
         glLineWidth(3); tnsFlush(); glLineWidth(1);
     }
 }
+void our_CanvasGetRefString(char* ref){
+    int refs=Our->RefSize; int add=0; if(Our->ShowRef==2){ refs++; add=1; }
+    if(Our->RefCategory==0){ sprintf(ref,"%sA%d",add?"2X":"",refs); }
+    elif(Our->RefCategory==1){ sprintf(ref,"%sB%d",add?"2X":"",refs); }
+    elif(Our->RefCategory==2){ sprintf(ref,"%s%dK",add?"2X":"",refs?((int)pow(2,refs-1)):0); }
+}
+#define OUR_GET_REF_SIZE(W,H) \
+    { if(Our->RefCategory==0){ W=118.9,H=84.1; } \
+    elif(Our->RefCategory==1){ W=141.4,H=100.0; } \
+    elif(Our->RefCategory==2){ W=109.2,H=78.7; } \
+    for(int i=0;i<Our->RefSize;i++){ if(W>H){ W/=2; }else{ H/=2; } } \
+    if((Our->RefOrientation && (W>H))||((!Our->RefOrientation) && (W<H))){ real t=H; H=W; W=t; } }
+void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
+    real W,H,W2,H2; char str[128]; our_CanvasGetRefString(str);
+    OUR_GET_REF_SIZE(W,H); sprintf(str+strlen(str)," %dX%.dmm",(int)W*10,(int)H*10);
+    real dpc=OUR_DPC; W*=dpc; H*=dpc; W2=W/2; H2=H/2;
+    real LM=Our->RefMargins[0]*dpc,RM=LM,TM=Our->RefMargins[1]*dpc,BM=TM;
+    real LP=Our->RefPaddings[0]*dpc,RP=LP,TP=Our->RefPaddings[1]*dpc,BP=TP;
+    real MM=Our->RefMargins[2]*dpc;
+
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsColor4d(0,0,0,Our->RefAlpha); tnsLineWidth(3.0);
+    tnsVertex2d(-W2,H2); tnsVertex2d(W2,H2); tnsVertex2d(W2,-H2); tnsVertex2d(-W2,-H2); tnsPackAs(GL_LINE_LOOP);
+    if(Our->ShowRef==2){
+        if(Our->RefOrientation){ tnsVertex2d(W2,0); tnsVertex2d(-W2,0); }
+        else{ tnsVertex2d(0,H2); tnsVertex2d(0,-H2); }tnsPackAs(GL_LINES);
+    }
+    tnsColor4d(0,0,0,Our->RefAlpha*0.6); tnsLineWidth(1.0);
+    tnsVertex2d(-W2+LM,H2-TM); tnsVertex2d(W2-LM,H2-TM); tnsVertex2d(W2-LM,-H2+BM); tnsVertex2d(-W2+LM,-H2+BM); tnsPackAs(GL_LINE_LOOP);
+    tnsVertex2d(-W2-LP,H2+TP); tnsVertex2d(W2+LP,H2+TP); tnsVertex2d(W2+LP,-H2-BP); tnsVertex2d(-W2-LP,-H2-BP); tnsPackAs(GL_LINE_LOOP);
+    if(Our->ShowRef==2){
+        if(Our->RefOrientation){ tnsVertex2d(W2,-MM); tnsVertex2d(-W2,-MM); tnsVertex2d(W2,MM); tnsVertex2d(-W2,MM);  }
+        else{ tnsVertex2d(-MM,H2); tnsVertex2d(-MM,-H2); tnsVertex2d(MM,H2); tnsVertex2d(MM,-H2); }
+        tnsPackAs(GL_LINES);
+    }
+
+    real tcolor[4]={0,0,0,Our->RefAlpha}; real th=ocd->Base.ZoomX;
+    tnsLineWidth(3);
+    tnsDrawStringLCD(str,0,tcolor,-W2,W2,H2+th*LA_RH,LA_TEXT_LCD_16|LA_TEXT_REVERT_Y,th);
+    tnsLineWidth(1);
+    tnsFlush();
+}
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     if(!Our->CurrentBrush) return; real v[96];
     tnsUseImmShader();tnsUseNoTexture();
@@ -471,6 +521,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     our_CanvasDrawTextures();
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
+    if(Our->ShowRef){ our_CanvasDrawReferenceBlock(ocd); }
 }
 void our_CanvasDrawOverlay(laUiItem* ui,int h){
     laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
@@ -1669,7 +1720,15 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
 
     return LA_RUNNING;
 }
-
+int ourchk_CropToRef(laPropPack *This, laStringSplitor *ss){ if(Our->ShowRef&&Our->ShowBorder) return 1; return 0; }
+int ourinv_CropToRef(laOperator* a, laEvent* e){
+    if((!Our->ShowRef) || (!Our->ShowBorder)) return LA_FINISHED;
+    real W,H,W2,H2; OUR_GET_REF_SIZE(W,H)
+    real dpc=OUR_DPC; W*=dpc; H*=dpc; W2=W/2; H2=H/2;
+    Our->X=-W2; Our->W=W; Our->Y=H2; Our->H=H;
+    laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); laNotifyUsers("our.canvas");
+    return LA_FINISHED;
+}
 
 void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
     *ptr="Main canvas";
@@ -1770,6 +1829,16 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
+}
+void ourset_ShowRef(void* unused, int c){ Our->ShowRef=c; laNotifyUsers("our.canvas"); }
+void ourset_RefCategory(void* unused, int c){ Our->RefCategory=c; laNotifyUsers("our.canvas"); }
+void ourset_RefSize(void* unused, int c){ Our->RefSize=c; laNotifyUsers("our.canvas"); }
+void ourset_RefOrientation(void* unused, int c){ Our->RefOrientation=c; laNotifyUsers("our.canvas"); }
+void ourset_RefMargins(void* unused, real* v){ tnsVectorSet2v(Our->RefMargins,v);laNotifyUsers("our.canvas"); }
+void ourset_RefPaddings(void* unused, real* v){ tnsVectorSet2v(Our->RefPaddings,v); laNotifyUsers("our.canvas"); }
+void ourset_RefMiddleMargin(void* unused, real v){ Our->RefMargins[2]=v;laNotifyUsers("our.canvas"); }
+void ourset_RefAlpha(void* unused, real a){
+    Our->RefAlpha=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
@@ -1885,6 +1954,8 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_toggle_erasing","Toggle Erasing","Toggle erasing",0,0,0,ourinv_ToggleErase,0,0,0);
 
+    laCreateOperatorType("OUR_crop_to_ref","Crop To Ref","Crop to reference lines",ourchk_CropToRef,0,0,ourinv_CropToRef,0,0,0);
+
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
@@ -1989,7 +2060,7 @@ void ourRegisterEverything(){
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
     laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),LA_PROP_READ_PROGRESS);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
-    laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
+    laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"W,H","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
     laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
@@ -1999,7 +2070,29 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"color_interpretation","Color Interpretation","Interpret the color values on this canvas as in which color space",0,0,0,0,0,offsetof(OurPaint,ColorInterpretation),0,ourset_ColorInterpretation,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Interpret the color values as if they are in Linear sRGB color space",OUR_CANVAS_INTERPRETATION_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Interpret the color values as if they are in Linear Clay color space (AdobeRGB 1998 compatible)",OUR_CANVAS_INTERPRETATION_CLAY,0);
-
+    laAddFloatProperty(pc,"ref_alpha","Ref Alpha","Alpha of the reference lines",0,0,0,1,0,0.05,0.75,0,offsetof(OurPaint,RefAlpha),0,0,0,0,0,0,0,ourset_RefAlpha,0,0,0);
+    p=laAddEnumProperty(pc,"ref_mode","Show Reference Lines","Whether to show reference lines",0,0,0,0,0,offsetof(OurPaint,ShowRef),0,ourset_ShowRef,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Don't show reference lines",0,0);
+    laAddEnumItemAs(p,"BORDER","Border","Show reference lines like paper boundaries",1,0);
+    laAddEnumItemAs(p,"SPREAD","Spread","Show double page spread",2,0);
+    p=laAddEnumProperty(pc,"ref_category","Category","Dimension category of the reference block",0,0,0,0,0,offsetof(OurPaint,RefCategory),0,ourset_RefCategory,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"A","A","A series ISO 216 / DIN 476",0,0);
+    laAddEnumItemAs(p,"B","B","B series ISO 216 / DIN 476",1,0);
+    laAddEnumItemAs(p,"K","2nK","East-Asian 2nK paper sizes",2,0);
+    p=laAddEnumProperty(pc,"ref_size","Size","Reference block size",0,0,0,0,0,offsetof(OurPaint,RefSize),0,ourset_RefSize,0,0,0,0,0,0,0,0);
+#define _STR(a) #a
+#define ADD_SIZE(a) laAddEnumItemAs(p,"SIZE"_STR(a),_STR(a),"SIZE"_STR(a),a,0);
+    ADD_SIZE(0);ADD_SIZE(1);ADD_SIZE(2);ADD_SIZE(3);ADD_SIZE(4);ADD_SIZE(5);ADD_SIZE(6);ADD_SIZE(7);
+#undef ADD_SIZE
+#undef _STR
+    p=laAddEnumProperty(pc,"ref_orientation","Orientation","Orientation of the reference block",0,0,0,0,0,offsetof(OurPaint,RefOrientation),0,ourset_RefOrientation,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"H","Horizontal","Horizontal",0,L'▭');
+    laAddEnumItemAs(p,"V","Vertical","Vertical",1,L'▯');
+    laAddFloatProperty(pc,"ref_margins","Margins","Margins of the reference block",0,"L/R,T/B","cm",0,0,0,0,0,offsetof(OurPaint,RefMargins),0,0,2,0,0,0,0,ourset_RefMargins,0,0,0);
+    laAddFloatProperty(pc,"ref_paddings","Paddings","Paddings of the reference block",0,"L/R,T/B","cm",0,0,0,0,0,offsetof(OurPaint,RefPaddings),0,0,2,0,0,0,0,ourset_RefPaddings,0,0,0);
+    laAddFloatProperty(pc,"ref_middle_margin","Middle Margin","Margin in the middle of the spread",0,0,"cm",0,0,0,0,0,offsetof(OurPaint,RefMargins[2]),0,ourset_RefMiddleMargin,0,0,0,0,0,0,0,0,0);
+    laAddIntProperty(pc,"ref_biases","Reference Biases","Position biases when reading reference block",0,0,0,0,0,0,0,0,offsetof(OurPaint,RefBiases),0,0,0,0,0,0,0,0,0,0,0);
+    
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -2150,6 +2243,12 @@ int ourInit(){
 
     Our->PenID=-1;
     Our->EraserID=-1;
+
+    Our->RefAlpha=0.75;
+    Our->RefCategory=0;
+    Our->RefSize=4;
+    tnsVectorSet3(Our->RefMargins,1.5,1.5,1.0);
+    tnsVectorSet2(Our->RefPaddings,1.5,1.5);
 
     tnsEnableShaderv(T->immShader);
 

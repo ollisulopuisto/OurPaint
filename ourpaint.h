@@ -64,6 +64,7 @@ STRUCTURE(OurCanvasDraw){
     real LastTilt[2];
 };
 
+#define OUR_DPC (600*0.3937007874)
 
 #define OUR_TILE_W 1024
 #define OUR_TILES_PER_ROW 100
@@ -325,6 +326,14 @@ STRUCTURE(OurPaint){
     uint16_t BColorU16[4];
     uint8_t  BColorU8[4];
     real BorderAlpha;
+
+    int ShowRef;
+    int RefSize;
+    int RefCategory;
+    int RefOrientation;
+    real RefMargins[3],RefPaddings[2];
+    int RefBiases[2];
+    real RefAlpha;
 
     real xmin,xmax,ymin,ymax; // stroke bbox for undo region
     int ResetBrush;
