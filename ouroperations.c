@@ -507,7 +507,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     if (!e->OffScr || e->OffScr->pColor[0]->Height != ui->B - ui->U || e->OffScr->pColor[0]->Width != ui->R - ui->L){
         if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
-        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
+        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, MAIN.PanelMultisample, 0, 0);
     }
 
     //our_CANVAS_TEST(bt,ui);
