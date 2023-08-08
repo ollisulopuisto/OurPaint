@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Visual Reference Stripes","视觉参考亮度带",
 "Release Notes","发行日志",
 "Spectral Brush","光谱笔刷",
 "Spectral","光谱",

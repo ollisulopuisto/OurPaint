@@ -196,6 +196,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
         laShowSeparator(uil,c);
         laShowLabel(uil,c,"Display:",0,0);
         laShowItem(uil,c,0,"our.preferences.enable_brush_circle");
+        laShowItem(uil,c,0,"our.preferences.show_stripes");
     }laEndCondition(uil,bt);
 
     bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_CROP)));{
@@ -299,12 +300,14 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
-    laShowItem(uil,cr,0,"our.preferences.lock_radius");
-    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
-    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
+    laShowItem(uil,cr,0,"our.preferences.show_stripes");
+    laShowItem(uil,cl,0,"our.preferences.lock_radius");
+    laShowItem(uil,cr,0,"our.preferences.smoothness");
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
-    laShowItem(uil,cl,0,"our.preferences.smoothness");
+    laShowSeparator(uil,c);
+    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
+    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
 
     laShowSeparator(uil,c);
 
@@ -507,7 +510,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     if (!e->OffScr || e->OffScr->pColor[0]->Height != ui->B - ui->U || e->OffScr->pColor[0]->Width != ui->R - ui->L){
         if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
-        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, MAIN.PanelMultisample, 0, 0);
+        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
     }
 
     //our_CANVAS_TEST(bt,ui);
@@ -539,6 +542,24 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
 
     if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
+        if(Our->ShowStripes){ int UH=TNS_MIN2(LA_RH,(ui->B-ui->U)/8); real varr[8]; real carr[16];
+            tnsVectorSet4(&varr[0], ui->L,ui->B-UH,ui->R,ui->B-UH);
+            tnsVectorSet4(&varr[4], ui->R,ui->B-2*UH,ui->L,ui->B-2*UH);
+            tnsVectorSet4(&carr[0], 0,0,0,1); tnsVectorSet4(&carr[4], 1,1,1,1);
+            tnsVectorSet4(&carr[8], 1,1,1,1); tnsVectorSet4(&carr[12], 0,0,0,1);
+            tnsVertexArray2d(varr,4); tnsColorArray4d(carr,4);
+            tnsPackAs(GL_TRIANGLE_FAN);
+            tnsVertex2d(ui->L,ui->B); tnsVertex2d(ui->R,ui->B); tnsVertex2d(ui->R,ui->B-UH); tnsVertex2d(ui->L,ui->B-UH);
+            tnsColor4d(0,0,0,1); tnsPackAs(GL_TRIANGLE_FAN);
+            tnsVertex2d(ui->L,ui->B-UH*2); tnsVertex2d(ui->R,ui->B-UH*2); tnsVertex2d(ui->R,ui->B-UH*3); tnsVertex2d(ui->L,ui->B-UH*3);
+            tnsColor4d(1,1,1,1); tnsPackAs(GL_TRIANGLE_FAN);
+            real ca[16]={0,0,0,1,0.5,0.5,0.5,1,1,1,1,1,0.5,0.5,0.5,1};
+            int count=(ui->R-ui->L)/UH; real sp=(real)(ui->R-ui->L)/(real)count;
+            for(int i=0;i<count;i++){ real sl=sp*i+ui->L;
+                tnsVertex2d(sl,ui->U); tnsVertex2d(sl+sp,ui->U); tnsVertex2d(sl+sp,ui->U+UH); tnsVertex2d(sl,ui->U+UH);
+                tnsColor4dv(&ca[(i%4)*4]); tnsPackAs(GL_TRIANGLE_FAN);
+            }
+        }
         char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
         tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
     }
@@ -1793,9 +1814,8 @@ void ourset_ShowBorder(void* unused, int a){
 void ourset_ColorInterpretation(void* unused, int a){
     Our->ColorInterpretation=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
-void ourset_ShowTiles(void* unused, int a){
-    Our->ShowTiles=a; laNotifyUsers("our.canvas");
-}
+void ourset_ShowTiles(void* unused, int a){ Our->ShowTiles=a; laNotifyUsers("our.canvas"); }
+void ourset_ShowStripes(void* unused, int a){ Our->ShowStripes=a; laNotifyUsers("our.canvas"); }
 void ourset_CanvasSize(void* unused, int* wh){
     Our->W=wh[0]; Our->H=wh[1]; if(Our->W<32) Our->W=32; if(Our->H<32) Our->H=32; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
@@ -1984,17 +2004,17 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
     p=laAddEnumProperty(pc,"lock_radius","Lock Radius","Lock radius when changing brushes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,LockRadius),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dontt lock radius",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't lock radius",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Lock radius when changing brushes",1,0);
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dontt show brush circle",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
     p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);
     laAddIntProperty(pc,"bad_event_tolerance","Bad Event Tolerance","Try to recieve more events before painting starts to get around some stylus hardware issue",0,0,0,16,0,1,0,0,offsetof(OurPaint,BadEventsLimit),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_debug_tiles","Show debug tiles","Whether to show debug tiles",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowTiles),0,ourset_ShowTiles,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Dontt show debug tiles on the canvas",0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't show debug tiles on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show debug tiles on the canvas",1,0);
     p=laAddEnumProperty(pc,"export_default_bit_depth","Export Default Bit Depth","Default bit depth when exporting images",0,0,0,0,0,offsetof(OurPaint,DefaultBitDepth),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"D8","8 Bits","Use 8 bits per channel",OUR_EXPORT_BIT_DEPTH_8,0);
@@ -2009,6 +2029,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
     laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"show_stripes","Visual Reference Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Show visual reference stripes at the top and bottom of the canvas",1,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);

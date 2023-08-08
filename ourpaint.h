@@ -327,6 +327,7 @@ STRUCTURE(OurPaint){
     uint8_t  BColorU8[4];
     real BorderAlpha;
 
+    int ShowStripes;
     int ShowRef;
     int RefSize;
     int RefCategory;
