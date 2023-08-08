@@ -74,6 +74,9 @@ additional="""
     - libpng16-16
     - libglew2.1
     - libxi6
+    - libxfixes3
+    - libxcursor1
+    - libxrandr2
 """
 template=template.replace("---includes---",additional)
 
