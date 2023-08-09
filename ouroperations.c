@@ -262,8 +262,7 @@ void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* g; laUiList* gu; laColumn* gc;
     g = laMakeGroup(uil, c, "Our Paint", 0);
-    gu = g->Page;{
-        gc = laFirstColumn(gu);
+    gu = g->Page;{ gc = laFirstColumn(gu);
         laShowLabel(gu,gc,"Our Paint is made by Wu Yiming.",0,0)->Flags|=LA_TEXT_LINE_WRAP;
         laUiItem* b =laBeginRow(gu,gc,0,0);
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
@@ -273,6 +272,12 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
         laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
         laEndRow(gu,b);
+    }
+    g = laMakeGroup(uil, c, "Credits to Sponsors", 0);
+    gu = g->Page;{ gc = laFirstColumn(gu);
+        laShowLabel(gu,gc,"- Deathblood",0,0);
+        laShowLabel(gu,gc,"- Leone Arturo",0,0);
+        laShowLabel(gu,gc,"- 贵州混混",0,0);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -332,7 +337,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
     }
     laUiItem* b=laBeginRow(uil,cl,0,0); laShowLabel(uil,cl,OUR_PAINT_NAME_STRING,0,0);
-    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230213211750;text=Release Notes", 0, 0);
+    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230808165902;text=Release Notes", 0, 0);
     laEndRow(uil,b);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     b=laBeginRow(uil,cl,0,0);

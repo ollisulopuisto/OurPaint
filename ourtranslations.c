@@ -23,6 +23,14 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Crop To Ref","按参考线裁剪",
+"Middle Margin","中间留白",
+"Vertical","竖置",
+"Horizontal","横置",
+"Ref Alpha","参考线可见度",
+"Spread","对开",
+"Reference:","参考：",
+"Credits to Sponsors","感谢赞助者",
 "Visual Reference Stripes","视觉参考亮度带",
 "Release Notes","发行日志",
 "Spectral Brush","光谱笔刷",
