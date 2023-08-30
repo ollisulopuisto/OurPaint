@@ -548,6 +548,7 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 
     if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
         if(Our->ShowStripes){ int UH=TNS_MIN2(LA_RH,(ui->B-ui->U)/8); real varr[8]; real carr[16];
+            tnsUseNoTexture();
             tnsVectorSet4(&varr[0], ui->L,ui->B-UH,ui->R,ui->B-UH);
             tnsVectorSet4(&varr[4], ui->R,ui->B-2*UH,ui->L,ui->B-2*UH);
             tnsVectorSet4(&carr[0], 0,0,0,1); tnsVectorSet4(&carr[4], 1,1,1,1);
