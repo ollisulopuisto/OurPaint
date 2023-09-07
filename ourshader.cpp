@@ -120,8 +120,8 @@ float HEIGHT_CANVAS(float x,float y){
 		f = 0.2*noise( uv ); uv*=5.;
 		f += 0.6*noise( uv ); uv*=3.;
 		f += 0.5*noise( uv );
-	    f = 0.5 + 0.5*f;
-        return f;
+	    f = 0.55 + 0.55*f;
+        return pow(f,0.5);
     }
     return 1;
 }
