@@ -117,12 +117,9 @@ float HEIGHT_CANVAS(float x,float y){
         return PATTERN_CANVAS(x,y);
     }else if(uCanvasType == 2){
         vec2 uv=vec2(x,y); float f; uv*=0.1; // from iq
-        mat2 m = mat2(1.6,1.2,-1.2,1.6);
-        uv = m*uv; uv = m*uv;
-        f = 0.2*noise( uv ); uv = m*uv;
-        f += 0.3*noise( uv ); uv = m*uv;
-		f += 0.5*noise( uv ); uv = m*uv;
-		f += 0.4*noise( uv ); uv = m*uv;
+		f = 0.2*noise( uv ); uv*=5.;
+		f += 0.6*noise( uv ); uv*=3.;
+		f += 0.5*noise( uv );
 	    f = 0.5 + 0.5*f;
         return f;
     }
