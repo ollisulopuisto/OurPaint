@@ -159,11 +159,12 @@ STRUCTURE(OurBrush){
     real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart; real BrushRemainingDist;
     real Slender;
     real Angle;
+    real Force, Gunkyness;
     real Smoothness;
     real MaxStrokeLength;
     real Custom1,Custom2; laSafeString *Custom1Name,*Custom2Name;
     int Iteration;
-    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge; // the simple way
+    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce; // the simple way
 
     int Binding,DefaultAsEraser;
 
@@ -182,6 +183,7 @@ STRUCTURE(OurBrush){
     real EvalSmudgeLength;
     real EvalSlender;
     real EvalAngle;
+    real EvalForce, EvalGunkyness;
 
     real EvalSpeed;
     real EvalStrokeLength;
@@ -203,6 +205,9 @@ STRUCTURE(OurDab){
     float Color[4];
     float Slender;
     float Angle;
+    float Direction[2];
+    float Force;
+    float Gunkyness;
     float Recentness;
 };
 
@@ -274,6 +279,7 @@ STRUCTURE(OurPaint){
     OurBrush*    CurrentBrush;
     real SaveBrushSize,SaveEraserSize;
     OurDab* Dabs; int NextDab,MaxDab;
+    float LastBrushCenter[2];
 
     real Smoothness;
     real LastX, LastY;
@@ -283,6 +289,9 @@ STRUCTURE(OurPaint){
 
     int Tool,ActiveTool,Erasing,EventErasing;
     int LockBackground;
+    int BackgroundType;
+    int BackgroundRandom;
+    real BackgroundFactor;
     int PenID,EraserID;
     int X,Y,W,H; //border
     int ColorInterpretation;
@@ -301,6 +310,10 @@ STRUCTURE(OurPaint){
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
     GLuint CompositionShader; GLuint CompositionProgram;
+    GLint uCanvasType;
+    GLint uCanvasRandom;
+    GLint uCanvasFactor;
+    GLint uImageOffset;
     GLint uBrushCorner;
     GLint uBrushCenter;
     GLint uBrushSize;
@@ -310,6 +323,9 @@ STRUCTURE(OurPaint){
     GLint uBrushColor;
     GLint uBrushSlender;
     GLint uBrushAngle;
+    GLint uBrushDirection;
+    GLint uBrushForce;
+    GLint uBrushGunkyness;
     GLint uBrushRoutineSelection;
     GLint uMixRoutineSelection;
     GLint uBrushErasing;

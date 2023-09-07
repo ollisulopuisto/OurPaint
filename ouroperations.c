@@ -126,17 +126,30 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     }laEndCondition(uil,b);
 
     laShowSeparator(uil,c);
-    b=laBeginRow(uil,c,0,0);
-    lui=laShowLabel(uil,c,"Background:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT;
-        laUiItem* b2=laOnConditionThat(uil,c,laPropExpression(0,"our.lock_background"));{
-            laShowItemFull(uil,c,0,"our.lock_background",LA_WIDGET_ENUM_CYCLE,0,0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
-        }laElse(uil,b2);{
-            laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
-        }laEndCondition(uil,b2);
-    laEndRow(uil,b);
+
     b=laBeginRow(uil,c,0,0);
     lui=laShowLabel(uil,c,"Color Space:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,c,0,"our.canvas.color_interpretation");
     laEndRow(uil,b);
+
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Background:",0,0);
+    laUiItem* b2=laOnConditionThat(uil,c,laPropExpression(0,"our.lock_background"));{
+        laShowItemFull(uil,c,0,"our.lock_background",LA_WIDGET_ENUM_CYCLE,0,0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+    }laElse(uil,b2);{
+        b=laBeginRow(uil,c,1,0);
+        laShowLabel(uil,c,"Color:",0,0);
+        laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+        laEndRow(uil,b);
+        b=laBeginRow(uil,c,1,0);
+        laShowLabel(uil,c,"Pattern:",0,0);
+        laShowItemFull(uil,c,0,"our.canvas.background_type",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
+        laEndRow(uil,b);
+        b=laBeginRow(uil,c,1,0);
+        laShowItemFull(uil,c,0,"our.canvas.background_random",0,0,0,0);
+        laShowItemFull(uil,c,0,"our.canvas.background_factor",0,0,0,0);
+        laEndRow(uil,b);
+    }laEndCondition(uil,b2);
 }
 void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
@@ -180,16 +193,22 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.slender");
             laShowItem(uil,c,0,"our.tools.current_brush.angle");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
+            laShowItem(uil,c,0,"our.tools.current_brush.gunkyness");
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.force")->Expand=1;
+            laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_force",0,"text=P",0,0); OUR_ER
+            laShowSeparator(uil,c);
             laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
+            laShowSeparator(uil,c);
             b2=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush.use_nodes"));
                 laShowItem(uil,cl,0,"our.tools.current_brush.c1");
                 laShowItem(uil,cr,0,"our.tools.current_brush.c1_name");
                 laShowItem(uil,cl,0,"our.tools.current_brush.c2");
                 laShowItem(uil,cr,0,"our.tools.current_brush.c2_name");
             laEndCondition(uil,b2);
+            laShowSeparator(uil,c);
             laShowItem(uil,c,0,"our.tools.current_brush.default_as_eraser");
         }laEndCondition(uil,b);
 
@@ -643,6 +662,7 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     memAssignRef(Our, &Our->CurrentBrush, b);
     b->Rack=memAcquire(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     b->Binding=-1;
+    b->PressureForce=1; b->Force=1;
     return b;
 }
 void our_RemoveBrush(OurBrush* b){
@@ -1190,6 +1210,7 @@ void our_UiToCanvas(laCanvasExtra* ex, laEvent*e, real* x, real *y){
 }
 void our_PaintResetBrushState(OurBrush* b){
     b->BrushRemainingDist = 0; b->SmudgeAccum=0; b->SmudgeRestart=1;
+    Our->LastBrushCenter[0]=-1e21;
 }
 real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
     real d=Size/DabsPerSize; if(d<1e-2) d=1e-2; return d;
@@ -1209,7 +1230,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
     b->EvalSize=b->Size; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
-    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/b->Size;
+    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/b->Size; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
@@ -1217,7 +1238,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
 
     while(1){ int Repeat=1; OurDab* od;
         for(b->Iteration=0;b->Iteration<Repeat;b->Iteration++){ b->EvalDiscard=0;
-            arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); od=&Our->Dabs[Our->NextDab];
+            arrEnsureLength(&Our->Dabs,Our->NextDab,&Our->MaxDab,sizeof(OurDab)); od=&Our->Dabs[Our->NextDab]; od->Direction[0]=-1e21;
             real r=tnsGetRatiod(0,len,uselen-rem); od->X=tnsInterpolate(x,xto,r); od->Y=tnsInterpolate(y,yto,r); TNS_CLAMP(r,0,1);
             b->LastX=od->X; b->LastY=od->Y; tnsVectorSet3v(b->EvalColor, Our->CurrentColor);
             if(b->UseNodes){
@@ -1234,6 +1255,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
             tnsVectorSet3v(od->Color,b->EvalColor);
     #undef pfac;
+            od->Force=b->EvalForce*(b->PressureForce?tnsInterpolate(last_pressure,pressure,r):1);
+            od->Gunkyness = b->EvalGunkyness;
             od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
@@ -1269,9 +1292,13 @@ void our_PaintDoSample(int x, int y, int sx, int sy, int ssize, int last,int beg
 void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     int corner[2]; corner[0]=floorf(d->X-d->Size); corner[1]=floorf(d->Y-d->Size);
     real MaxX,MaxY; MaxX=ceil(d->X+d->Size); MaxY=ceil(d->Y+d->Size);
+    float center[2]; center[0]=d->X-tl; center[1]=d->Y-tu;
+    if(d->Direction[0]<-1e20){
+        if(Our->LastBrushCenter[0]<-1e20){ d->Direction[0]=0;d->Direction[1]=0; }
+        else{ d->Direction[0]=d->X-Our->LastBrushCenter[0]; d->Direction[1]=d->Y-Our->LastBrushCenter[1]; }
+    } tnsVectorSet2(Our->LastBrushCenter,d->X,d->Y);
     if(corner[0]>tr||MaxX<tl||corner[1]>tb||MaxY<tu) return;
     corner[0]=corner[0]-tl; corner[1]=corner[1]-tu;
-    float center[2]; center[0]=d->X-tl; center[1]=d->Y-tu;
     glUniform2iv(Our->uBrushCorner,1,corner);
     glUniform2fv(Our->uBrushCenter,1,center);
     glUniform1f(Our->uBrushSize,d->Size);
@@ -1279,6 +1306,9 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(Our->uBrushSmudge,d->Smudge);
     glUniform1f(Our->uBrushSlender,d->Slender);
     glUniform1f(Our->uBrushAngle,d->Angle);
+    glUniform2fv(Our->uBrushDirection,1,d->Direction);
+    glUniform1f(Our->uBrushForce,d->Force);
+    glUniform1f(Our->uBrushGunkyness,d->Gunkyness);
     glUniform1f(Our->uBrushRecentness,d->Recentness);
     glUniform4fv(Our->uBrushColor,1,d->Color);
     glDispatchCompute(ceil(d->Size/16), ceil(d->Size/16), 1);
@@ -1289,9 +1319,10 @@ void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int 
         for(int col=tl;col<=tr;col++){
             OurTexTile* ott=l->TexTiles[row][col];
             glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
-            int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
+            int s[2]; s[0]=l->TexTiles[row][col]->l,s[1]=l->TexTiles[row][col]->b;
+            glUniform2iv(Our->uImageOffset,1,s);
             for(int i=Start;i<End;i++){
-                our_PaintDoDab(&Our->Dabs[i],sx,sx+OUR_TILE_W,sy,sy+OUR_TILE_W);
+                our_PaintDoDab(&Our->Dabs[i],s[0],s[0]+OUR_TILE_W,s[1],s[1]+OUR_TILE_W);
             }
         }
     }
@@ -1317,7 +1348,9 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
     uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
     glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
-    
+    glUniform1i(Our->uCanvasType,Our->BackgroundType);
+    glUniform1i(Our->uCanvasRandom,Our->BackgroundRandom);
+    glUniform1f(Our->uCanvasFactor,Our->BackgroundFactor);
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
@@ -2059,6 +2092,8 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"slender","Slender","Slenderness of the brush",0,0, 0,10,0,0.1,0,0,offsetof(OurBrush,Slender),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"angle","Angle","Angle of the brush",0,0, 0,TNS_PI,-TNS_PI,0.1,0,0,offsetof(OurBrush,Angle),0,0,0,0,0,0,0,0,0,0,LA_RAD_ANGLE);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of the brush",0,0, 0,1,0,0.05,0,0,offsetof(OurBrush,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"force","Force","How hard the brush is pushed against canvas texture",0,0,0,1,0,0.05,0,0,offsetof(OurBrush,Force),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"gunkyness","Gunkyness","How will the brush stick to the canvas texture",0,0, 0,1,-1,0.05,0,0,offsetof(OurBrush,Gunkyness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"c1","C1","Custom brush input 1",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom1),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"c2","C2","Custom brush input 2",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom2),0,0,0,0,0,0,0,0,0,0,0);
     laAddStringProperty(pc,"c1_name","C1 Name","Custom input 1 name",0,0,0,0,1,offsetof(OurBrush,Custom1Name),0,0,0,0,0);
@@ -2070,6 +2105,8 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"pressure_hardness","Pressure Hardness","Use pen pressure to control hardness",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureHardness),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_smudge","Pressure Smudge","Use pen pressure to control smudging",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSmudge),0,0,0,0,0,0,0,0,0,0);
+    OUR_ADD_PRESSURE_SWITCH(p);
+    p=laAddEnumProperty(pc,"pressure_force","Pressure Force","Use pen pressure to control dab force",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureForce),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"use_nodes","Use Nodes","Use nodes to control brush dynamics",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,UseNodes),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Not using nodes",0,0);
@@ -2092,6 +2129,12 @@ void ourRegisterEverything(){
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"W,H","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
     laAddIntProperty(pc,"position","Position","Position of the cropping area",0,"X,Y","px",0,0,0,2400,0,offsetof(OurPaint,X),0,0,2,0,0,0,0,ourset_CanvasPosition,0,0,0);
     laAddFloatProperty(pc,"background_color","Background Color","Background color of the canvas",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,BackgroundColor),0,0,3,0,0,0,0,ourset_BackgroundColor,0,0,LA_PROP_IS_LINEAR_SRGB);
+    p=laAddEnumProperty(pc,"background_type","Background Type","Background texture type",0,0,0,0,0,offsetof(OurPaint,BackgroundType),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","No textured background",0,0);
+    laAddEnumItemAs(p,"CANVAS","Canvas","Background mimics canvas texture",1,0);
+    laAddEnumItemAs(p,"PAPER","Paper","Background mimics paper texture",2,0);
+    laAddIntProperty(pc,"background_random","Random","Background random pattern value",0,0,0,0,0,0,0,0,offsetof(OurPaint,BackgroundRandom),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
@@ -2232,6 +2275,10 @@ int ourInit(){
         glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); printf("Composition program Linking error:\n%s", error); return 0;
     }
 
+    Our->uCanvasType=glGetUniformLocation(Our->CanvasProgram,"uCanvasType");
+    Our->uCanvasRandom=glGetUniformLocation(Our->CanvasProgram,"uCanvasRandom");
+    Our->uCanvasFactor=glGetUniformLocation(Our->CanvasProgram,"uCanvasFactor");
+    Our->uImageOffset=glGetUniformLocation(Our->CanvasProgram,"uImageOffset");
     Our->uBrushCorner=glGetUniformLocation(Our->CanvasProgram,"uBrushCorner");
     Our->uBrushCenter=glGetUniformLocation(Our->CanvasProgram,"uBrushCenter");
     Our->uBrushSize=glGetUniformLocation(Our->CanvasProgram,"uBrushSize");
@@ -2241,6 +2288,9 @@ int ourInit(){
     Our->uBrushColor=glGetUniformLocation(Our->CanvasProgram,"uBrushColor");
     Our->uBrushSlender=glGetUniformLocation(Our->CanvasProgram,"uBrushSlender");
     Our->uBrushAngle=glGetUniformLocation(Our->CanvasProgram,"uBrushAngle");
+    Our->uBrushDirection=glGetUniformLocation(Our->CanvasProgram,"uBrushDirection");
+    Our->uBrushForce=glGetUniformLocation(Our->CanvasProgram,"uBrushForce");
+    Our->uBrushGunkyness=glGetUniformLocation(Our->CanvasProgram,"uBrushGunkyness");
     Our->uBrushErasing=glGetUniformLocation(Our->CanvasProgram,"uBrushErasing");
 
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
@@ -2262,6 +2312,11 @@ int ourInit(){
     Our->BorderAlpha=0.6;
 
     Our->SpectralMode=1;
+
+    Our->BackgroundType=2;
+    Our->BackgroundFactor=1;
+    srand(time(0));
+    Our->BackgroundRandom=rand()-RAND_MAX/2;
 
     Our->LockRadius=1;
     Our->EnableBrushCircle=1;

@@ -22,6 +22,10 @@ const char OUR_CANVAS_SHADER[]=R"(#version 430
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(rgba16, binding = 0) uniform image2D img;
 layout(rgba16, binding = 1) coherent uniform image2D smudge_buckets;
+uniform int uCanvasType;
+uniform int uCanvasRandom;
+uniform float uCanvasFactor;
+uniform ivec2 uImageOffset;
 uniform ivec2 uBrushCorner;
 uniform vec2 uBrushCenter;
 uniform float uBrushSize;
@@ -29,6 +33,9 @@ uniform float uBrushHardness;
 uniform float uBrushSmudge;
 uniform float uBrushSlender;
 uniform float uBrushAngle;
+uniform vec2 uBrushDirection;
+uniform float uBrushForce;
+uniform float uBrushGunkyness;
 uniform float uBrushRecentness;
 uniform vec4 uBrushColor;
 uniform vec4 uBackgroundColor;
@@ -77,6 +84,75 @@ vec3 spectral_to_rgb (float spectral[10]) {
     for (int i=0; i<3; i++) {rgb_[i] = clamp((tmp[i] - WGM_EPSILON) / offset, 0.0f, 1.0f);}
     return rgb_;
 }
+
+vec2 hash( vec2 p ){
+	p = vec2( dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)) );
+	return -1.0 + 2.0*fract(sin(p)*43758.5453123);
+}
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+float noise(in vec2 p){ // from iq
+    const float K1 = 0.366025404; // (sqrt(3)-1)/2;
+    const float K2 = 0.211324865; // (3-sqrt(3))/6;
+	vec2  i = floor( p + (p.x+p.y)*K1 );
+    vec2  a = p - i + (i.x+i.y)*K2;
+    float m = step(a.y,a.x); 
+    vec2  o = vec2(m,1.0-m);
+    vec2  b = a - o + K2;
+	vec2  c = a - 1.0 + 2.0*K2;
+    vec3  h = max( 0.5-vec3(dot(a,a), dot(b,b), dot(c,c) ), 0.0 );
+	vec3  n = h*h*h*h*vec3( dot(a,hash(i+0.0)), dot(b,hash(i+o)), dot(c,hash(i+1.0)));
+    return dot( n, vec3(70.0) );
+}
+
+#define HEIGHT_STRAND(x,y) abs(fract(x)-.5)<.48? \
+    (.4+.2*sin(3.14*(y+ceil(x))))* \
+        ((max(abs(sin(3.14*x*2.)+0.2),abs(sin(3.14*x*2.)-0.2))+2.*abs(sin(3.14*x)))/2.+0.5):0.1
+#define PATTERN_CANVAS(x,y) \
+    (max(HEIGHT_STRAND((x),(y)),HEIGHT_STRAND(-(y),(x))))
+
+float HEIGHT_CANVAS(float x,float y){
+    if(uCanvasType == 1){
+        return PATTERN_CANVAS(x,y);
+    }else if(uCanvasType == 2){
+        vec2 uv=vec2(x,y); float f; uv*=0.1; // from iq
+        mat2 m = mat2(1.6,1.2,-1.2,1.6);
+        f  = 0.1*noise( uv ); uv = m*uv;
+        f += 0.1*noise( uv ); uv = m*uv;
+        f += 0.2*noise( uv ); uv = m*uv;
+        f += 0.3*noise( uv ); uv = m*uv;
+		f += 0.5*noise( uv ); uv = m*uv;
+		f += 0.4*noise( uv ); uv = m*uv;
+	    f = 0.5 + 0.5*f;
+        return f;
+    }
+    return 1;
+}
+float SampleCanvas(vec2 U, vec2 dir,float rfac, float force, float gunky){
+    if(uCanvasType==0 || abs(gunky-0.)<1e-2){ return rfac; }
+    U+=vec2(uImageOffset); U/=20.3; U.x=U.x+rand(U)/10.; U.y=U.y+rand(U)/10.;
+
+    mat2 m = mat2(1.6,1.2,-1.2,1.6); vec2 _uv=U; _uv.x+=float(uCanvasRandom%65535)/174.41; _uv.y+=float(uCanvasRandom%65535)/439.87; _uv/=500.;
+    U.x+=noise(_uv)*2.1; _uv = m*_uv; U.x+=noise(_uv)*0.71;
+    _uv.y+=365.404;
+    U.y+=noise(_uv)*1.9; _uv = m*_uv; U.y+=noise(_uv)*0.83;
+    
+    float d=0.1;
+    float h=HEIGHT_CANVAS(U.x,U.y);
+    float hr=HEIGHT_CANVAS(U.x+d,U.y);
+    float hu=HEIGHT_CANVAS(U.x,U.y+d);
+    vec3 vx=normalize(vec3(d,0,hr)-vec3(0,0,h)),vy=normalize(vec3(0,d,hu)-vec3(0,0,h)),vz=cross(vx,vy);
+    float useforce=force*rfac;
+    float scrape=dot(normalize(vz),vec3(-normalize(dir).xy,0))*mix(0.3,1.,useforce);
+    float top=h-(1.-pow(useforce,1.5)*2);
+    float fac=(gunky>=0.)?mix(1.,top,gunky):mix(1.,1.-h,-gunky*0.8);
+    fac=max(fac,scrape*clamp(gunky,0,1));
+    fac=clamp(fac,0,1);
+    fac*=rfac;
+    return mix(rfac,fac,uCanvasFactor);
+}
+
 subroutine vec4 MixRoutines(vec4 a, vec4 b, float fac_a);
 subroutine(MixRoutines) vec4 DoMixNormal(vec4 a, vec4 b, float fac_a){
     return mix(a,b,1-fac_a);
@@ -123,18 +199,21 @@ vec4 mix_over(vec4 colora, vec4 colorb){
     m=vec4(m.rgb*m.a,m.a);
     return m;
 }
-int dab(float d, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){
+int dab(float d, vec2 fpx, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){
     vec4 cc=color;
     float fac=1-pow(d/size,1+1/(1-hardness+1e-4));
-    cc.a=color.a*fac*(1-smudge); cc.rgb=cc.rgb*cc.a;
+    float canvas=SampleCanvas(fpx,uBrushDirection,fac,uBrushForce,uBrushGunkyness);
+    cc.a=color.a*canvas*(1-smudge); cc.rgb=cc.rgb*cc.a;
     float erasing=float(uBrushErasing);
     cc=cc*(1-erasing);
+
     // this looks better than the one commented out below
-    vec4 c2=spectral_mix_unpre(last_color,smudge_color,smudge*fac*color.a);
+    vec4 c2=spectral_mix_unpre(last_color,smudge_color,smudge*fac*color.a*canvas);
     c2=mix_over(cc,c2);
     //vec4 c2=mix_over(cc,last_color);
-    //c2=spectral_mix_unpre(c2,smudge_color,smudge*fac*color.a);
-    c2=spectral_mix_unpre(c2,c2*(1-fac*color.a),erasing);
+    //c2=spectral_mix_unpre(c2,smudge_color,smudge*fac*color.a*canvas);
+
+    c2=spectral_mix_unpre(c2,c2*(1-fac*color.a),erasing*canvas);
     final=c2;
     return 1;
 }
@@ -142,14 +221,14 @@ subroutine void BrushRoutines();
 subroutine(BrushRoutines) void DoDabs(){
     ivec2 px = ivec2(gl_GlobalInvocationID.xy)+uBrushCorner;
     if(px.x<0||px.y<0||px.x>1024||px.y>1024) return;
-    vec2 fpx=vec2(px);
+    vec2 fpx=vec2(px),origfpx=fpx;
     fpx=uBrushCenter+rotate(fpx-uBrushCenter,uBrushAngle);
     fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1+uBrushSlender);
     float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;
     vec4 dabc=imageLoad(img, px);
     vec4 smudgec=pow(spectral_mix_unpre(pow(imageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(imageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);
     vec4 final_color;
-    dab(dd,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
+    dab(dd,origfpx,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
     dabc=final_color;
     imageStore(img, px, dabc);
 }
