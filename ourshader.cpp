@@ -97,7 +97,7 @@ float noise(in vec2 p){ // from iq
     const float K2 = 0.211324865; // (3-sqrt(3))/6;
 	vec2  i = floor( p + (p.x+p.y)*K1 );
     vec2  a = p - i + (i.x+i.y)*K2;
-    float m = step(a.y,a.x); 
+    float m = step(a.y,a.x);
     vec2  o = vec2(m,1.0-m);
     vec2  b = a - o + K2;
 	vec2  c = a - 1.0 + 2.0*K2;
@@ -118,9 +118,8 @@ float HEIGHT_CANVAS(float x,float y){
     }else if(uCanvasType == 2){
         vec2 uv=vec2(x,y); float f; uv*=0.1; // from iq
         mat2 m = mat2(1.6,1.2,-1.2,1.6);
-        f  = 0.1*noise( uv ); uv = m*uv;
-        f += 0.1*noise( uv ); uv = m*uv;
-        f += 0.2*noise( uv ); uv = m*uv;
+        uv = m*uv; uv = m*uv;
+        f = 0.2*noise( uv ); uv = m*uv;
         f += 0.3*noise( uv ); uv = m*uv;
 		f += 0.5*noise( uv ); uv = m*uv;
 		f += 0.4*noise( uv ); uv = m*uv;
