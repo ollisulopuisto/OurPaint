@@ -141,8 +141,8 @@ float SampleCanvas(vec2 U, vec2 dir,float rfac, float force, float gunky){
     vec3 vx=normalize(vec3(d,0,hr)-vec3(0,0,h)),vy=normalize(vec3(0,d,hu)-vec3(0,0,h)),vz=cross(vx,vy);
     float useforce=force*rfac;
     float scrape=dot(normalize(vz),vec3(-normalize(dir).xy,0))*mix(0.3,1.,useforce);
-    float top=h-(1.-pow(useforce,1.5)*2);
-    float fac=(gunky>=0.)?mix(1.,top,gunky):mix(1.,1.-h,-gunky*0.8);
+    float top=h-(1.-pow(useforce,1.5)*2); float tophard=smoothstep(0.4,0.6,top);
+    float fac=(gunky>=0.)?mix(mix(1.,top,gunky),tophard,gunky):mix(1.,1.-h,-gunky*0.8);
     fac=max(fac,scrape*clamp(gunky,0,1));
     fac=clamp(fac,0,1);
     fac*=rfac;
