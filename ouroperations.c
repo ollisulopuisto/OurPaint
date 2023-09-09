@@ -197,8 +197,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
             laShowItem(uil,c,0,"our.tools.current_brush.gunkyness");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.force")->Expand=1;
-            laShowItemFull(uil,c,0,"our.tools.current_brush.pressure_force",0,"text=P",0,0); OUR_ER
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
             laShowSeparator(uil,c);
             laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
             laShowSeparator(uil,c);
@@ -1253,9 +1252,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     #define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
             od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
-            tnsVectorSet3v(od->Color,b->EvalColor);
+            tnsVectorSet3v(od->Color,b->EvalColor);             od->Force=b->EvalForce*pfac(b->PressureForce);
     #undef pfac;
-            od->Force=b->EvalForce*(b->PressureForce?tnsInterpolate(last_pressure,pressure,r):1);
             od->Gunkyness = b->EvalGunkyness;
             od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 

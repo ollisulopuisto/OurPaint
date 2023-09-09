@@ -47,6 +47,8 @@ void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
     if(!n->Iteration) n->Iteration=laCreateOutSocket(n,"ITER",LA_PROP_INT);
     if(!n->Custom1) n->Custom1=laCreateOutSocket(n,"C1",LA_PROP_FLOAT);
     if(!n->Custom2) n->Custom2=laCreateOutSocket(n,"C2",LA_PROP_FLOAT);
+    if(!n->Gunkyness) n->Gunkyness=laCreateOutSocket(n,"GUNKY",LA_PROP_FLOAT);
+    if(!n->Force) n->Force=laCreateOutSocket(n,"FORCE",LA_PROP_FLOAT);
     n->CanvasScale->Data=&n->rCanvasScale;
     n->Size->Data=&n->rSize;
     n->Transparency->Data=&n->rTransparency;
@@ -57,6 +59,8 @@ void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
     n->Slender->Data=&n->rSlender;
     n->Angle->Data=&n->rAngle;
     n->Color->Data=Our->CurrentColor; n->Color->ArrLen=3;
+    n->Gunkyness->Data=&n->rGunkyness;
+    n->Force->Data=&n->rForce;
     n->Iteration->Data=&n->rIteration;
     n->Custom1->Data=&n->rCustom1;
     n->Custom2->Data=&n->rCustom2;
@@ -65,6 +69,7 @@ void IDN_BrushSettingsDestroy(OurBrushSettingsNode* n){
     laDestroyOutSocket(n->Size); laDestroyOutSocket(n->Transparency); laDestroyOutSocket(n->Hardness); laDestroyOutSocket(n->Smudge);
     laDestroyOutSocket(n->SmudgeLength); laDestroyOutSocket(n->DabsPerSize); laDestroyOutSocket(n->Slender); laDestroyOutSocket(n->Angle);
     laDestroyOutSocket(n->CanvasScale); laDestroyOutSocket(n->Iteration); laDestroyOutSocket(n->Custom1); laDestroyOutSocket(n->Custom2);
+    laDestroyOutSocket(n->Gunkyness); laDestroyOutSocket(n->Force);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laNodeVisitInfo* vi){
@@ -82,6 +87,8 @@ int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
     n->rDabsPerSize = Our->CurrentBrush->DabsPerSize;
     n->rSlender = Our->CurrentBrush->Slender;
     n->rAngle = Our->CurrentBrush->Angle;
+    n->rGunkyness = Our->CurrentBrush->Gunkyness;
+    n->rForce = Our->CurrentBrush->Force;
     n->rIteration = Our->CurrentBrush->Iteration;
     n->rCustom1 = Our->CurrentBrush->Custom1;
     n->rCustom2 = Our->CurrentBrush->Custom2;
@@ -95,7 +102,8 @@ void IDN_BrushSettingsCopy(OurBrushSettingsNode* new, OurBrushSettingsNode* old,
     LA_IDN_OLD_DUPL(Hardness)    LA_IDN_OLD_DUPL(Iteration)
     LA_IDN_OLD_DUPL(Size)        LA_IDN_OLD_DUPL(Slender)
     LA_IDN_OLD_DUPL(Smudge)      LA_IDN_OLD_DUPL(SmudgeLength)
-    LA_IDN_OLD_DUPL(Transparency)
+    LA_IDN_OLD_DUPL(Transparency)LA_IDN_OLD_DUPL(Gunkyness)
+    LA_IDN_OLD_DUPL(Force)
 }
 void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushSettingsNode*n=This->EndInstance;
@@ -115,6 +123,11 @@ void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, la
         laShowSeparator(uil,c)->Expand=1;
         laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_W;
         laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowSeparator(uil,c)->Expand=1;
+        laShowNodeSocket(uil,c,This,"gunkyness",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+        laShowNodeSocket(uil,c,This,"force",0)->Flags|=LA_UI_SOCKET_LABEL_W;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); u=laShowLabel(uil,c,"Canvas Scale",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1;  laShowNodeSocket(uil,c,This,"canvas_scale",0);
         u=laShowLabel(uil,c,"Dabs Per Size",0,0);u->Flags|=LA_TEXT_ALIGN_RIGHT; u->Expand=1; laShowNodeSocket(uil,c,This,"dabs_per_size",0); laEndRow(uil,b);
@@ -143,6 +156,8 @@ void IDN_BrushOutputsInit(OurBrushOutputsNode* n, int NoCreate){
     }
     if(!n->Repeats) n->Repeats=laCreateInSocket("REPEATS",LA_PROP_INT);
     if(!n->Discard) n->Discard=laCreateInSocket("DISCARD",LA_PROP_INT);
+    if(!n->Gunkyness) n->Gunkyness=laCreateInSocket("GUNKY",LA_PROP_FLOAT);
+    if(!n->Force) n->Force=laCreateInSocket("FORCE",LA_PROP_FLOAT);
     strSafeSet(&n->Base.Name, "Brush Outputs");
 }
 void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
@@ -150,6 +165,7 @@ void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
     laDestroyInSocket(n->Size); laDestroyInSocket(n->Transparency); laDestroyInSocket(n->Hardness); laDestroyInSocket(n->Smudge);
     laDestroyInSocket(n->SmudgeLength); laDestroyInSocket(n->DabsPerSize); laDestroyInSocket(n->Slender); laDestroyInSocket(n->Angle);
     laDestroyInSocket(n->Color); laDestroyInSocket(n->Repeats); laDestroyInSocket(n->Discard);
+    laDestroyInSocket(n->Gunkyness); laDestroyInSocket(n->Force);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laNodeVisitInfo* vi){
@@ -160,6 +176,7 @@ int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laNodeVisitInfo* vi){
     BRUSH_OUT_VISIT(Hardness) BRUSH_OUT_VISIT(Smudge) BRUSH_OUT_VISIT(SmudgeLength)
     BRUSH_OUT_VISIT(DabsPerSize) BRUSH_OUT_VISIT(Slender) BRUSH_OUT_VISIT(Angle)
     BRUSH_OUT_VISIT(Color) BRUSH_OUT_VISIT(Repeats) BRUSH_OUT_VISIT(Discard)
+    BRUSH_OUT_VISIT(Gunkyness) BRUSH_OUT_VISIT(Force)
 #undef BRUSH_OUT_VISIT
     LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
@@ -188,6 +205,8 @@ int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     BRUSH_OUT_EVAL(DabsPerSize)
     BRUSH_OUT_EVAL(Slender)
     BRUSH_OUT_EVAL(Angle)
+    BRUSH_OUT_EVAL(Gunkyness)
+    BRUSH_OUT_EVAL(Force)
     BRUSH_OUT_EVAL(Repeats)
     BRUSH_OUT_EVAL(Discard)
 #undef BRUSH_OUT_EVAL
@@ -198,6 +217,7 @@ void IDN_BrushOutputsCopy(OurBrushOutputsNode* new, OurBrushOutputsNode* old, in
         LA_IDN_NEW_LINK(Offset) LA_IDN_NEW_LINK(Size) LA_IDN_NEW_LINK(Transparency) LA_IDN_NEW_LINK(Hardness)
         LA_IDN_NEW_LINK(Smudge) LA_IDN_NEW_LINK(SmudgeLength) LA_IDN_NEW_LINK(DabsPerSize) LA_IDN_NEW_LINK(Slender)
         LA_IDN_NEW_LINK(Angle) LA_IDN_NEW_LINK(Color) LA_IDN_NEW_LINK(Repeats) LA_IDN_NEW_LINK(Discard)
+        LA_IDN_NEW_LINK(Gunkyness) LA_IDN_NEW_LINK(Force)
         return;
     }
     return;
@@ -219,6 +239,10 @@ void ui_BrushOutputsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laC
     b=laBeginRow(uil,c,0,0);
         laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_E;
         laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+    laEndRow(uil,b);
+    b=laBeginRow(uil,c,0,0);
+        laShowNodeSocket(uil,c,This,"gunkyness",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+        laShowNodeSocket(uil,c,This,"force",0)->Flags|=LA_UI_SOCKET_LABEL_E;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); laShowNodeSocket(uil,c,This,"dabs_per_size",0); laShowLabel(uil,c,"Dabs Per Size",0,0); laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0);
@@ -319,6 +343,8 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"slender", "Slender","Slender","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"gunkyness", "Gunkyness","Gunkyness","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Gunkyness),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"force", "Force","Force","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Force),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"iteration", "Iteration","Iteration","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Iteration),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"c1", "C1","Custom 1","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Custom1),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"c2", "C2","Custom 2","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Custom2),0,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -335,6 +361,8 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"dabs_per_size", "Dabs Per Size","Dabs per size","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,DabsPerSize),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"slender", "Slender","Slender","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"gunkyness", "Gunkyness","Gunkyness","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Gunkyness),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"force", "Force","Force","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Force),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"color", "Color","Color","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Color),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"repeats", "Repeats","Repeats","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Repeats),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"discard", "Discard","Discard","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Discard),0,0,0,0,0,0,0,LA_UDF_SINGLE);

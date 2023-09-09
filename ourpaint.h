@@ -116,6 +116,8 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* SmudgeLength; real rSmudgeLength;
     laNodeOutSocket* Slender;      real rSlender;
     laNodeOutSocket* Angle;        real rAngle;
+    laNodeOutSocket* Gunkyness;    real rGunkyness;
+    laNodeOutSocket* Force;        real rForce;
     laNodeOutSocket* Color;
     laNodeOutSocket* Iteration;    int  rIteration;
     laNodeOutSocket* Custom1;      real rCustom1;
@@ -133,6 +135,8 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* Slender;
     laNodeInSocket* Angle;
     laNodeInSocket* Color;
+    laNodeInSocket* Gunkyness;
+    laNodeInSocket* Force;
     laNodeInSocket* Repeats;
     laNodeInSocket* Discard;
 };
