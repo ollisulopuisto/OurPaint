@@ -23,6 +23,11 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Factor","程度",
+"Paper","纸张",
+"Pattern:","图案：",
+"Force","力度",
+"Gunkyness","粘度",
 "Crop To Ref","按参考线裁剪",
 "Middle Margin","中间留白",
 "Vertical","竖置",
