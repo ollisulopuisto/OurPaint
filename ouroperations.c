@@ -319,7 +319,7 @@ void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laColumn* c=laFirstColumn(uil); laUiItem* g; laUiList* gu; laColumn* gc;
     g = laMakeGroup(uil, c, "Our Paint", 0);
     gu = g->Page;{
-        gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"Our Paint %d.%d",OUR_VERSION_MAJOR,OUR_VERSION_MINOR);
+        gc = laFirstColumn(gu); char buf[128]; sprintf(buf,"Our Paint %d.%d [%d]",OUR_VERSION_MAJOR,OUR_VERSION_MINOR,OUR_VERSION_SUB);
         laShowLabel(gu,gc,buf,0,0)->Flags|=LA_TEXT_MONO;
         laShowLabel(gu, gc, OURPAINT_GIT_BRANCH,0,0)->Flags|=LA_TEXT_MONO;
 #ifdef OURPAINT_GIT_HASH
@@ -372,7 +372,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
     }
     laUiItem* b=laBeginRow(uil,cl,0,0); laShowLabel(uil,cl,OUR_PAINT_NAME_STRING,0,0);
-    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230808165902;text=Release Notes", 0, 0);
+    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230910202654;text=Release Notes", 0, 0);
     laEndRow(uil,b);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     b=laBeginRow(uil,cl,0,0);
@@ -1932,6 +1932,13 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     return 0;
 }
 
+int ourget_CanvasVersion(void* unused){
+    return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
+}
+void ourpost_Canvas(void* unused){
+    if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
+}
+
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
@@ -1965,7 +1972,7 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         
         laShowLabel(muil, mc, "Help", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
-        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230213211750;text=Release Notes", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230910202654;text=Release Notes", 0, 0);
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
         
         laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
@@ -2163,10 +2170,11 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate brush","OUR_duplicate_brush",U'⎘',0);
 
-    pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),0,0,1);
+    pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),ourpost_Canvas,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
+    laAddIntProperty(pc,"canvas_version","Canvas Version",0,0,0,0,0,0,0,0,0,offsetof(OurPaint,CanvasVersion),ourget_CanvasVersion,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
     laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),LA_PROP_READ_PROGRESS);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
     laAddIntProperty(pc,"size","Size","Size of the cropping area",0,"W,H","px",0,0,0,2400,0,offsetof(OurPaint,W),0,0,2,0,0,0,0,ourset_CanvasSize,0,0,0);
