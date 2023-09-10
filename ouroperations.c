@@ -161,11 +161,22 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         b=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowItem(uil,c,This,"binding")->Expand=1;
+        laShowItem(uil,c,This,"show_in_pages")
+            ->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_CYCLE|LA_UI_FLAGS_HIGHLIGHT|LA_UI_FLAGS_TRANSPOSE|LA_UI_FLAGS_ICON;
         laShowItem(uil,c,This,"duplicate")->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b);
     }laEndCondition(uil,b1);
+}
+void ourui_BrushSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laUiItem* b=laBeginRow(uil,c,0,0);
+    laShowItemFull(uil,c,This,"name",LA_WIDGET_STRING_PLAIN,0,0,0)->Expand=1;
+    laUiItem* b1=laOnConditionThat(uil,c,laGreaterThan(laPropExpression(This,"binding"),laIntExpression(-1)));
+    laShowItemFull(uil,c,This,"binding",LA_WIDGET_INT_PLAIN,0,0,0)->Flags|=LA_UI_FLAGS_NO_LABEL|LA_TEXT_MONO;
+    laEndCondition(uil,b1);
+    laEndRow(uil,b);
 }
 void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
@@ -248,10 +259,16 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
             laShowItemFull(uil,c,0,"our.tools.current_brush.size",0,0,0,0);
             laShowItemFull(uil,c,0,"our.tools.current_brush.size_100",0,0,0,0);
             laShowItemFull(uil,c,0,"our.tools.current_brush.size_10",0,0,0,0);
-            OUR_BR laShowSeparator(uil,c)->Expand=1; laShowItemFull(uil,c,0,"our.preferences.lock_radius",LA_WIDGET_ENUM_HIGHLIGHT,"text=Lock;",0,0); OUR_ER
+            OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+            laShowSeparator(uil,c)->Expand=1; laShowItemFull(uil,c,0,"our.preferences.lock_radius",LA_WIDGET_ENUM_HIGHLIGHT,"text=Lock;",0,0); OUR_ER
         }laEndCondition(uil,b);
-        laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0);
-        laShowItem(uil,c,0,"OUR_new_brush");
+        b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.brush_page"),laIntExpression(OUR_BRUSH_PAGE_LIST)));{
+            laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0);
+            laShowItem(uil,c,0,"OUR_new_brush");
+        }laElse(uil,b);{
+            laUiItem* bui=laShowItemFull(uil,c,0,"our.tools.brushes",0,0,ourui_BrushSimple,0);
+            bui->SymbolID=2;
+        }laEndCondition(uil,b);
     }laElse(uil,bt);{
         laShowLabel(uil,c,"Brush tool not selected",0,0);
     }laEndCondition(uil,bt);
@@ -1897,6 +1914,24 @@ void ourset_RefMiddleMargin(void* unused, real v){ Our->RefMargins[2]=v;laNotify
 void ourset_RefAlpha(void* unused, real a){
     Our->RefAlpha=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
+void ourset_BrushPage(void* unused, int a){ Our->BrushPage=a; laNotifyUsers("our.tools.brushes"); }
+void ourset_BrushShowInPages(OurBrush* b, int index, int v){
+    int flag=(1<<index); if(v){ b->ShowInPages|=flag; }else{ b->ShowInPages&=(~flag); }
+    laNotifyUsers("our.tools.brushes");
+}
+void ourget_BrushShowInPages(OurBrush* b, int* v){
+    v[0]=(b->ShowInPages&(1<<0))?1:0;
+    v[1]=(b->ShowInPages&(1<<1))?1:0;
+    v[2]=(b->ShowInPages&(1<<2))?1:0;
+}
+int ourfilter_BrushInPage(void* Unused, OurBrush* b){
+    if((!Our->BrushPage) || Our->BrushPage==OUR_BRUSH_PAGE_LIST) return 1;
+    if(Our->BrushPage==1 && (b->ShowInPages&(1<<0))) return 1;
+    if(Our->BrushPage==2 && (b->ShowInPages&(1<<1))) return 1;
+    if(Our->BrushPage==3 && (b->ShowInPages&(1<<2))) return 1;
+    return 0;
+}
+
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
@@ -1966,7 +2001,7 @@ void ourCleanUp(){
 }
 
 void ourRegisterEverything(){
-    laPropContainer* pc; laKeyMapper* km; laProp* p; laOperatorType* at;
+    laPropContainer* pc; laKeyMapper* km; laProp* p; laSubProp* sp; laOperatorType* at;
 
     laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
@@ -2037,6 +2072,12 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"erasing","Erasing","Is in erasing mode",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,Erasing),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","Draw","Is drawing mode",0,0);
     laAddEnumItemAs(p,"TRUE","Erase","Is erasing mode",1,0);
+    p=laAddEnumProperty(pc, "brush_page","Brush Page","Show brushes in pages",0,0,0,0,0,offsetof(OurPaint,BrushPage),0,ourset_BrushPage,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"ALL","~","Show all brushes",0,'~');
+    laAddEnumItemAs(p,"P1","1","Show brush page 1",1,'1');
+    laAddEnumItemAs(p,"P2","2","Show brush page 2",2,'2');
+    laAddEnumItemAs(p,"P3","3","Show brush page 3",3,'3');
+    laAddEnumItemAs(p,"LIST","=","Show brushes as a list",OUR_BRUSH_PAGE_LIST,L'☰');
 
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
@@ -2072,7 +2113,8 @@ void ourRegisterEverything(){
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
-    laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,0,0,offsetof(OurPaint,Brushes),0);
+    sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,0,0,offsetof(OurPaint,Brushes),0);
+    sp->UiFilter=ourfilter_BrushInPage;
     laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,ourset_CurrentBrush,0,0,0,LA_UDF_REFER);
     
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
@@ -2113,6 +2155,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"default_as_eraser","Default as eraser","Use this brush as a eraser by default",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,DefaultAsEraser),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Default as brush",0,0);
     laAddEnumItemAs(p,"ENABLED","Enabled","Default as eraser",1,0);
+    p=laAddEnumProperty(pc, "show_in_pages","Pages","Show in pages",0,0,0,0,0,0,0,0,3,0,ourset_BrushShowInPages,ourget_BrushShowInPages,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Don't show brush in this page",0,' ');
+    laAddEnumItemAs(p,"SHOWN","Shown","Show brush in this page",1,'*');
     
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);

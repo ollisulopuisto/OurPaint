@@ -171,6 +171,7 @@ STRUCTURE(OurBrush){
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce; // the simple way
 
     int Binding,DefaultAsEraser;
+    int ShowInPages;
 
     int UseNodes; // the flexible way
     laRackPage* Rack;
@@ -250,6 +251,8 @@ STRUCTURE(OurUndo){
 #define OUR_EXPORT_COLOR_MODE_CLAY 1
 #define OUR_EXPORT_COLOR_MODE_FLAT 2
 
+#define OUR_BRUSH_PAGE_LIST 128
+
 STRUCTURE(OurPNGReadExtra){
     int Confirming;
     laSafeString* FilePath;
@@ -291,6 +294,7 @@ STRUCTURE(OurPaint){
     real CurrentScale;
     real DefaultScale;
 
+    int BrushPage;
     int Tool,ActiveTool,Erasing,EventErasing;
     int LockBackground;
     int BackgroundType;
