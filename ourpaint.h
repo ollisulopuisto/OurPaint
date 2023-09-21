@@ -217,6 +217,18 @@ STRUCTURE(OurDab){
     float Recentness;
 };
 
+NEED_STRUCTURE(OurColorPallette);
+STRUCTURE(OurColorItem){
+    laListItem Item;
+    tnsVector3d Color;
+    OurColorPallette* Parent;
+};
+STRUCTURE(OurColorPallette){
+    laListItem Item;
+    laSafeString* Name;
+    laListHandle Colors;
+};
+
 STRUCTURE(OurUndoTile){
     laListItem Item;
     int col,row;
@@ -280,6 +292,9 @@ STRUCTURE(OurPaint){
 
     tnsImage* SplashImage;
     tnsImage* SplashImageHigh;
+
+    laListHandle Pallettes;
+    OurColorPallette* CurrentPallette;
 
     laListHandle Layers;
     OurLayer*    CurrentLayer;

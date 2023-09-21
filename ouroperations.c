@@ -169,6 +169,15 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         laEndRow(uil,b);
     }laEndCondition(uil,b1);
 }
+void ourui_ColorItemSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laShowItemFull(uil,c,This,"color",LA_WIDGET_FLOAT_COLOR,0,0,0)->Flags|=LA_UI_FLAGS_NO_EVENT;
+}
+void ourui_Pallette(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laUiItem* ui=laShowItemFull(uil,c,This,"colors",0,0,ourui_ColorItemSimple,0);ui->SymbolID=7;
+    ui->Flags|=LA_UI_FLAGS_NO_DECAL;
+}
 void ourui_BrushSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
     laUiItem* b=laBeginRow(uil,c,0,0);
@@ -285,6 +294,27 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laShowItem(uil,c,0,"our.preferences.spectral_mode");
     laShowItem(uil,c,0,"our.current_color")->Expand=1;
     laEndRow(uil,b);
+}
+void ourui_PallettesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil); laUiItem* b,*b1,*b2;
+    b=laBeginRow(uil,c,0,0);
+    laShowItemFull(uil,c,0,"our.tools.pallettes",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
+    laUiItem* ui=laShowInvisibleItem(uil,c,0,"our.tools.current_pallette");
+    b1=laOnConditionThat(uil,c,laPropExpression(&ui->PP,""));{
+        laUiItem* name=laShowItem(uil,c,&ui->PP,"name");name->Flags|=LA_UI_FLAGS_NO_DECAL; name->Expand=1;
+        laShowItem(uil,c,0,"OUR_new_pallette")->Flags|=LA_UI_FLAGS_ICON;
+        laEndRow(uil,b);
+        laShowItemFull(uil,c,0,"our.tools.current_pallette",LA_WIDGET_COLLECTION_SINGLE,0,ourui_Pallette,0);
+        b2=laBeginRow(uil,c,0,0);
+        laShowItem(uil,c,0,"OUR_pallette_new_color")->Expand=1;
+        laUiList* muil=laMakeMenuPage(uil,c,"☰"); laColumn* mc=laFirstColumn(muil);{
+            laShowItem(muil,mc,0,"OUR_remove_pallette");
+        }
+        laEndRow(uil,b2);
+    }laElse(uil,b1);{
+        laShowItem(uil,c,0,"OUR_new_pallette")->Expand=1;
+        laEndRow(uil,b);
+    }laEndCondition(uil,b1);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,15);
@@ -1806,6 +1836,54 @@ int ourinv_CropToRef(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+OurColorPallette* our_NewPallette(char* Name){
+    OurColorPallette* cp=memAcquireHyper(sizeof(OurColorPallette));
+    strSafeSet(&cp->Name,Name); lstAppendItem(&Our->Pallettes,cp); memAssignRef(Our,&Our->CurrentPallette,cp);
+    return cp;
+}
+OurColorItem* our_PalletteNewColor(OurColorPallette* cp,tnsVector3d Color){
+    OurColorItem* ci=memAcquire(sizeof(OurColorItem)); memAssignRef(ci,&ci->Parent,cp);
+    tnsVectorSet3v(ci->Color,Color); lstAppendItem(&cp->Colors,ci); return ci;
+}
+void our_PalletteRemoveColor(OurColorItem* ci){
+    lstRemoveItem(&ci->Parent->Colors,ci); memLeave(ci);
+}
+void our_RemovePallette(OurColorPallette* cp){
+    strSafeDestroy(&cp->Name); while(cp->Colors.pFirst){ our_PalletteRemoveColor(cp->Colors.pFirst); }
+    if(Our->CurrentPallette==cp){
+        if(cp->Item.pNext){ memAssignRef(Our,&Our->CurrentPallette,cp->Item.pNext); }
+        else { memAssignRef(Our,&Our->CurrentPallette,cp->Item.pPrev); }
+    }
+    lstRemoveItem(&Our->Pallettes,cp); memLeave(cp);
+}
+
+int ourinv_NewPallette(laOperator* a, laEvent* e){
+    our_NewPallette("Our Pallette");
+    laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add pallette",0);
+    return LA_FINISHED;
+}
+int ourinv_RemovePallette(laOperator* a, laEvent* e){
+    OurColorPallette* cp=Our->CurrentPallette; if(a->This && a->This->EndInstance){ cp=a->This->EndInstance; }
+    if(!cp) return LA_FINISHED;
+    our_RemovePallette(cp);
+    laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Remove pallette",0);
+    return LA_FINISHED;
+}
+int ourinv_PalletteNewColor(laOperator* a, laEvent* e){
+    OurColorPallette* cp=Our->CurrentPallette; if(a->This && a->This->EndInstance){ cp=a->This->EndInstance; }
+    if(!cp) return LA_FINISHED;
+    our_PalletteNewColor(cp,Our->CurrentColor);
+    laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add color",0);
+    return LA_FINISHED;
+}
+int ourinv_PalletteRemoveColor(laOperator* a, laEvent* e){
+    OurColorItem* ci=0; if(a->This && a->This->EndInstance){ ci=a->This->EndInstance; }
+    if(!ci) return LA_FINISHED;
+    our_PalletteRemoveColor(ci);
+    laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Remove pallette",0);
+    return LA_FINISHED;
+}
+
 void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
     *ptr="Main canvas";
 }
@@ -1814,6 +1892,9 @@ void* ourget_FirstLayer(void* unused, void* unused1){
 }
 void* ourget_FirstBrush(void* unused, void* unused1){
     return Our->Brushes.pFirst;
+}
+void* ourget_FirstPallette(void* unused, void* unused1){
+    return Our->Pallettes.pFirst;
 }
 void* ourget_our(void* unused, void* unused1){
     return Our;
@@ -1904,6 +1985,14 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
+}
+void ourset_CurrentPallette(void* unused, OurColorPallette* cp){
+    memAssignRef(Our,&Our->CurrentPallette,cp);
+    laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes");
+}
+void ourset_PalletteColor(void* unused, OurColorItem* ci){
+    tnsVectorSet3v(Our->CurrentColor,ci->Color);
+    laNotifyUsers("our.current_color");
 }
 void ourset_ShowRef(void* unused, int c){ Our->ShowRef=c; laNotifyUsers("our.canvas"); }
 void ourset_RefCategory(void* unused, int c){ Our->RefCategory=c; laNotifyUsers("our.canvas"); }
@@ -2056,11 +2145,17 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_crop_to_ref","Crop To Ref","Crop to reference lines",ourchk_CropToRef,0,0,ourinv_CropToRef,0,0,0);
 
+    laCreateOperatorType("OUR_new_pallette","New Pallette","New pallette",0,0,0,ourinv_NewPallette,0,'+',0);
+    laCreateOperatorType("OUR_remove_pallette","Remove Pallette","Remove selected pallette",0,0,0,ourinv_RemovePallette,0,U'🗴',0);
+    laCreateOperatorType("OUR_pallette_new_color","New Color","New color in this pallette",0,0,0,ourinv_PalletteNewColor,0,'+',0);
+    laCreateOperatorType("OUR_pallette_remove_color","Remove Color","Remove this color from the pallette",0,0,0,ourinv_PalletteRemoveColor,0,U'🗴',0);
+
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
     laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F,0,0);
+    laRegisterUiTemplate("panel_pallettes", "Pallettes", ourui_PallettesPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
     
     pc=laDefineRoot();
@@ -2124,6 +2219,9 @@ void ourRegisterEverything(){
     sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,0,0,offsetof(OurPaint,Brushes),0);
     sp->UiFilter=ourfilter_BrushInPage;
     laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,ourset_CurrentBrush,0,0,0,LA_UDF_REFER);
+    sp=laAddSubGroup(pc,"pallettes","Pallettes","Pallettes","our_pallette",0,0,ourui_Pallette,offsetof(OurPaint,CurrentPallette),0,0,0,ourset_CurrentPallette,0,0,offsetof(OurPaint,Pallettes),0);
+    //sp->UiFilter=ourfilter_BrushInPage;
+    laAddSubGroup(pc,"current_pallette","Current Pallette","Current pallette","our_pallette",0,0,0,offsetof(OurPaint,CurrentPallette),ourget_FirstPallette,0,laget_ListNext,ourset_CurrentPallette,0,0,0,LA_UDF_REFER);
     
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -2166,10 +2264,18 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc, "show_in_pages","Pages","Show in pages",0,0,0,0,0,0,0,0,3,0,ourset_BrushShowInPages,ourget_BrushShowInPages,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Don't show brush in this page",0,' ');
     laAddEnumItemAs(p,"SHOWN","Shown","Show brush in this page",1,'*');
-    
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate brush","OUR_duplicate_brush",U'⎘',0);
+
+    pc=laAddPropertyContainer("our_pallette","Our Pallette","OurPaint pallette",0,0,sizeof(OurColorPallette),0,0,2);
+    laAddStringProperty(pc,"name","Name","Name of this pallette",0,0,0,0,1,offsetof(OurColorPallette,Name),0,0,0,0,LA_AS_IDENTIFIER);
+    laAddSubGroup(pc,"colors","Colors","Colors in this pallette","our_color_item",0,0,0,-1,0,0,0,ourset_PalletteColor,0,0,offsetof(OurColorPallette,Colors),0);
+
+    pc=laAddPropertyContainer("our_color_item","Our Color Item","OurPaint pallette color item",0,0,sizeof(OurColorItem),0,0,1);
+    laAddFloatProperty(pc,"color","Color","Color",LA_WIDGET_FLOAT_COLOR,0,0,0,0,0,0,0,offsetof(OurColorItem,Color),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
+    laAddSubGroup(pc,"parent","Parent","Parent pallette","our_pallette",0,0,0,offsetof(OurColorItem,Parent),0,0,0,0,0,0,0,LA_UDF_REFER|LA_READ_ONLY);
+    laAddOperatorProperty(pc,"remove","Remove","Remove this color item","OUR_pallette_remove_color",U'🗴',0);
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),ourpost_Canvas,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);

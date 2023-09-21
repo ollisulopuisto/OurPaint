@@ -38,6 +38,7 @@ int main(int argc, char *argv[]){
     laEnsureUserPreferences();
 
     laLoadHyperResources("OURBRUSH");
+    //laLoadHyperResources("OURPALLETTE");
 
     for(int i=1;i<argc;i++){
         char* file=argv[i]; 
