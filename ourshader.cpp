@@ -43,42 +43,45 @@ uniform int uBrushErasing;
 const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);
 const vec4 p22=vec4(2.2,2.2,2.2,2.2);
 const float WGM_EPSILON=0.001f;
-const float T_MATRIX_SMALL[3][10] = {{0.026595621243689,0.049779426257903,0.022449850859496,-0.218453689278271
+const float T_MATRIX_SMALL[30] = float[30](0.026595621243689,0.049779426257903,0.022449850859496,-0.218453689278271
 ,-0.256894883201278,0.445881722194840,0.772365886289756,0.194498761382537
-,0.014038157587820,0.007687264480513}
-,{-0.032601672674412,-0.061021043498478,-0.052490001018404
+,0.014038157587820,0.007687264480513
+
+,-0.032601672674412,-0.061021043498478,-0.052490001018404
 ,0.206659098273522,0.572496335158169,0.317837248815438,-0.021216624031211
-,-0.019387668756117,-0.001521339050858,-0.000835181622534}
-,{0.339475473216284,0.635401374177222,0.771520797089589,0.113222640692379
+,-0.019387668756117,-0.001521339050858,-0.000835181622534
+
+,0.339475473216284,0.635401374177222,0.771520797089589,0.113222640692379
 ,-0.055251113343776,-0.048222578468680,-0.012966666339586
-,-0.001523814504223,-0.000094718948810,-0.000051604594741}};
-const float spectral_r_small[10] = {0.009281362787953,0.009732627042016,0.011254252737167,0.015105578649573
+,-0.001523814504223,-0.000094718948810,-0.000051604594741);
+
+const float spectral_r_small[10] = float[10](0.009281362787953,0.009732627042016,0.011254252737167,0.015105578649573
 ,0.024797924177217,0.083622585502406,0.977865045723212,1.000000000000000
-,0.999961046144372,0.999999992756822};
-const float spectral_g_small[10] = {0.002854127435775,0.003917589679914,0.012132151699187,0.748259205918013
+,0.999961046144372,0.999999992756822);
+const float spectral_g_small[10] = float[10](0.002854127435775,0.003917589679914,0.012132151699187,0.748259205918013
 ,1.000000000000000,0.865695937531795,0.037477469241101,0.022816789725717
-,0.021747419446456,0.021384940572308};
-const float spectral_b_small[10] = {0.537052150373386,0.546646402401469,0.575501819073983,0.258778829633924
+,0.021747419446456,0.021384940572308);
+const float spectral_b_small[10] = float[10](0.537052150373386,0.546646402401469,0.575501819073983,0.258778829633924
 ,0.041709923751716,0.012662638828324,0.007485593127390,0.006766900622462
-,0.006699764779016,0.006676219883241};
+,0.006699764779016,0.006676219883241);
 void rgb_to_spectral (vec3 rgb, out float spectral_[10]) {
     float offset = 1.0 - WGM_EPSILON;
     float r = rgb.r * offset + WGM_EPSILON;
     float g = rgb.g * offset + WGM_EPSILON;
     float b = rgb.b * offset + WGM_EPSILON;
-    float spec_r[10] = {0,0,0,0,0,0,0,0,0,0}; for (int i=0; i < 10; i++) {spec_r[i] = spectral_r_small[i] * r;}
-    float spec_g[10] = {0,0,0,0,0,0,0,0,0,0}; for (int i=0; i < 10; i++) {spec_g[i] = spectral_g_small[i] * g;}
-    float spec_b[10] = {0,0,0,0,0,0,0,0,0,0}; for (int i=0; i < 10; i++) {spec_b[i] = spectral_b_small[i] * b;}
+    float spec_r[10] = float[10](0,0,0,0,0,0,0,0,0,0); for (int i=0; i < 10; i++) {spec_r[i] = spectral_r_small[i] * r;}
+    float spec_g[10] = float[10](0,0,0,0,0,0,0,0,0,0); for (int i=0; i < 10; i++) {spec_g[i] = spectral_g_small[i] * g;}
+    float spec_b[10] = float[10](0,0,0,0,0,0,0,0,0,0); for (int i=0; i < 10; i++) {spec_b[i] = spectral_b_small[i] * b;}
     for (int i=0; i<10; i++) {spectral_[i] = spec_r[i] + spec_g[i] + spec_b[i];}
 }
 vec3 spectral_to_rgb (float spectral[10]) {
     float offset = 1.0 - WGM_EPSILON;
     // We need this tmp. array to allow auto vectorization. <-- How about on GPU?
-    float tmp[3] = {0,0,0};
+    float tmp[3] = float[3](0,0,0);
     for (int i=0; i<10; i++) {
-        tmp[0] += T_MATRIX_SMALL[0][i] * spectral[i];
-        tmp[1] += T_MATRIX_SMALL[1][i] * spectral[i];
-        tmp[2] += T_MATRIX_SMALL[2][i] * spectral[i];
+        tmp[0] += T_MATRIX_SMALL[i] * spectral[i];
+        tmp[1] += T_MATRIX_SMALL[10+i] * spectral[i];
+        tmp[2] += T_MATRIX_SMALL[20+i] * spectral[i];
     }
     vec3 rgb_;
     for (int i=0; i<3; i++) {rgb_[i] = clamp((tmp[i] - WGM_EPSILON) / offset, 0.0f, 1.0f);}
@@ -123,10 +126,10 @@ float HEIGHT_CANVAS(float x,float y){
 	    f = 0.55 + 0.55*f;
         return pow(f,0.5);
     }
-    return 1;
+    return 1.;
 }
 float SampleCanvas(vec2 U, vec2 dir,float rfac, float force, float gunky){
-    if(uCanvasType==0 || abs(gunky-0.)<1e-2){ return rfac; }
+    if(uCanvasType==0 || abs(gunky-0.)<1.e-2){ return rfac; }
     U+=vec2(uImageOffset); U/=20.3; U.x=U.x+rand(U)/10.; U.y=U.y+rand(U)/10.;
 
     mat2 m = mat2(1.6,1.2,-1.2,1.6); vec2 _uv=U; _uv.x+=float(uCanvasRandom%65535)/174.41; _uv.y+=float(uCanvasRandom%65535)/439.87; _uv/=500.;
@@ -141,10 +144,10 @@ float SampleCanvas(vec2 U, vec2 dir,float rfac, float force, float gunky){
     vec3 vx=normalize(vec3(d,0,hr)-vec3(0,0,h)),vy=normalize(vec3(0,d,hu)-vec3(0,0,h)),vz=cross(vx,vy);
     float useforce=force*rfac;
     float scrape=dot(normalize(vz),vec3(-normalize(dir).xy,0))*mix(0.3,1.,useforce);
-    float top=h-(1.-pow(useforce,1.5)*2); float tophard=smoothstep(0.4,0.6,top);
+    float top=h-(1.-pow(useforce,1.5)*2.); float tophard=smoothstep(0.4,0.6,top);
     float fac=(gunky>=0.)?mix(mix(1.,top,gunky),tophard,gunky):mix(1.,1.-h,-gunky*0.8);
     fac=max(fac,scrape*clamp(gunky,0,1));
-    fac=clamp(fac,0,1);
+    fac=clamp(fac,0.,1.);
     fac*=rfac;
     return mix(rfac,fac,uCanvasFactor);
 }
