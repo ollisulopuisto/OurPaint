@@ -344,6 +344,7 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowLabel(gu,gc,"- Leone Arturo",0,0);
         laShowLabel(gu,gc,"- 贵州混混",0,0);
         laShowLabel(gu,gc,"- Louis Lithium",0,0);
+        laShowLabel(gu,gc,"- Nayeli Lafeuille",0,0);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
