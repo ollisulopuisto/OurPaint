@@ -171,7 +171,7 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
 }
 void ourui_ColorItemSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
-    laShowItemFull(uil,c,This,"color",LA_WIDGET_FLOAT_COLOR,0,0,0)->Flags|=LA_UI_FLAGS_NO_EVENT;
+    laShowItemFull(uil,c,This,"color",LA_WIDGET_FLOAT_COLOR,0,0,0)->Flags|=LA_UI_FLAGS_NO_EVENT|LA_UI_FLAGS_NO_DECAL;
 }
 void ourui_Pallette(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
