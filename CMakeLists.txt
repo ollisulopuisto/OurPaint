@@ -55,6 +55,9 @@ file(GLOB_RECURSE OurPaintFiles
 
 add_executable(OurPaint ${OurPaintFiles})
 
+target_link_options(OurPaint PUBLIC "-Wl,--start-group")
+
+
 execute_process(
     COMMAND git rev-parse --abbrev-ref HEAD
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
