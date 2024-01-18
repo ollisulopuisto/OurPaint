@@ -6,7 +6,7 @@ AppDir:
   app_info:
     id: chengdu.littlea.ourpaint
     name: OurPaint
-    icon: application-vnd.appimage
+    icon: application-x-executable
     version: latest
     exec: OurPaint
     exec_args: $@
