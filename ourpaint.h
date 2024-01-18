@@ -63,6 +63,7 @@ STRUCTURE(OurCanvasDraw){
     real CanvasDownX,CanvasDownY;
     real LastPressure;
     real LastTilt[2];
+    real LastTwist;
 };
 
 #define OUR_DPC (600*0.3937007874)
@@ -146,6 +147,7 @@ STRUCTURE(OurBrushDeviceNode){
     laNodeOutSocket* Pressure; real rPressure;
     laNodeOutSocket* Position; real rPosition[2];
     laNodeOutSocket* Tilt;     real rTilt[2];
+    laNodeOutSocket* Twist;    real rTwist;
     laNodeOutSocket* IsEraser; int  rIsEraser;
     laNodeOutSocket* Speed;    real rSpeed;
     laNodeOutSocket* Angle;    real rAngle;
@@ -169,7 +171,7 @@ STRUCTURE(OurBrush){
     real MaxStrokeLength;
     real Custom1,Custom2; laSafeString *Custom1Name,*Custom2Name;
     int Iteration;
-    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce; // the simple way
+    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,TwistAngle; // the simple way
 
     int Binding,DefaultAsEraser;
     int ShowInPages;
@@ -197,6 +199,7 @@ STRUCTURE(OurBrush){
     real EvalPressure;
     real EvalPosition[2];
     real EvalTilt[2];
+    real EvalTwist;
     real EvalStrokeAngle;
     int  EvalIsEraser;
 
@@ -326,7 +329,7 @@ STRUCTURE(OurPaint){
     int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
     int LockRadius;
-    int EnableBrushCircle;
+    int EnableBrushCircle; int EventHasTwist; real EventTwistAngle;
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;

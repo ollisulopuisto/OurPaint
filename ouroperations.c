@@ -196,6 +196,10 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
     laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=P",0,0);\
     laEndCondition(uil,b2);
+#define OUR_TWIST(a) \
+    b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
+    laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=T",0,0);\
+    laEndCondition(uil,b2);
 
     laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
@@ -212,7 +216,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.slender");
-            laShowItem(uil,c,0,"our.tools.current_brush.angle");
+            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.angle")->Expand=1; OUR_TWIST("twist_angle") OUR_ER;
             laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
             OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
@@ -544,12 +548,23 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
-    if(!Our->CurrentBrush) return; real v[96];
+    if(!Our->CurrentBrush) return; real v[96]; real Radius=Our->CurrentBrush->Size/ocd->Base.ZoomX,gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture();
-    tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Our->CurrentBrush->Size/ocd->Base.ZoomX+0.5,0);
+    tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
     tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
-    tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Our->CurrentBrush->Size/ocd->Base.ZoomX-0.5,0);
+    tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
     tnsColor4d(0,0,0,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+    if(Our->EventHasTwist){
+        tnsColor4d(0,0,0,0.3);
+        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle+gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle-gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle-gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle+gap)*Radius);
+        tnsColor4d(1,1,1,0.3);
+        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle)*Radius);
+        tnsPackAs(GL_LINES);
+    }
     tnsFlush();
 }
 
@@ -651,7 +666,9 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 
 int ourextramod_Canvas(laOperator *a, laEvent *e){
     laUiItem *ui = a->Instance; OurCanvasDraw* ocd=ui->Extra;
-    if(Our->EnableBrushCircle && (e->Type&LA_MOUSE_EVENT)){ ocd->Base.OnX=e->x; ocd->Base.OnY=e->y; laRedrawCurrentPanel();  }
+    if(Our->EnableBrushCircle && ((e->Type&LA_MOUSE_EVENT)||(e->Type&LA_KEYBOARD_EVENT))){
+        ocd->Base.OnX=e->x; ocd->Base.OnY=e->y; laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
+    }
     return LA_RUNNING_PASS;
 }
 
@@ -1273,7 +1290,7 @@ real our_PaintGetDabStepDistance(real Size,real DabsPerSize){
     real d=Size/DabsPerSize; if(d<1e-2) d=1e-2; return d;
 }
 int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yto,
-    real last_pressure, real last_orientation, real last_deviation, real pressure, real Orientation, real Deviation,
+    real last_pressure, real last_orientation, real last_deviation, real last_twist, real pressure, real Orientation, real Deviation, real Twist,
     int *tl, int *tr, int* tu, int* tb, real* r_xto, real* r_yto){
     if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
         printf("brush input coordinates has nan or inf.\n"); return 0;
@@ -1302,6 +1319,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
                 b->EvalPressure=tnsInterpolate(last_pressure,pressure,r); b->EvalPosition[0]=od->X; b->EvalPosition[1]=od->Y;
                 b->EvalOffset[0]=0; b->EvalOffset[1]=0; b->EvalStrokeAngle=tnsInterpolate(b->LastAngle,this_angle,r);
                 b->EvalTilt[0]=tnsInterpolate(last_orientation,Orientation,r); b->EvalTilt[1]=tnsInterpolate(last_deviation,Deviation,r);
+                b->EvalTwist=tnsInterpolate(last_twist,Twist,r);
                 ourEvalBrush();  if(!b->Iteration){ Repeat=b->EvalRepeats;} if(b->EvalDiscard){ continue; }
                 TNS_CLAMP(b->EvalSmudge,0,1); TNS_CLAMP(b->EvalSmudgeLength,0,100000); TNS_CLAMP(b->EvalTransparency,0,1); TNS_CLAMP(b->EvalHardness,0,1);  TNS_CLAMP(b->DabsPerSize,0,100000);
                 od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
@@ -1312,8 +1330,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
             tnsVectorSet3v(od->Color,b->EvalColor);             od->Force=b->EvalForce*pfac(b->PressureForce);
     #undef pfac;
-            od->Gunkyness = b->EvalGunkyness;
-            od->Slender = b->EvalSlender; od->Angle=b->EvalAngle;
+            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender;
+            od->Angle=b->EvalAngle; if(b->TwistAngle){ od->Angle=tnsInterpolate(last_twist,Twist,r); }
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
             if(od->Size>1e-1 && (!b->EvalDiscard)) Our->NextDab++;
@@ -1775,17 +1793,18 @@ int ourmod_Paint(laOperator* a, laEvent* e){
             lstAppendItem(&Our->BadEvents,be); Our->BadEventCount++;
             if(Our->BadEventCount>=Our->BadEventsLimit){ Our->BadEventsGiveUp=1; }
         }else{
-            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation;
+            Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation,Twist=e->Twist;
             while(1){
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
                 real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y); our_SmoothGlobalInput(&x,&y,0);
                 int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
-                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],Pressure,Orientation,Deviation,
+                if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],ex->LastTwist,
+                    Pressure,Orientation,Deviation,Twist,
                     &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
                     our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
                     laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 }
-                ex->LastPressure=Pressure;ex->LastTilt[0]=Orientation;ex->LastTilt[1]=Deviation;
+                ex->LastPressure=Pressure;ex->LastTilt[0]=Orientation;ex->LastTilt[1]=Deviation; ex->LastTwist=Twist;
                 if(UseEvent==e){ break; }
                 else{ memFree(UseEvent); }
             }
@@ -2264,6 +2283,9 @@ void ourRegisterEverything(){
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_force","Pressure Force","Use pen pressure to control dab force",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureForce),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
+    p=laAddEnumProperty(pc,"twist_angle","Twist Angle","Use pen twist to control dab angle",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,TwistAngle),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Not using twist",0,0);
+    laAddEnumItemAs(p,"ENABLED","Enabled","Using twist",1,0);
     p=laAddEnumProperty(pc,"use_nodes","Use Nodes","Use nodes to control brush dynamics",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,UseNodes),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Not using nodes",0,0);
     laAddEnumItemAs(p,"ENABLED","Enabled","Using nodes",1,0);

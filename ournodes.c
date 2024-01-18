@@ -263,8 +263,10 @@ void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
         n->LengthAccum=laCreateOutSocket(n,"ACUM",LA_PROP_FLOAT);
         strSafeSet(&n->Base.Name, "Brush Device");
     }
+    if(!n->Twist){ n->Twist=laCreateOutSocket(n,"TWIST",LA_PROP_FLOAT); }
     n->Pressure->Data=&n->rPressure;
     n->Tilt->Data=n->rTilt; n->Tilt->ArrLen=2;
+    n->Twist->Data=&n->rTwist;
     n->IsEraser->Data=&n->rIsEraser;
     n->Position->Data=n->rPosition; n->Position->ArrLen=2;
     n->Speed->Data=&n->rSpeed;
@@ -274,7 +276,7 @@ void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
 }
 void IDN_BrushDeviceDestroy(OurBrushDeviceNode* n){
     laDestroyOutSocket(n->Pressure); laDestroyOutSocket(n->Tilt); laDestroyOutSocket(n->Position); laDestroyOutSocket(n->IsEraser); laDestroyOutSocket(n->Speed);
-    laDestroyOutSocket(n->Angle); laDestroyOutSocket(n->Length); laDestroyOutSocket(n->LengthAccum); 
+    laDestroyOutSocket(n->Angle); laDestroyOutSocket(n->Length); laDestroyOutSocket(n->LengthAccum); laDestroyOutSocket(n->Twist);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushDeviceVisit(OurBrushDeviceNode* n, laNodeVisitInfo* vi){
@@ -288,6 +290,7 @@ int IDN_BrushDeviceEval(OurBrushDeviceNode* n){
     n->rAngle=Our->CurrentBrush->EvalStrokeAngle;
     n->rIsEraser = Our->CurrentBrush->EvalIsEraser;
     n->rPressure = Our->CurrentBrush->EvalPressure;
+    n->rTwist = Our->CurrentBrush->EvalTwist;
     n->rSpeed = Our->CurrentBrush->EvalSpeed;
     n->rLength = Our->CurrentBrush->EvalStrokeLength;
     n->rLengthAccum = Our->CurrentBrush->EvalStrokeLengthAccum;
@@ -295,7 +298,7 @@ int IDN_BrushDeviceEval(OurBrushDeviceNode* n){
 }
 void IDN_BrushDeviceCopy(OurBrushDeviceNode* new, OurBrushDeviceNode* old, int DoRematch){
     if(DoRematch){ return;}
-    LA_IDN_OLD_DUPL(Pressure) LA_IDN_OLD_DUPL(Tilt) LA_IDN_OLD_DUPL(Position)
+    LA_IDN_OLD_DUPL(Pressure) LA_IDN_OLD_DUPL(Tilt) LA_IDN_OLD_DUPL(Position) LA_IDN_OLD_DUPL(Twist)
     LA_IDN_OLD_DUPL(IsEraser) LA_IDN_OLD_DUPL(Speed) LA_IDN_OLD_DUPL(Angle)
     LA_IDN_OLD_DUPL(Length) LA_IDN_OLD_DUPL(LengthAccum)
 }
@@ -311,6 +314,7 @@ void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laCo
         laShowNodeSocket(uil,c,This,"angle",0)->Flags|=LA_UI_SOCKET_LABEL_N;
         laShowNodeSocket(uil,c,This,"pressure",0)->Flags|=LA_UI_SOCKET_LABEL_N;
         laShowNodeSocket(uil,c,This,"tilt",0)->Flags|=LA_UI_SOCKET_LABEL_N;
+        laShowNodeSocket(uil,c,This,"twist",0)->Flags|=LA_UI_SOCKET_LABEL_N;
         laShowNodeSocket(uil,c,This,"is_eraser",0)->Flags|=LA_UI_SOCKET_LABEL_N;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); laShowSeparator(uil,c)->Expand=1;
@@ -372,6 +376,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"base","Base","Base node","la_base_node",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"pressure","Pressure","Pressure of the input","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Pressure),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"tilt", "Tilt","Pen tilt vector","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Tilt),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"twist", "Twist","Pen twist angle","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Twist),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"is_eraser", "Is Eraser","Input event is from an eraser","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,IsEraser),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"position", "Dab position","Interpolated dab position","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Position),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"speed","Speed","Speed on the canvas","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Speed),0,0,0,0,0,0,0,LA_UDF_SINGLE);
