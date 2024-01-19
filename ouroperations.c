@@ -560,6 +560,7 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle-gap)*Radius);
         tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle-gap)*Radius);
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle+gap)*Radius);
+        tnsPackAs(GL_LINES);
         tnsColor4d(1,1,1,0.3);
         tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle)*Radius);
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle)*Radius);
