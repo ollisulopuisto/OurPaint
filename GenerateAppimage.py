@@ -7,7 +7,7 @@ AppDir:
     id: chengdu.littlea.ourpaint
     name: OurPaint
     icon: application-x-executable
-    version: latest
+    version: v0.2a
     exec: OurPaint
     exec_args: $@
   apt:
@@ -56,6 +56,7 @@ os.system("mkdir -p ../OurPaintApp/OurPaint/fonts")
 os.system("cp build/OurPaint ../OurPaintApp/AppDir")
 os.system("cp README.md ../OurPaintApp/OurPaint")
 os.system("cp default_brushes.udf ../OurPaintApp/OurPaint")
+os.system("cp default_pallettes.udf ../OurPaintApp/OurPaint")
 os.system("cp COPYING ../OurPaintApp/OurPaint")
 os.system("cp COPYING_CC_BY_NC ../OurPaintApp/OurPaint")
 os.system("cp %s/.local/share/fonts/lagui/*.* ../OurPaintApp/OurPaint/fonts"%os.path.expanduser("~"))
