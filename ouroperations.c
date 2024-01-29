@@ -667,7 +667,7 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
 
 int ourextramod_Canvas(laOperator *a, laEvent *e){
     laUiItem *ui = a->Instance; OurCanvasDraw* ocd=ui->Extra;
-    if(Our->EnableBrushCircle && ((e->Type&LA_MOUSE_EVENT)||(e->Type&LA_KEYBOARD_EVENT))){
+    if(Our->EnableBrushCircle && ((e->type&LA_MOUSE_EVENT)||(e->type&LA_KEYBOARD_EVENT))){
         ocd->Base.OnX=e->x; ocd->Base.OnY=e->y; laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
     }
     return LA_RUNNING_PASS;
@@ -1781,14 +1781,14 @@ int ourinv_Action(laOperator* a, laEvent* e){
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){
         if(Our->PaintProcessedEvents) our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1);
         ex->HideBrushCircle=0; laShowCursor();
         laEvent* ue; while(ue=lstPopItem(&Our->BadEvents)){ memFree(ue); }
         return LA_FINISHED;
     }
 
-    if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
+    if(e->type==LA_MOUSEMOVE||e->type==LA_L_MOUSE_DOWN){
         if((!e->GoodPressure) && ((!Our->BadEventsGiveUp)||(!Our->AllowNonPressure))){
             laEvent* be=memAcquire(sizeof(laEvent)); memcpy(be,e,sizeof(laEvent)); be->Item.pNext=be->Item.pPrev=0;
             lstAppendItem(&Our->BadEvents,be); Our->BadEventCount++;
@@ -1816,9 +1816,9 @@ int ourmod_Paint(laOperator* a, laEvent* e){
 }
 int ourmod_Crop(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    if(e->Type==LA_L_MOUSE_UP || e->Type==LA_R_MOUSE_DOWN || e->Type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED; }
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED; }
 
-    if(e->Type==LA_MOUSEMOVE||e->Type==LA_L_MOUSE_DOWN){
+    if(e->type==LA_MOUSEMOVE||e->type==LA_L_MOUSE_DOWN){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
         our_DoCropping(ex,x,y);
         laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
@@ -1848,9 +1848,9 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     laUiItem* ui=ex->Base.ParentUi;
 
-    if(e->Type==LA_R_MOUSE_UP || e->Type==LA_L_MOUSE_UP || e->Type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; return LA_FINISHED; }
+    if(e->type==LA_R_MOUSE_UP || e->type==LA_L_MOUSE_UP || e->type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; return LA_FINISHED; }
 
-    if(e->Type==LA_MOUSEMOVE||e->Type==LA_R_MOUSE_DOWN){
+    if(e->type==LA_MOUSEMOVE||e->type==LA_R_MOUSE_DOWN){
         our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color");
     }
 
