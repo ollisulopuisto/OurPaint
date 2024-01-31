@@ -61,6 +61,7 @@ STRUCTURE(OurCanvasDraw){
     int AtCrop;
     real CanvasLastX,CanvasLastY;
     real CanvasDownX,CanvasDownY;
+    real PointerX,PointerY,DownTilt;
     real LastPressure;
     real LastTilt[2];
     real LastTwist;
@@ -176,7 +177,11 @@ STRUCTURE(OurBrush){
     int Binding,DefaultAsEraser;
     int ShowInPages;
 
-    int UseNodes; // the flexible way
+    real VisualOffset;
+    real VisualOffsetAngle;
+
+    int16_t OffsetFollowPenTilt;
+    int16_t UseNodes; // the flexible way
     laRackPage* Rack;
 
     real LastX,LastY,LastAngle;

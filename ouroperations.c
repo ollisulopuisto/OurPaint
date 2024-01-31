@@ -190,49 +190,59 @@ void ourui_BrushSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
 void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
     laUiItem* b1, *b2;
+    laUiItem* cb = laShowInvisibleItem(uil,c,0,"our.tools.current_brush");
+
 #define OUR_BR b1=laBeginRow(uil,c,0,0);
 #define OUR_ER laEndRow(uil,b1);
 #define OUR_PRESSURE(a) \
-    b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
-    laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=P",0,0);\
+    b2=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"use_nodes")));\
+    laShowItemFull(uil,c,&cb->PP, a,0,"text=P",0,0);\
     laEndCondition(uil,b2);
 #define OUR_TWIST(a) \
-    b2=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.tools.current_brush.use_nodes")));\
-    laShowItemFull(uil,c,0,"our.tools.current_brush." a,0,"text=T",0,0);\
+    b2=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"use_nodes")));\
+    laShowItemFull(uil,c,&cb->PP, a,0,"text=T",0,0);\
     laEndCondition(uil,b2);
 
     laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
-        laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
+        laUiItem* b=laOnConditionThat(uil,c,laPropExpression(&cb->PP,0));{
             laShowLabel(uil,cl,"Mode:",0,0);laShowItem(uil,cr,0,"our.erasing");
-            laShowItem(uil,c,0,"our.tools.current_brush.name");
-            laShowItem(uil,cl,0,"our.tools.current_brush.use_nodes");
+            laShowItem(uil,c,&cb->PP,"name");
+            laShowItem(uil,cl,&cb->PP,"use_nodes");
 
-            laUiItem* b3=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush.use_nodes"));{
+            laUiItem* b3=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));{
                 laShowItemFull(uil,cr,0,"LA_panel_activator",0,"text=Edit;panel_id=panel_brush_nodes",0,0);
             }laEndCondition(uil,b3);
 
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.size")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
-            laShowItem(uil,c,0,"our.tools.current_brush.slender");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.angle")->Expand=1; OUR_TWIST("twist_angle") OUR_ER;
-            laShowItem(uil,c,0,"our.tools.current_brush.dabs_per_size");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
-            laShowItem(uil,c,0,"our.tools.current_brush.smudge_resample_length");
-            laShowItem(uil,c,0,"our.tools.current_brush.gunkyness");
-            OUR_BR laShowItem(uil,c,0,"our.tools.current_brush.force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
+            OUR_BR laShowItem(uil,c,&cb->PP,"size")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
+            OUR_BR laShowItem(uil,c,&cb->PP,"transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
+            OUR_BR laShowItem(uil,c,&cb->PP,"hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
+            laShowItem(uil,c,&cb->PP,"slender");
+            OUR_BR laShowItem(uil,c,&cb->PP,"angle")->Expand=1; OUR_TWIST("twist_angle") OUR_ER;
+            laShowItem(uil,c,&cb->PP,"dabs_per_size");
+            OUR_BR laShowItem(uil,c,&cb->PP,"smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
+            laShowItem(uil,c,&cb->PP,"smudge_resample_length");
+            laShowItem(uil,c,&cb->PP,"gunkyness");
+            OUR_BR laShowItem(uil,c,&cb->PP,"force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
             laShowSeparator(uil,c);
-            laShowItem(uil,c,0,"our.tools.current_brush.smoothness");
+            laShowItem(uil,c,&cb->PP,"smoothness");
             laShowSeparator(uil,c);
-            b2=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush.use_nodes"));
-                laShowItem(uil,cl,0,"our.tools.current_brush.c1");
-                laShowItem(uil,cr,0,"our.tools.current_brush.c1_name");
-                laShowItem(uil,cl,0,"our.tools.current_brush.c2");
-                laShowItem(uil,cr,0,"our.tools.current_brush.c2_name");
+            b2=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));
+                laShowItem(uil,cl,&cb->PP,"c1");
+                laShowItem(uil,cr,&cb->PP,"c1_name");
+                laShowItem(uil,cl,&cb->PP,"c2");
+                laShowItem(uil,cr,&cb->PP,"c2_name");
             laEndCondition(uil,b2);
             laShowSeparator(uil,c);
-            laShowItem(uil,c,0,"our.tools.current_brush.default_as_eraser");
+            laShowLabel(uil,c,"Visual Offset:",0,0);
+            OUR_BR laShowItem(uil,c,&cb->PP,"visual_offset")->Expand=1;
+            b3=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"offset_follow_pen_tilt")));{
+                laShowItem(uil,c,&cb->PP,"visual_offset_angle");
+            }laEndCondition(uil,b3);
+            laShowItemFull(uil,c,&cb->PP,"offset_follow_pen_tilt",0,"text=🖍",0,0);
+            OUR_ER
+            laShowSeparator(uil,c);
+            laShowItem(uil,c,&cb->PP,"default_as_eraser");
         }laEndCondition(uil,b);
 
         laShowSeparator(uil,c);
@@ -541,7 +551,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
         tnsPackAs(GL_LINES);
     }
 
-    real tcolor[4]={0,0,0,Our->RefAlpha}; real th=ocd->Base.ZoomX;
+    real tcolor[4]={0,0,0,Our->RefAlpha}; real th=ocd->Base.ZoomX*1.5;
     tnsLineWidth(3);
     tnsDrawStringLCD(str,0,tcolor,-W2,W2,H2+th*LA_RH,LA_TEXT_LCD_16|LA_TEXT_REVERT_Y,th);
     tnsLineWidth(1);
@@ -549,7 +559,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     if(!Our->CurrentBrush) return; real v[96]; real Radius=Our->CurrentBrush->Size/ocd->Base.ZoomX,gap=rad(2);
-    tnsUseImmShader();tnsUseNoTexture();
+    tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
     tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
@@ -566,6 +576,17 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle)*Radius);
         tnsPackAs(GL_LINES);
     }
+    if(Our->CurrentBrush && Our->CurrentBrush->VisualOffset > 1e-4){
+        tnsMakeCircle2d(v,48,ocd->PointerX,ocd->PointerY,Radius/4+0.5,0);
+        tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+        tnsMakeCircle2d(v,48,ocd->PointerX,ocd->PointerY,Radius/4-0.5,0);
+        tnsColor4d(0,0,0,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+        tnsVertex2d(ocd->PointerX,ocd->PointerY);
+        tnsVertex2d(ocd->Base.OnX,ocd->Base.OnY);
+        real vcolor[8]={1,1,1,0.3,0,0,0,0.3};
+        tnsColorArray4d(vcolor,2); tnsPackAs(GL_LINES);
+    }
+    tnsLineWidth(1.0);
     tnsFlush();
 }
 
@@ -665,10 +686,24 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
     la_CanvasDefaultOverlay(ui, h);
 }
 
+void our_GetBrushOffset(OurCanvasDraw* ocd_if_scale, OurBrush*b, real event_orientation, real*x, real*y){
+    *x=*y=0;
+    real offx=0,offy=0;
+    if(b && b->VisualOffset>1e-4){ real offset=b->VisualOffset;
+        real orientation = b->OffsetFollowPenTilt?event_orientation:b->VisualOffsetAngle;
+        real zoom=ocd_if_scale?ocd_if_scale->Base.ZoomX:1;
+        offx = cos(orientation)*zoom*LA_RH*offset; offy = sin(orientation)*zoom*LA_RH*offset * (ocd_if_scale?-1:1);
+    }
+    *x=offx; *y=offy;
+}
+
 int ourextramod_Canvas(laOperator *a, laEvent *e){
     laUiItem *ui = a->Instance; OurCanvasDraw* ocd=ui->Extra;
     if(Our->EnableBrushCircle && ((e->type&LA_MOUSE_EVENT)||(e->type&LA_KEYBOARD_EVENT))){
-        ocd->Base.OnX=e->x; ocd->Base.OnY=e->y; laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
+        ocd->PointerX = e->x; ocd->PointerY = e->y; real offx,offy;
+        our_GetBrushOffset(0,Our->CurrentBrush,e->Orientation,&offx,&offy);
+        ocd->Base.OnX=e->x-offx; ocd->Base.OnY=e->y-offy;
+        laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
     }
     return LA_RUNNING_PASS;
 }
@@ -737,7 +772,7 @@ OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, r
     memAssignRef(Our, &Our->CurrentBrush, b);
     b->Rack=memAcquire(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     b->Binding=-1;
-    b->PressureForce=1; b->Force=1;
+    b->PressureForce=1; b->Force=1; b->VisualOffsetAngle=TNS_PI/4;
     return b;
 }
 void our_RemoveBrush(OurBrush* b){
@@ -1766,7 +1801,8 @@ void our_SmoothGlobalInput(real *x, real *y, int reset){
 int ourinv_Action(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     our_PaintResetBrushState(ob);
-    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); our_SmoothGlobalInput(&x,&y,1);
+    real ofx,ofy; our_GetBrushOffset(ex,Our->CurrentBrush,e->Orientation,&ofx,&ofy); ex->DownTilt = e->Orientation;
+    real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); x-=ofx; y-=ofy; our_SmoothGlobalInput(&x,&y,1);
     ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
     ex->CanvasDownX=x; ex->CanvasDownY=y;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
@@ -1797,7 +1833,8 @@ int ourmod_Paint(laOperator* a, laEvent* e){
             Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation,Twist=e->Twist;
             while(1){
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
-                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y); our_SmoothGlobalInput(&x,&y,0);
+                real ofx,ofy; our_GetBrushOffset(ex,Our->CurrentBrush,ex->DownTilt,&ofx,&ofy);
+                real x,y; our_UiToCanvas(&ex->Base,UseEvent,&x,&y); x-=ofx; y-=ofy; our_SmoothGlobalInput(&x,&y,0);
                 int tl,tr,tu,tb; if(ex->LastPressure<0){ ex->LastPressure=Pressure; }
                 if(our_PaintGetDabs(ob,l,ex->CanvasLastX,ex->CanvasLastY,x,y,ex->LastPressure,ex->LastTilt[0],ex->LastTilt[1],ex->LastTwist,
                     Pressure,Orientation,Deviation,Twist,
@@ -2288,6 +2325,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Not using twist",0,0);
     laAddEnumItemAs(p,"ENABLED","Enabled","Using twist",1,0);
     p=laAddEnumProperty(pc,"use_nodes","Use Nodes","Use nodes to control brush dynamics",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,UseNodes),0,0,0,0,0,0,0,0,0,0);
+    p->ElementBytes=2;
     laAddEnumItemAs(p,"NONE","None","Not using nodes",0,0);
     laAddEnumItemAs(p,"ENABLED","Enabled","Using nodes",1,0);
     laAddSubGroup(pc,"rack_page","Rack Page","Nodes rack page of this brush","la_rack_page",0,0,laui_RackPage,offsetof(OurBrush,Rack),0,0,0,0,0,0,0,LA_UDF_SINGLE|LA_HIDE_IN_SAVE);
@@ -2297,6 +2335,12 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc, "show_in_pages","Pages","Show in pages",0,0,0,0,0,0,0,0,3,0,ourset_BrushShowInPages,ourget_BrushShowInPages,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Don't show brush in this page",0,' ');
     laAddEnumItemAs(p,"SHOWN","Shown","Show brush in this page",1,'*');
+    p=laAddEnumProperty(pc,"offset_follow_pen_tilt","Follow Tilt","Brush center visual offset direction follows pen tilt",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,OffsetFollowPenTilt),0,0,0,0,0,0,0,0,0,0);
+    p->ElementBytes=2;
+    laAddEnumItemAs(p,"NONE","None","Fixed angle",0,0);
+    laAddEnumItemAs(p,"ENABLED","Enabled","Follow pen tilt",1,0);
+    laAddFloatProperty(pc,"visual_offset","Offset","Visual offset of the pen dab from system cursor",0,0,0,20,0,0.1,0,0,offsetof(OurBrush,VisualOffset),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"visual_offset_angle","Angle","Visual offset angle",0,0,0,TNS_PI*2,0,0.01,TNS_PI/4,0,offsetof(OurBrush,VisualOffsetAngle),0,0,0,0,0,0,0,0,0,0,LA_RAD_ANGLE);
     laAddOperatorProperty(pc,"move","Move","Move brush","OUR_move_brush",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove brush","OUR_remove_brush",U'🗴',0);
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate brush","OUR_duplicate_brush",U'⎘',0);
