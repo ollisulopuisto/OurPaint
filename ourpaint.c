@@ -60,6 +60,7 @@ int main(int argc, char *argv[]){
         laCreatePanel(br->B1, "panel_tools");
         laCreatePanel(br->B1, "panel_brushes");
         laCreatePanel(br->B2, "panel_layers");
+        laCreatePanel(br->B2, "panel_notes");
         laStartWindow(w);
     }
     our_EnableSplashPanel();

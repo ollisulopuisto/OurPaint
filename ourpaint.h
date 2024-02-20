@@ -313,6 +313,8 @@ STRUCTURE(OurPaint){
     float LastBrushCenter[2];
     int CanvasVersion;
 
+    laSafeString* Notes;
+
     real Smoothness;
     real LastX, LastY;
 

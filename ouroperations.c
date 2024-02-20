@@ -79,6 +79,11 @@ void our_InitColorProfiles(){
     our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
 }
 
+void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laUiItem* ui=laShowItemFull(uil,c,0,"our.canvas.notes",LA_WIDGET_STRING_MULTI,0,0,0);
+    laGeneralUiExtraData* ce=ui->Extra; ce->HeightCoeff = -1;
+}
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
@@ -2367,6 +2372,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_pallettes", "Pallettes", ourui_PallettesPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
+    laRegisterUiTemplate("panel_notes", "Notes", ourui_NotesPanel, 0, 0,0, 0,15,15);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -2502,6 +2508,7 @@ void ourRegisterEverything(){
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
+    laAddStringProperty(pc,"notes","Notes","Notes of this painting",LA_WIDGET_STRING_MULTI,0,0,0,1,offsetof(OurPaint,Notes),0,0,0,0,0);
     laAddIntProperty(pc,"canvas_version","Canvas Version",0,0,0,0,0,0,0,0,0,offsetof(OurPaint,CanvasVersion),ourget_CanvasVersion,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
     laAddSubGroup(pc,"layers","Layers","Layers","our_layer",0,0,ourui_Layer,offsetof(OurPaint,CurrentLayer),0,0,0,0,0,0,offsetof(OurPaint,Layers),LA_PROP_READ_PROGRESS);
     laAddSubGroup(pc,"current_layer","Current Layer","Current layer","our_layer",0,0,0,offsetof(OurPaint,CurrentLayer),ourget_FirstLayer,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
