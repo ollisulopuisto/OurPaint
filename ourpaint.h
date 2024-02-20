@@ -391,11 +391,16 @@ STRUCTURE(OurPaint){
     uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
 
+    uint8_t* ThumbnailBuffer;
+
     void* icc_LinearsRGB; int iccsize_LinearsRGB;
     void* icc_LinearClay; int iccsize_LinearClay;
     void* icc_sRGB; int iccsize_sRGB;
     void* icc_Clay; int iccsize_Clay;
 };
+
+
+int ourProcessInitArgs(int argc, char* argv[]);
 
 int ourInit();
 void ourRegisterNodes();

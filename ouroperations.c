@@ -1520,6 +1520,71 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     color[0]*=color[3];color[1]*=color[3];color[2]*=color[3];tnsVectorSet3v(Our->CurrentColor,color);
 }
 
+int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
+    int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
+    for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
+        our_LayerClearEmptyTiles(l);
+        our_LayerEnsureImageBuffer(l,1);
+        if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
+        if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
+    }
+    if(w<=0||h<=0) return 0;
+    real r = (real)(TNS_MAX2(w,h))/400.0f;
+    int use_w=w/r, use_h=h/r;
+
+    tnsOffscreen* off = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
+    tnsDrawToOffscreen(off,1,0);
+    tnsViewportWithScissor(0, 0, use_w, use_h);
+    tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
+    tnsOrtho(x,x+w,y+h,y,-100,100);
+    tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
+    our_CanvasDrawTextures();
+
+    if(Our->ImageBuffer){ free(Our->ImageBuffer); }
+    int bufsize=w*h*sizeof(uint16_t)*4;
+    Our->ImageBuffer=malloc(bufsize);
+    tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+    glGetTextureSubImage(off->pColor[0]->GLTexHandle, 0, 0, 0, 0, use_w, use_h, 1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
+
+    tnsDrawToScreen();
+    tnsDelete2DOffscreen(off);
+
+    our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY);
+
+    png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+
+    OurLayerWrite LayerWrite={0};
+    arrEnsureLength(&LayerWrite.data,0,&LayerWrite.MaxData,sizeof(unsigned char));
+    png_set_write_fn(png_ptr,&LayerWrite,_our_png_write,0);
+
+    png_set_IHDR(png_ptr, info_ptr,use_w,use_h,8,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
+    png_write_info(png_ptr, info_ptr);
+    png_set_swap(png_ptr);
+
+    uint8_t* data=Our->ImageBuffer;
+    for(int i=0;i<use_h;i++){
+        png_write_row(png_ptr,&data[use_w*i*4]);
+    }
+    png_write_end(png_ptr, info_ptr);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData;
+
+    free(Our->ImageBuffer);
+    Our->ImageBuffer=0;
+
+    return 1;
+}
+int our_GetFileThumbnail(char* file, uint8_t** buf, int* sizeof_buf){
+    laUDF* udf = laOpenUDF(file,0,0,0);
+
+    if(udf){
+        laExtractProp(udf,"our.thumbnail");
+        laExtractUDF(udf,0,LA_UDF_MODE_APPEND); laCloseUDF(udf);
+    }
+}
+
 void our_StartCropping(OurCanvasDraw* cd){
     if(cd->CanvasDownX<Our->X){
         if(cd->CanvasDownY<Our->Y-Our->H){ cd->AtCrop=OUR_AT_CROP_BL; }
@@ -1997,6 +2062,14 @@ int ourinv_ClearEmptyTiles(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+void* ourgetraw_FileThumbnail(void* unused, int* r_size, int* r_is_copy){
+    void* buf=0;
+    if(our_RenderThumbnail(&buf, r_size)){ *r_is_copy=1; return buf; }
+    *r_is_copy=0; return 0;
+}
+void oursetraw_FileThumbnail(void* unused, void* data, int DataSize){
+    return;
+}
 void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
     *ptr="Main canvas";
 }
@@ -2195,6 +2268,25 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     //laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
 }
 
+int ourProcessInitArgs(int argc, char* argv[]){
+    if(argc == 4 && strstr(argv[1],"--t")==argv[1]){
+        FILE* fp=fopen(argv[2],"rb"); if(!fp){ printf("Can't open file %s\n",argv[2]); return -1; }
+        void* data=0; size_t size=0;
+        if(laExtractQuickRaw(fp,"our.thumbnail",&data,&size)){
+            FILE* thumb = fopen(argv[3],"wb");
+            if(thumb){
+                fwrite(data, size, 1, thumb);
+                fclose(thumb);
+            }
+            free(data);
+        }else{
+            printf("File doesn't have a thumbnail.\n",argv[2]);
+        }
+        fclose(fp);
+        return -1;
+    }
+}
+
 void ourPreFrame(){
     if(MAIN.GraphNeedsRebuild){ ourRebuildBrushEval(); }
 }
@@ -2280,6 +2372,7 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
 
     pc=laAddPropertyContainer("our_paint","Our Paint","OurPaint main",0,0,sizeof(OurPaint),0,0,1);
+    laAddRawProperty(pc,"thumbnail","Thumbnail","Thumbnail of this file",0,0,ourgetraw_FileThumbnail,oursetraw_FileThumbnail,LA_READ_ONLY);
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
@@ -2502,7 +2595,8 @@ void ourRegisterEverything(){
 
     ourRegisterNodes();
 
-    laSaveProp("our.canvas");
+    laManagedSaveProp* msp= laSaveProp("our.canvas");
+    laSaveAlongside(msp,"our.thumbnail");
     laSaveProp("our.tools");
 
     laGetSaverDummy(Our,Our->CanvasSaverDummyProp);

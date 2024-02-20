@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 int main(int argc, char *argv[]){
+    if(ourProcessInitArgs(argc,argv) < 0){ return 0; }
     laInitArguments ia={0}; laSetDefaultInitArguments(&ia);
     ia.GLMajor=4; ia.GLMinor=5;
     ia.UseColorManagement=1;
@@ -43,7 +44,7 @@ int main(int argc, char *argv[]){
     for(int i=1;i<argc;i++){
         char* file=argv[i]; 
         laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);
-        if(udf){ laExtractUDF(udf,m,LA_UDF_MODE_APPEND,0); laCloseUDF(udf); }
+        if(udf){ laExtractUDF(udf,m,LA_UDF_MODE_APPEND); laCloseUDF(udf); }
     }
 
     //laAddRootDBInst("our.tools");
