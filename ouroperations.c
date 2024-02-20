@@ -982,6 +982,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
 int our_CanvasEnsureImageBuffer(){
     int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
     for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
+        our_LayerClearEmptyTiles(l);
         our_LayerEnsureImageBuffer(l,1);
         if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
         if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
@@ -1116,7 +1117,7 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     for(int i=0;i<H;i++){
         char* final=GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
         png_write_row(png_ptr, (png_const_bytep)final);
-        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
+        lastprog=i/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
     png_write_end(png_ptr, info_ptr);
@@ -1277,7 +1278,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
     int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
         png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
-        lastprog=i/1000; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
+        lastprog=i/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
     if(InputProfileMode && OutputProfileMode && (InputProfileMode!=OutputProfileMode)){
@@ -1591,6 +1592,7 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
     OurLayer* ol=a->This?a->This->EndInstance:0; if(!ol) ol=Our->CurrentLayer; if(!ol) return LA_FINISHED;
     if (a->ConfirmData){
         if (a->ConfirmData->StrData){
+            our_LayerClearEmptyTiles(ol);
             if(!our_LayerEnsureImageBuffer(ol, 0)) return LA_FINISHED;
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
@@ -1951,6 +1953,50 @@ int ourinv_PalletteRemoveColor(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int our_TileHasPixels(OurTexTile* ot){
+    if(!ot || !ot->Texture) return 0;
+    int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
+    ot->Data=malloc(bufsize); int width=OUR_TILE_W;
+    tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+    glGetTextureSubImage(ot->Texture->GLTexHandle, 0, 0, 0, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    
+    int has=0;
+    int total_elems = width*width;
+    for(int i=0;i<total_elems;i++){
+        if(ot->Data[i*4-1]!=0){ has=1; break; }
+    }
+    free(ot->Data); ot->Data=0;
+    return has;
+}
+void our_LayerClearEmptyTiles(OurLayer* ol){
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        int rowhas=0;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            OurTexTile* ot=ol->TexTiles[row][col];
+            if(!our_TileHasPixels(ot)){
+                if(ot->Texture) tnsDeleteTexture(ot->Texture); ot->Texture=0;
+                if(ot->Data) free(ot->Data); ot->Data=0;
+                if(ot->FullData) free(ot->FullData); ot->FullData=0;
+                if(ot->CopyBuffer) free(ot->CopyBuffer); ot->CopyBuffer=0;
+                memFree(ot); ol->TexTiles[row][col]=0;
+            }else{
+                rowhas=1;
+            }
+        }
+        if(!rowhas){
+            memFree(ol->TexTiles[row]); ol->TexTiles[row]=0;
+        }
+
+    }
+}
+int ourinv_ClearEmptyTiles(laOperator* a, laEvent* e){
+    for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){
+        our_LayerClearEmptyTiles(ol);
+    }
+    laNotifyUsers("our.canvas");
+    return LA_FINISHED;
+}
+
 void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
     *ptr="Main canvas";
 }
@@ -1976,6 +2022,7 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     static int LayerCount=0; static int CurrentLayer=0;
     void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
+    our_LayerClearEmptyTiles(l);
     if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
@@ -2121,6 +2168,8 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     }
     muil = laMakeMenuPage(uil, c, "Edit");{
         mc = laFirstColumn(muil); laui_DefaultMenuButtonsEditEntries(muil,pp,actinst,extracol,0);
+        laShowSeparator(muil,mc);
+        laShowItem(muil,mc,0,"OUR_clear_empty_tiles");
     }
     muil = laMakeMenuPage(uil, c, "Options"); {
         mc = laFirstColumn(muil);
@@ -2216,6 +2265,8 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_remove_pallette","Remove Pallette","Remove selected pallette",0,0,0,ourinv_RemovePallette,0,U'🗴',0);
     laCreateOperatorType("OUR_pallette_new_color","New Color","New color in this pallette",0,0,0,ourinv_PalletteNewColor,0,'+',0);
     laCreateOperatorType("OUR_pallette_remove_color","Remove Color","Remove this color from the pallette",0,0,0,ourinv_PalletteRemoveColor,0,U'🗴',0);
+
+    laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
