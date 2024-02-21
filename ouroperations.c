@@ -2247,7 +2247,11 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
     muil = laMakeMenuPage(uil, c, "Edit");{
         mc = laFirstColumn(muil); laui_DefaultMenuButtonsEditEntries(muil,pp,actinst,extracol,0);
         laShowSeparator(muil,mc);
+        laShowLabel(muil,mc,"Canvas",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+        laUiItem* row=laBeginRow(muil,mc,0,0);
         laShowItem(muil,mc,0,"OUR_clear_empty_tiles");
+        laShowItemFull(muil,mc,0,"our.preferences.show_debug_tiles",LA_WIDGET_ENUM_HIGHLIGHT,"text=👁",0,0);
+        laEndRow(muil,row);
     }
     muil = laMakeMenuPage(uil, c, "Options"); {
         mc = laFirstColumn(muil);
