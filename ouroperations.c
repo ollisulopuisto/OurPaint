@@ -1526,13 +1526,15 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
 }
 
 int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
-    int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
+    int x=INT_MAX,y=INT_MAX,x1=-INT_MAX,y1=-INT_MAX,w=-INT_MAX,h=-INT_MAX;
     for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
         our_LayerClearEmptyTiles(l);
         our_LayerEnsureImageBuffer(l,1);
         if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
-        if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
+        if(Our->ImageW+Our->ImageX>x1) x1=Our->ImageW+Our->ImageX;
+        if(Our->ImageH+Our->ImageY>y1) y1=Our->ImageH+Our->ImageY;
     }
+    w = x1-x; h=y1-y;
     if(w<=0||h<=0) return 0;
     real r = (real)(TNS_MAX2(w,h))/400.0f;
     int use_w=w/r, use_h=h/r;
@@ -2091,6 +2093,7 @@ void* ourget_our(void* unused, void* unused1){
     return Our;
 }
 void ourget_LayerTileStart(OurLayer* l, int* xy){
+    our_LayerClearEmptyTiles(l);
     our_LayerEnsureImageBuffer(l, 1); xy[0]=Our->ImageX; xy[1]=Our->ImageY+Our->ImageH;
 }
 void ourset_LayerTileStart(OurLayer* l, int* xy){
