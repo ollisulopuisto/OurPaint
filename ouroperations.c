@@ -89,6 +89,12 @@ void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
     laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
 }
+void ourui_ThumbnailPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
+    laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
+    ce->SelectThrough = 1;
+}
 void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
     laUiItem* b=laBeginRow(uil,cl,0,0);
@@ -708,6 +714,7 @@ void our_GetBrushOffset(OurCanvasDraw* ocd_if_scale, OurBrush*b, real event_orie
 
 int ourextramod_Canvas(laOperator *a, laEvent *e){
     laUiItem *ui = a->Instance; OurCanvasDraw* ocd=ui->Extra;
+    if(ocd->Base.SelectThrough && e->type==LA_L_MOUSE_DOWN) return LA_RUNNING;
     if(Our->EnableBrushCircle && ((e->type&LA_MOUSE_EVENT)||(e->type&LA_KEYBOARD_EVENT))){
         ocd->PointerX = e->x; ocd->PointerY = e->y; real offx,offy;
         our_GetBrushOffset(0,Our->CurrentBrush,e->Orientation,&offx,&offy);
@@ -2383,6 +2390,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
+    laRegisterUiTemplate("panel_thumbnail", "Thumbnail", ourui_ThumbnailPanel, 0, 0, 0, GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
     laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0,10,15);
