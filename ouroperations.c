@@ -263,6 +263,10 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowItem(uil,cl,0,"OUR_crop_to_ref");
+            laUiItem* b1=laBeginRow(uil,cl,1,0);
+            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=inner;text=Inner",0,0);
+            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=outer;text=Outer",0,0);
+            laEndRow(uil,b1);
         }laEndCondition(uil,b);
         
         laShowLabel(uil,cr,"Reference:",0,0);
@@ -1971,6 +1975,12 @@ int ourchk_CropToRef(laPropPack *This, laStringSplitor *ss){ if(Our->ShowRef&&Ou
 int ourinv_CropToRef(laOperator* a, laEvent* e){
     if((!Our->ShowRef) || (!Our->ShowBorder)) return LA_FINISHED;
     real W,H,W2,H2; OUR_GET_REF_SIZE(W,H)
+    char* arg = strGetArgumentString(a->ExtraInstructionsP,"border");
+    if(strSame(arg,"outer")){
+        W+=Our->RefPaddings[0]*2; H+=Our->RefPaddings[1]*2;
+    }elif(strSame(arg,"inner")){
+        W-=Our->RefMargins[0]*2; H-=Our->RefMargins[1]*2;
+    }
     real dpc=OUR_DPC; W*=dpc; H*=dpc; W2=W/2; H2=H/2;
     Our->X=-W2; Our->W=W; Our->Y=H2; Our->H=H;
     laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); laNotifyUsers("our.canvas");
