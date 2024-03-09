@@ -282,6 +282,7 @@ STRUCTURE(OurPNGReadExtra){
     int HasProfile;
     int InputMode;
     int OutputMode;
+    int Offsets[2];
 };
 STRUCTURE(OurPNGWriteExtra){
     int Confirming;

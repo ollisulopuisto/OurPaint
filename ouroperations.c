@@ -1718,7 +1718,8 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 FILE* fp=fopen(ex->FilePath->Ptr,"rb"); if(!fp) return LA_FINISHED;
                 if(!ol) ol=our_NewLayer("Imported");
                 int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:OUR_PNG_READ_OUTPUT_LINEAR_CLAY);
-                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, 0, 0, 0);
+                int UseOffsets = ex->Offsets[0] && ex->Offsets[1];
+                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, UseOffsets, ex->Offsets[0], ex->Offsets[1]);
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
@@ -1756,6 +1757,13 @@ void ourui_ImportLayer(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     }laElse(uil,b);{
         laShowLabel(uil,c,"Input image is not tagged as sRGB.",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
     }laEndCondition(uil,b);
+    laUiItem* row = laBeginRow(uil,cl,0,0);
+    laShowLabel(uil,cl,"Use Offsets",0,0);
+    b=laOnConditionToggle(uil,cl,0,0,0,0,0);{
+        laEndRow(uil,row);
+        laShowItem(uil,cl,Operator,"offsets");
+    }laEndCondition(uil,b);
+    laEndRow(uil,row);
 
     b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
 }
@@ -2359,6 +2367,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CANVAS","Follow Canvas","Transform the pixels into current canvas interpretation",OUR_PNG_READ_OUTPUT_CANVAS,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Write sRGB pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
+    laAddIntProperty(pc,"offsets","Offsets","Offsets of the imported layer (0 for default)",0,"X,Y",0,0,0,0,0,0,offsetof(OurPNGReadExtra,Offsets),0,0,2,0,0,0,0,0,0,0,0);
 
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,U'🗴',0);
