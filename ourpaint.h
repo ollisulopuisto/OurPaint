@@ -95,6 +95,7 @@ STRUCTURE(OurLayer){
     int Lock;
     int Hide;
     int BlendMode;
+    int AsSketch;
     OurTexTile** TexTiles[OUR_TILES_PER_ROW];
 };
 
@@ -342,6 +343,7 @@ STRUCTURE(OurPaint){
     int DefaultColorProfile;
     int PaintUndoLimit;
     int SpectralMode;
+    int SketchMode;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;

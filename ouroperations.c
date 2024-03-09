@@ -99,6 +99,9 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowHeightAdjuster(uil,cl,This,"__move",0);
+    laUiItem* b0=laOnConditionThat(uil,cr,laPropExpression(This,"as_sketch"));{
+        laShowLabel(uil,cl,"🖉",0,0);
+    }laEndCondition(uil,b0);
     laShowItemFull(uil,cl,This,"name",LA_WIDGET_STRING_PLAIN,0,0,0)->Expand=1;
     laShowItemFull(uil,cl,This,"lock",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laShowItemFull(uil,cl,This,"hide",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
@@ -107,6 +110,8 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         b=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowSeparator(uil,c)->Expand=1;
+        laShowItem(uil,c,This,"as_sketch")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+        laShowSeparator(uil,c);
         laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b);
@@ -135,6 +140,13 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowSeparator(uil,c)->Expand=1;
         laEndRow(uil,b1);
     }laEndCondition(uil,b);
+
+    laShowSeparator(uil,c);
+
+    b=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"OUR_cycle_sketch")->Expand=1;
+    laShowSeparator(uil,c); laShowItem(uil,c,0,"our.canvas.sketch_mode");
+    laEndRow(uil,b);
 
     laShowSeparator(uil,c);
 
@@ -477,7 +489,12 @@ void our_EnableSplashPanel(){
 void our_CanvasDrawTextures(){
     tnsUseImmShader; tnsEnableShaderv(T->immShader); real MultiplyColor[4];
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
-        if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency; tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
+        if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
+        if(Our->SketchMode && l->AsSketch){
+            if(Our->SketchMode == 1){ a=1.0f; }
+            elif(Our->SketchMode == 2){ a=0.0f; }
+        }
+        tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
         if(l->BlendMode==OUR_BLEND_NORMAL){ glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA); }
         if(l->BlendMode==OUR_BLEND_ADD){ glBlendFunc(GL_ONE,GL_ONE); }
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
@@ -573,8 +590,21 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
-    if(!Our->CurrentBrush) return; real v[96]; real Radius=Our->CurrentBrush->Size/ocd->Base.ZoomX,gap=rad(2);
+    real v[96]; real Radius=(Our->CurrentBrush?Our->CurrentBrush->Size:100.0f)/ocd->Base.ZoomX, gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
+    OurLayer* l = Our->CurrentLayer;
+    if(!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){
+        real d = Radius * 0.707;
+        tnsColor4d(0,0,0,0.3);
+        tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY-d-1);
+        tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY+d-1);
+        tnsPackAs(GL_LINES);
+        tnsColor4d(1,1,1,0.3);
+        tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY-d-1);
+        tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY+d-1);
+        tnsPackAs(GL_LINES);
+        return;
+    }
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
     tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
@@ -1882,6 +1912,11 @@ int ourinv_ToggleErase(laOperator* a, laEvent* e){
     if(Our->Erasing){ Our->Erasing=0; }else{ Our->Erasing=1; } laNotifyUsers("our.erasing");
     return LA_FINISHED;
 }
+int ourinv_CycleSketch(laOperator* a, laEvent* e){
+    Our->SketchMode++; Our->SketchMode%=3;
+    laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.sketch_mode");
+    laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 
 void our_SmoothGlobalInput(real *x, real *y, int reset){
     if(reset){ Our->LastX=*x; Our->LastY=*y; return; }
@@ -1902,7 +1937,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
     if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
-    if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
+    if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
     laHideCursor();
@@ -2148,6 +2183,9 @@ void ourset_LayerAlpha(OurLayer* l, real a){
 void ourset_LayerHide(OurLayer* l, int hide){
     l->Hide=hide; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
+void ourset_LayerAsSketch(OurLayer* l, int sketch){
+    l->AsSketch=sketch; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 void ourset_LayerBlendMode(OurLayer* l, int mode){
     l->BlendMode=mode; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
@@ -2241,6 +2279,7 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     if(Our->BrushPage==3 && (b->ShowInPages&(1<<2))) return 1;
     return 0;
 }
+void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas"); }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -2388,6 +2427,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
 
     laCreateOperatorType("OUR_toggle_erasing","Toggle Erasing","Toggle erasing",0,0,0,ourinv_ToggleErase,0,0,0);
+    laCreateOperatorType("OUR_cycle_sketch","Cycle Sketches","Cycle sketch layer display mode",0,0,0,ourinv_CycleSketch,0,0,0);
 
     laCreateOperatorType("OUR_crop_to_ref","Crop To Ref","Crop to reference lines",ourchk_CropToRef,0,0,ourinv_CropToRef,0,0,0);
 
@@ -2584,7 +2624,11 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"ref_paddings","Paddings","Paddings of the reference block",0,"L/R,T/B","cm",0,0,0,0,0,offsetof(OurPaint,RefPaddings),0,0,2,0,0,0,0,ourset_RefPaddings,0,0,0);
     laAddFloatProperty(pc,"ref_middle_margin","Middle Margin","Margin in the middle of the spread",0,0,"cm",0,0,0,0,0,offsetof(OurPaint,RefMargins[2]),0,ourset_RefMiddleMargin,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"ref_biases","Reference Biases","Position biases when reading reference block",0,0,0,0,0,0,0,0,offsetof(OurPaint,RefBiases),0,0,0,0,0,0,0,0,0,0,0);
-    
+    p=laAddEnumProperty(pc,"sketch_mode","Sketch Mode","Show sketch layers differently",0,0,0,0,0,offsetof(OurPaint,SketchMode),0,ourset_ShowSketch,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Show sketch layers as normal layers",0,0);
+    laAddEnumItemAs(p,"FULL","Full","Show sketch layers in full opacity",1,0);
+    laAddEnumItemAs(p,"NONE","None","Show double page spread",2,0);
+
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -2605,6 +2649,9 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
     laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",U'🠳',0);
+    p=laAddEnumProperty(pc,"as_sketch","As Sketch","As sketch layer (for quick toggle)",0,0,0,0,0,offsetof(OurLayer,AsSketch),0,ourset_LayerAsSketch,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Layer is normal",0,U'🖌');
+    laAddEnumItemAs(p,"SKETCH","Sketch","Layer is a sketch layer",1,U'🖉');
     
     laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", ourextramod_Canvas, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
@@ -2628,6 +2675,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, '[', "direction=smaller");
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
     laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_KEY_DOWN, 'e', 0);
+    laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_KEY_DOWN, 's', 0);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
