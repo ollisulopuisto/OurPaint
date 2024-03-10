@@ -590,7 +590,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
-    if(Our->Tool!=OUR_TOOL_PAINT){
+    if(Our->Tool==OUR_TOOL_MOVE || (Our->Tool==OUR_TOOL_CROP && Our->ShowBorder)){
         tnsUseImmShader(); real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
         tnsDrawStringM("🤚",0,colork,ocd->Base.OnX-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-LA_RH,0);
         tnsDrawStringM("🤚",0,colorw,ocd->Base.OnX-2-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-2-LA_RH,0);
@@ -600,7 +600,7 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
     OurLayer* l = Our->CurrentLayer;
     if (!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock ||
-        (l->AsSketch && Our->SketchMode==2)|| ocd->Base.SelectThrough){
+        (l->AsSketch && Our->SketchMode==2)|| ocd->Base.SelectThrough || (Our->Tool==OUR_TOOL_CROP && !Our->ShowBorder)){
         real d = Radius * 0.707;
         tnsColor4d(0,0,0,0.3);
         tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY-d-1);
@@ -2030,11 +2030,11 @@ int ourinv_Action(laOperator* a, laEvent* e){
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
-    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
+    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) ex->HideBrushCircle=0; return LA_FINISHED; our_StartCropping(ex); }
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    //laHideCursor();
+    laHideCursor();
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
