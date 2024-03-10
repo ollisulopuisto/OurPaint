@@ -2030,7 +2030,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
-    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) ex->HideBrushCircle=0; return LA_FINISHED; our_StartCropping(ex); }
+    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder){ ex->HideBrushCircle=0; return LA_FINISHED;} our_StartCropping(ex); }
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
