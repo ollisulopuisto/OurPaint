@@ -65,6 +65,7 @@ STRUCTURE(OurCanvasDraw){
     real LastPressure;
     real LastTilt[2];
     real LastTwist;
+    int MovedX,MovedY;
 };
 
 #define OUR_DPC (600*0.3937007874)
@@ -248,9 +249,14 @@ STRUCTURE(OurUndo){
     OurLayer* Layer;
     laListHandle Tiles;
 };
+STRUCTURE(OurMoveUndo){
+    OurLayer* Layer;
+    int dx,dy;
+};
 
 #define OUR_TOOL_PAINT 0
 #define OUR_TOOL_CROP 1
+#define OUR_TOOL_MOVE 2
 
 #define OUR_PNG_READ_INPUT_FLAT 0
 #define OUR_PNG_READ_INPUT_ICC  1

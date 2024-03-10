@@ -1659,6 +1659,76 @@ void our_DoCropping(OurCanvasDraw* cd, real x, real y){
     cd->CanvasLastX+=dx; cd->CanvasLastY+=dy;
 }
 
+void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* colmax){
+    *rowmin = *colmin = INT_MAX; *rowmax = *colmax = -INT_MAX;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        if(*rowmin==INT_MAX){ *rowmin = row; }
+        *rowmax=row;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            if(*colmin==INT_MAX){ *colmin = col; }
+            if(col > *colmax){ *colmax=col; }
+        }
+    }
+}
+int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
+    if(!ol || (!dx && !dy)){ *movedx=0; *movedy=0; return 0; }
+    int rowmin,rowmax,colmin,colmax; our_LayerGetRange(ol,&rowmin,&rowmax,&colmin,&colmax);
+
+    if(dx+colmax >= OUR_TILES_PER_ROW){ dx = OUR_TILES_PER_ROW - colmax - 1; }
+    if(dy+rowmax >= OUR_TILES_PER_ROW){ dy = OUR_TILES_PER_ROW - rowmax - 1; }
+    if(colmin + dx < 0){ dx = -colmin; }
+    if(rowmin + dy < 0){ dy = -rowmin; }
+
+    if(!dx && !dy){ *movedx=0; *movedy=0; return 0; }
+
+    if(movedx){ *movedx=dx; }
+    if(movedy){ *movedy=dy; }
+
+    OurTexTile*** copy = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW);
+    for(int i=0;i<OUR_TILES_PER_ROW;i++){ copy[i] = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW); }
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){
+            copy[row][col] = ol->TexTiles[row][col];
+            ol->TexTiles[row][col] = 0;
+        }
+    }
+    for(int row=rowmin;row<=rowmax;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=colmin;col<=colmax;col++){
+            OurTexTile* t0=copy[row][col]; if(!t0){ continue; }
+            t0->l+=dx*OUR_TILE_W; t0->r+=dx*OUR_TILE_W;
+            t0->u+=dy*OUR_TILE_W; t0->b+=dy*OUR_TILE_W;
+            if(!ol->TexTiles[row+dy]){
+                ol->TexTiles[row+dy] = memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
+            }
+            ol->TexTiles[row+dy][col+dx] = t0;
+        }
+    }
+    for(int i=0;i<OUR_TILES_PER_ROW;i++){ memFree(copy[i]); }
+    memFree(copy);
+    
+    return 1;
+}
+void ourundo_Move(OurMoveUndo* undo){
+    our_LayerClearEmptyTiles(undo->Layer);
+    our_MoveLayer(undo->Layer, -undo->dx, -undo->dy,0,0);
+    laNotifyUsers("our.canvas");
+}
+void ourredo_Move(OurMoveUndo* undo){
+    our_LayerClearEmptyTiles(undo->Layer);
+    our_MoveLayer(undo->Layer, undo->dx, undo->dy,0,0);
+    laNotifyUsers("our.canvas");
+}
+void our_DoMoving(OurCanvasDraw* cd, real x, real y, int *movedx, int *movedy){
+    OurLayer* ol=Our->CurrentLayer; if(!ol){ return; }
+    int dx = x-cd->CanvasDownX, dy = y-cd->CanvasDownY;
+    dx/=OUR_TILE_W_USE; dy/=OUR_TILE_W_USE;
+    if(dx || dy){
+        our_MoveLayer(ol, dx,dy,movedx,movedy);
+        laNotifyUsers("our.canvas");
+        cd->CanvasDownX+=dx*OUR_TILE_W_USE; cd->CanvasDownY+=dy*OUR_TILE_W_USE;
+    }
+}
+
 int ourinv_ShowSplash(laOperator* a, laEvent* e){
     our_EnableSplashPanel();return LA_FINISHED;
 }
@@ -1932,7 +2002,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     real ofx,ofy; our_GetBrushOffset(ex,Our->CurrentBrush,e->Orientation,&ofx,&ofy); ex->DownTilt = e->Orientation;
     real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); x-=ofx; y-=ofy; our_SmoothGlobalInput(&x,&y,1);
     ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
-    ex->CanvasDownX=x; ex->CanvasDownY=y;
+    ex->CanvasDownX=x; ex->CanvasDownY=y; ex->MovedX=0; ex->MovedY=0;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
@@ -1940,7 +2010,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor();
+    //laHideCursor();
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -1991,6 +2061,26 @@ int ourmod_Crop(laOperator* a, laEvent* e){
 
     return LA_RUNNING;
 }
+int ourmod_Move(laOperator* a, laEvent* e){
+    OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){
+        OurMoveUndo* undo = memAcquire(sizeof(OurMoveUndo));
+        undo->dx = ex->MovedX; undo->dy = ex->MovedY; undo->Layer = Our->CurrentLayer;
+        laFreeNewerDifferences();
+        laRecordCustomDifferences(undo,ourundo_Move,ourredo_Move,memFree); laPushDifferences("Move layer",0);
+        ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED;
+    }
+
+    if(e->type==LA_MOUSEMOVE||e->type==LA_L_MOUSE_DOWN){
+        real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
+        int movedx=0,movedy=0;
+        our_DoMoving(ex,x,y,&movedx,&movedy);
+        ex->MovedX+=movedx; ex->MovedY+=movedy;
+        laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    }
+
+    return LA_RUNNING;
+}
 int ourmod_Action(laOperator* a, laEvent* e){
     OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_CANCELED;
     OurLayer* l=Our->CurrentLayer; OurBrush* ob=Our->CurrentBrush;
@@ -1999,6 +2089,8 @@ int ourmod_Action(laOperator* a, laEvent* e){
         return ourmod_Paint(a,e);
     case OUR_TOOL_CROP:
         return ourmod_Crop(a,e);
+    case OUR_TOOL_MOVE:
+        return ourmod_Move(a,e);
     default: return LA_FINISHED;
     }
     return LA_RUNNING;
@@ -2460,6 +2552,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,U'🖌');
     laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,U'🖼');
+    laAddEnumItemAs(p,"MOVE","Moving","Moving the layer",OUR_TOOL_MOVE,U'🤚');
     p=laAddEnumProperty(pc,"lock_background","Lock background","Lock background color to prevent accidental changes",0,0,0,0,0,offsetof(OurPaint,LockBackground),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","Unlocked","You can change background color",0,0);
     laAddEnumItemAs(p,"LOCK","Locked","Background color is locked to prevent accidental changes",1,U'🔏');
