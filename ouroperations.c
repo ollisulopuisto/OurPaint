@@ -138,6 +138,7 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowItem(uil,c,&lui->PP,"merge");
         laShowSeparator(uil,c)->Expand=1;
+        laShowItem(uil,c,&lui->PP,"duplicate");
         laEndRow(uil,b1);
     }laEndCondition(uil,b);
 
@@ -782,6 +783,28 @@ OurLayer* our_NewLayer(char* name){
     OurLayer* l=memAcquire(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
     memAssignRef(Our, &Our->CurrentLayer, l);
     return l;
+}
+void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!from->TexTiles[row]) continue;
+        to->TexTiles[row]=memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!from->TexTiles[row][col]) continue;
+            to->TexTiles[row][col]=memAcquire(sizeof(OurTexTile));
+            OurTexTile* tt=to->TexTiles[row][col],*ft=from->TexTiles[row][col];
+            memcpy(tt,ft,sizeof(OurTexTile));
+            tt->CopyBuffer=0;
+            tt->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
+            int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
+            tt->FullData=malloc(bufsize);
+
+            ft->Data=malloc(bufsize); int width=OUR_TILE_W;
+            tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+            glGetTextureSubImage(ft->Texture->GLTexHandle, 0, 0, 0, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ft->Data);
+            tnsBindTexture(tt->Texture);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA, GL_UNSIGNED_SHORT, ft->Data);
+            
+            free(ft->Data); ft->Data=0;
+        }
+    }
 }
 void ourbeforefree_Layer(OurLayer* l){
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
@@ -1762,6 +1785,23 @@ int ourinv_NewLayer(laOperator* a, laEvent* e){
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
     return LA_FINISHED;
 }
+int ourinv_DuplicateLayer(laOperator* a, laEvent* e){
+    OurLayer* l=a->This?a->This->EndInstance:Our->CurrentLayer;
+    if(!l){ return LA_FINISHED; }
+    our_NewLayer(SSTR(Our->CurrentLayer->Name));
+    our_DuplicateLayerContent(Our->CurrentLayer,l);
+
+    int rowmin,rowmax,colmin,colmax;
+    our_LayerGetRange(Our->CurrentLayer,&rowmin,&rowmax,&colmin,&colmax);
+    int xmin,xmax,ymin,ymax;
+    xmin =((real)colmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; ymin=((real)rowmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    xmax =((real)colmax+1-OUR_TILE_CTR+0.5)*OUR_TILE_W_USE; ymax=((real)rowmax+1-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    our_RecordUndo(Our->CurrentLayer,xmin,xmax,ymin,ymax,1,0);
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
+    
+    laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    return LA_FINISHED;
+}
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
     our_RemoveLayer(l,0); laNotifyUsers("our.canvas.layers"); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
@@ -2502,6 +2542,7 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
+    laCreateOperatorType("OUR_duplicate_layer","Duplicate Layer","Duplicate a layer",0,0,0,ourinv_DuplicateLayer,0,'⎘',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,U'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
@@ -2765,7 +2806,8 @@ void ourRegisterEverything(){
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
-    laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",U'🠳',0);
+    laAddOperatorProperty(pc,"merge","Merge","Merge layer","OUR_merge_layer",U'🠳',0);
+    laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate layer","OUR_duplicate_layer",U'⎘',0);
     p=laAddEnumProperty(pc,"as_sketch","As Sketch","As sketch layer (for quick toggle)",0,0,0,0,0,offsetof(OurLayer,AsSketch),0,ourset_LayerAsSketch,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Layer is normal",0,U'🖌');
     laAddEnumItemAs(p,"SKETCH","Sketch","Layer is a sketch layer",1,U'🖉');
