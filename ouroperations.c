@@ -590,6 +590,12 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
+    if(Our->Tool!=OUR_TOOL_PAINT){
+        tnsUseImmShader(); real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
+        tnsDrawStringM("🤚",0,colork,ocd->Base.OnX-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-LA_RH,0);
+        tnsDrawStringM("🤚",0,colorw,ocd->Base.OnX-2-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-2-LA_RH,0);
+        return;
+    }
     real v[96]; real Radius=(Our->CurrentBrush?Our->CurrentBrush->Size:100.0f)/ocd->Base.ZoomX, gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
     OurLayer* l = Our->CurrentLayer;
