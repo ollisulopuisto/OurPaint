@@ -751,6 +751,23 @@ int ourextramod_Canvas(laOperator *a, laEvent *e){
         ocd->Base.OnX=e->x-offx; ocd->Base.OnY=e->y-offy;
         laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
     }
+
+    if(e->type==LA_SIGNAL_EVENT){
+        switch(e->key){
+        case OUR_SIGNAL_BRUSH_SMALLER: 
+            laInvoke(a,"OUR_brush_resize",e,0,"direction=smaller",0);
+            break;
+        case OUR_SIGNAL_BRUSH_BIGGER:
+            laInvoke(a,"OUR_brush_resize",e,0,"direction=bigger",0);
+            break;
+        case OUR_SIGNAL_ZOOM_IN: 
+            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=in",0);
+            break;
+        case OUR_SIGNAL_ZOOM_OUT:
+            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=out",0);
+            break;
+        }
+    }
     return LA_RUNNING_PASS;
 }
 
@@ -1665,8 +1682,8 @@ void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* 
         if(*rowmin==INT_MAX){ *rowmin = row; }
         *rowmax=row;
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
-            if(*colmin==INT_MAX){ *colmin = col; }
             if(col > *colmax){ *colmax=col; }
+            if(col < *colmin){ *colmin = col; }
         }
     }
 }
@@ -1694,7 +1711,7 @@ int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
     }
     for(int row=rowmin;row<=rowmax;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=colmin;col<=colmax;col++){
-            OurTexTile* t0=copy[row][col]; if(!t0){ continue; }
+            OurTexTile* t0=copy[row][col]; if(!t0){continue; }
             t0->l+=dx*OUR_TILE_W; t0->r+=dx*OUR_TILE_W;
             t0->u+=dy*OUR_TILE_W; t0->b+=dy*OUR_TILE_W;
             if(!ol->TexTiles[row+dy]){
@@ -2769,6 +2786,15 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
     laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_KEY_DOWN, 'e', 0);
     laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_KEY_DOWN, 's', 0);
+
+    laNewCustomSignal("our.pick",OUR_SIGNAL_PICK);
+    laNewCustomSignal("our.move",OUR_SIGNAL_MOVE);
+    laNewCustomSignal("our.toggle_erasing",OUR_SIGNAL_TOGGLE_ERASING);
+    laNewCustomSignal("our.toggle_sketch",OUR_SIGNAL_TOGGLE_SKETCH);
+    laNewCustomSignal("our.zoom_in",OUR_SIGNAL_ZOOM_IN);
+    laNewCustomSignal("our.zoom_out",OUR_SIGNAL_ZOOM_OUT);
+    laNewCustomSignal("our.bursh_bigger",OUR_SIGNAL_BRUSH_BIGGER);
+    laNewCustomSignal("our.brush_smaller",OUR_SIGNAL_BRUSH_SMALLER);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);

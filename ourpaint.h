@@ -55,6 +55,16 @@ extern const char OUR_COMPOSITION_SHADER[];
 
 #define OUR_PAINT_NAME_STRING "Our Paint v0.2"
 
+#define OUR_SIGNAL_PICK 1
+#define OUR_SIGNAL_MOVE 2
+#define OUR_SIGNAL_PICK 3
+#define OUR_SIGNAL_TOGGLE_ERASING 4
+#define OUR_SIGNAL_ZOOM_IN 5
+#define OUR_SIGNAL_ZOOM_OUT 6
+#define OUR_SIGNAL_BRUSH_BIGGER 7
+#define OUR_SIGNAL_BRUSH_SMALLER 8
+#define OUR_SIGNAL_TOGGLE_SKETCH 9
+
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int HideBrushCircle;
