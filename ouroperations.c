@@ -1799,7 +1799,7 @@ int ourinv_DuplicateLayer(laOperator* a, laEvent* e){
     our_RecordUndo(Our->CurrentLayer,xmin,xmax,ymin,ymax,1,0);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
     
-    laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     return LA_FINISHED;
 }
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
