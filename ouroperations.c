@@ -593,7 +593,8 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     real v[96]; real Radius=(Our->CurrentBrush?Our->CurrentBrush->Size:100.0f)/ocd->Base.ZoomX, gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
     OurLayer* l = Our->CurrentLayer;
-    if(!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){
+    if (!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock ||
+        (l->AsSketch && Our->SketchMode==2)|| ocd->Base.SelectThrough){
         real d = Radius * 0.707;
         tnsColor4d(0,0,0,0.3);
         tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY-d-1);
