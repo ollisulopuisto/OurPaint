@@ -1141,22 +1141,28 @@ static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t lengt
 void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     uint8_t* NewImage;
     cmsHTRANSFORM cmsTransform = NULL;
-    cmsHPROFILE input_buffer_profile = NULL;
-    cmsHPROFILE output_buffer_profile = NULL;
+    cmsHPROFILE input_buffer_profile=NULL,input_gamma_profile=NULL;
+    cmsHPROFILE output_buffer_profile=NULL;
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
     input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
         cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+    input_gamma_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
+        cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
 
     NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
         if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_8,
+        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, input_gamma_profile, TYPE_RGBA_8,
             INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
         cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,Our->ImageW*Our->ImageH);
-        cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
+        if(input_gamma_profile!=output_buffer_profile){
+            cmsTransform = cmsCreateTransform(input_gamma_profile, TYPE_RGBA_8, output_buffer_profile, TYPE_RGBA_8,
+                INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
+            cmsDoTransform(cmsTransform,NewImage,NewImage,Our->ImageW*Our->ImageH);
+        }
     }else{
         for(int row=0;row<Our->ImageH;row++){
             for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
@@ -1164,6 +1170,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
             }
         }
     }
+    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }
 int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
