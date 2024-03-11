@@ -1149,17 +1149,23 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
         cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
 
+    NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
         if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
-        cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,Our->ImageW*Our->ImageH);
+        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_8, INTENT_PERCEPTUAL, 0);
+        cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,Our->ImageW*Our->ImageH);
         cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
-    }
-    NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
-    for(int row=0;row<Our->ImageH;row++){
-        for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
-            p[0]=((real)p0[0]+0.5)/256; p[1]=((real)p0[1]+0.5)/256; p[2]=((real)p0[2]+0.5)/256; p[3]=((real)p0[3]+0.5)/256;
+        for(int row=0;row<Our->ImageH;row++){
+            for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
+                p[3]=((real)p0[3])/256;
+            }
+        }
+    }else{
+        for(int row=0;row<Our->ImageH;row++){
+            for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
+                p[0]=((real)p0[0])/256; p[1]=((real)p0[1])/256; p[2]=((real)p0[2])/256; p[3]=((real)p0[3])/256;
+            }
         }
     }
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
