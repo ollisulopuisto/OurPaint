@@ -1153,14 +1153,10 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
         if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_8, INTENT_PERCEPTUAL, 0);
+        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_8,
+            INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
         cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,Our->ImageW*Our->ImageH);
         cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
-        for(int row=0;row<Our->ImageH;row++){
-            for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
-                p[3]=((real)p0[3])/256;
-            }
-        }
     }else{
         for(int row=0;row<Our->ImageH;row++){
             for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
