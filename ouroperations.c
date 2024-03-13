@@ -787,7 +787,7 @@ OurLayer* our_NewLayer(char* name){
 void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!from->TexTiles[row]) continue;
         to->TexTiles[row]=memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
-        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!from->TexTiles[row][col]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!from->TexTiles[row][col] || !from->TexTiles[row][col]->Texture) continue;
             to->TexTiles[row][col]=memAcquire(sizeof(OurTexTile));
             OurTexTile* tt=to->TexTiles[row][col],*ft=from->TexTiles[row][col];
             memcpy(tt,ft,sizeof(OurTexTile));
