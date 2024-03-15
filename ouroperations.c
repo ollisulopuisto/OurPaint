@@ -2034,10 +2034,17 @@ int ourinv_MoveBrush(laOperator* a, laEvent* e){
 int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
     char* id=strGetArgumentString(a->ExtraInstructionsP,"binding"); if(!id){ return LA_CANCELED; }
     int num; int ret=sscanf(id,"%d",&num); if(ret>9||ret<0){ return LA_CANCELED; }
+    OurBrush* found=0,*first=0; int set=0;
     for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){ 
         if(b->Binding==num){
-            ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break;
-        } 
+            if(!first){ first=b; }
+            if(found){ ourset_CurrentBrush(Our,b); set=1; laNotifyUsers("our.tools.brushes"); break; }
+            elif(b == Our->CurrentBrush){ found = b; }
+        }
+    }
+    if(!found || (found && !set)){ found = first; }
+    if(!set && found){
+         ourset_CurrentBrush(Our,found); laNotifyUsers("our.tools.brushes");
     }
     return LA_FINISHED;
 }
