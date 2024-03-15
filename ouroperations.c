@@ -591,8 +591,9 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
+    real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
     if(Our->Tool==OUR_TOOL_MOVE || (Our->Tool==OUR_TOOL_CROP && Our->ShowBorder)){
-        tnsUseImmShader(); real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
+        tnsUseImmShader();
         tnsDrawStringM("🤚",0,colork,ocd->Base.OnX-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-LA_RH,0);
         tnsDrawStringM("🤚",0,colorw,ocd->Base.OnX-2-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-2-LA_RH,0);
         return;
@@ -612,6 +613,11 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY+d-1);
         tnsPackAs(GL_LINES);
         return;
+    }
+    if(Our->ShowBrushName){
+        tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colork,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH,ocd->Base.OnY-LA_RH,LA_TEXT_ALIGN_RIGHT);
+        tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colorw,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH-2,ocd->Base.OnY-2-LA_RH,LA_TEXT_ALIGN_RIGHT);
+        tnsUseNoTexture();
     }
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
     tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
@@ -2090,7 +2096,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor();
+    laHideCursor(); Our->ShowBrushName=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -2411,6 +2417,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     Our->CurrentBrush=b;
     if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
     else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
+    Our->ShowBrushName = 1;
     laNotifyUsers("our.tools.current_brush"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
@@ -2655,6 +2662,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
+    p=laAddEnumProperty(pc,"show_brush_name","Show brush name","Show brush name next to the cursor",0,0,0,0,0,offsetof(OurPaint,ShowBrushName),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
+    laAddEnumItemAs(p,"FALSE","No","Don't show brush name next to the cursor",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Show brush name next to the cursor",1,0);
     p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);

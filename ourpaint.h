@@ -354,7 +354,7 @@ STRUCTURE(OurPaint){
     int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
     int LockRadius;
-    int EnableBrushCircle; int EventHasTwist; real EventTwistAngle;
+    int EnableBrushCircle,ShowBrushName; int EventHasTwist; real EventTwistAngle;
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;
