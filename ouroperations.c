@@ -89,10 +89,19 @@ void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
     laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
 }
+void ourui_ThumbnailPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil);
+    laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
+    laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
+    ce->SelectThrough = 1;
+}
 void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.7); cl=laLeftColumn(c,0);cr=laRightColumn(c,1);
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowHeightAdjuster(uil,cl,This,"__move",0);
+    laUiItem* b0=laOnConditionThat(uil,cr,laPropExpression(This,"as_sketch"));{
+        laShowLabel(uil,cl,"🖉",0,0);
+    }laEndCondition(uil,b0);
     laShowItemFull(uil,cl,This,"name",LA_WIDGET_STRING_PLAIN,0,0,0)->Expand=1;
     laShowItemFull(uil,cl,This,"lock",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laShowItemFull(uil,cl,This,"hide",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
@@ -101,6 +110,8 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         b=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowSeparator(uil,c)->Expand=1;
+        laShowItem(uil,c,This,"as_sketch")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+        laShowSeparator(uil,c);
         laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laEndRow(uil,b);
@@ -127,8 +138,16 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON;
         laShowItem(uil,c,&lui->PP,"merge");
         laShowSeparator(uil,c)->Expand=1;
+        laShowItem(uil,c,&lui->PP,"duplicate");
         laEndRow(uil,b1);
     }laEndCondition(uil,b);
+
+    laShowSeparator(uil,c);
+
+    b=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"OUR_cycle_sketch")->Expand=1;
+    laShowSeparator(uil,c); laShowItem(uil,c,0,"our.canvas.sketch_mode");
+    laEndRow(uil,b);
 
     laShowSeparator(uil,c);
 
@@ -263,6 +282,10 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowItem(uil,cl,0,"OUR_crop_to_ref");
+            laUiItem* b1=laBeginRow(uil,cl,1,0);
+            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=inner;text=Inner",0,0);
+            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=outer;text=Outer",0,0);
+            laEndRow(uil,b1);
         }laEndCondition(uil,b);
         
         laShowLabel(uil,cr,"Reference:",0,0);
@@ -467,7 +490,12 @@ void our_EnableSplashPanel(){
 void our_CanvasDrawTextures(){
     tnsUseImmShader; tnsEnableShaderv(T->immShader); real MultiplyColor[4];
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
-        if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency; tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
+        if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
+        if(Our->SketchMode && l->AsSketch){
+            if(Our->SketchMode == 1){ a=1.0f; }
+            elif(Our->SketchMode == 2){ a=0.0f; }
+        }
+        tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
         if(l->BlendMode==OUR_BLEND_NORMAL){ glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA); }
         if(l->BlendMode==OUR_BLEND_ADD){ glBlendFunc(GL_ONE,GL_ONE); }
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
@@ -563,8 +591,34 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
-    if(!Our->CurrentBrush) return; real v[96]; real Radius=Our->CurrentBrush->Size/ocd->Base.ZoomX,gap=rad(2);
+    real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
+    if(Our->Tool==OUR_TOOL_MOVE || (Our->Tool==OUR_TOOL_CROP && Our->ShowBorder)){
+        tnsUseImmShader();
+        tnsDrawStringM("🤚",0,colork,ocd->Base.OnX-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-LA_RH,0);
+        tnsDrawStringM("🤚",0,colorw,ocd->Base.OnX-2-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-2-LA_RH,0);
+        return;
+    }
+    real v[96]; real Radius=(Our->CurrentBrush?Our->CurrentBrush->Size:100.0f)/ocd->Base.ZoomX, gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
+    OurLayer* l = Our->CurrentLayer;
+    if (!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock ||
+        (l->AsSketch && Our->SketchMode==2)|| ocd->Base.SelectThrough || (Our->Tool==OUR_TOOL_CROP && !Our->ShowBorder)){
+        real d = Radius * 0.707;
+        tnsColor4d(0,0,0,0.3);
+        tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY-d-1);
+        tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY+d-1);
+        tnsPackAs(GL_LINES);
+        tnsColor4d(1,1,1,0.3);
+        tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY-d-1);
+        tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY+d-1);
+        tnsPackAs(GL_LINES);
+        return;
+    }
+    if(Our->ShowBrushName){
+        tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colork,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH,ocd->Base.OnY-LA_RH,LA_TEXT_ALIGN_RIGHT);
+        tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colorw,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH-2,ocd->Base.OnY-2-LA_RH,LA_TEXT_ALIGN_RIGHT);
+        tnsUseNoTexture();
+    }
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
     tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
@@ -704,11 +758,29 @@ void our_GetBrushOffset(OurCanvasDraw* ocd_if_scale, OurBrush*b, real event_orie
 
 int ourextramod_Canvas(laOperator *a, laEvent *e){
     laUiItem *ui = a->Instance; OurCanvasDraw* ocd=ui->Extra;
+    if(ocd->Base.SelectThrough && e->type==LA_L_MOUSE_DOWN) return LA_RUNNING;
     if(Our->EnableBrushCircle && ((e->type&LA_MOUSE_EVENT)||(e->type&LA_KEYBOARD_EVENT))){
         ocd->PointerX = e->x; ocd->PointerY = e->y; real offx,offy;
         our_GetBrushOffset(0,Our->CurrentBrush,e->Orientation,&offx,&offy);
         ocd->Base.OnX=e->x-offx; ocd->Base.OnY=e->y-offy;
         laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
+    }
+
+    if(e->type==LA_SIGNAL_EVENT){
+        switch(e->key){
+        case OUR_SIGNAL_BRUSH_SMALLER: 
+            laInvoke(a,"OUR_brush_resize",e,0,"direction=smaller",0);
+            break;
+        case OUR_SIGNAL_BRUSH_BIGGER:
+            laInvoke(a,"OUR_brush_resize",e,0,"direction=bigger",0);
+            break;
+        case OUR_SIGNAL_ZOOM_IN: 
+            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=in",0);
+            break;
+        case OUR_SIGNAL_ZOOM_OUT:
+            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=out",0);
+            break;
+        }
     }
     return LA_RUNNING_PASS;
 }
@@ -717,6 +789,28 @@ OurLayer* our_NewLayer(char* name){
     OurLayer* l=memAcquire(sizeof(OurLayer)); strSafeSet(&l->Name,name); lstPushItem(&Our->Layers, l);
     memAssignRef(Our, &Our->CurrentLayer, l);
     return l;
+}
+void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!from->TexTiles[row]) continue;
+        to->TexTiles[row]=memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!from->TexTiles[row][col] || !from->TexTiles[row][col]->Texture) continue;
+            to->TexTiles[row][col]=memAcquire(sizeof(OurTexTile));
+            OurTexTile* tt=to->TexTiles[row][col],*ft=from->TexTiles[row][col];
+            memcpy(tt,ft,sizeof(OurTexTile));
+            tt->CopyBuffer=0;
+            tt->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
+            int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
+            tt->FullData=malloc(bufsize);
+
+            ft->Data=malloc(bufsize); int width=OUR_TILE_W;
+            tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+            glGetTextureSubImage(ft->Texture->GLTexHandle, 0, 0, 0, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ft->Data);
+            tnsBindTexture(tt->Texture);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA, GL_UNSIGNED_SHORT, ft->Data);
+            
+            free(ft->Data); ft->Data=0;
+        }
+    }
 }
 void ourbeforefree_Layer(OurLayer* l){
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
@@ -1054,27 +1148,36 @@ static void _our_png_write(png_structp png_ptr, png_bytep data, png_size_t lengt
 void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     uint8_t* NewImage;
     cmsHTRANSFORM cmsTransform = NULL;
-    cmsHPROFILE input_buffer_profile = NULL;
-    cmsHPROFILE output_buffer_profile = NULL;
+    cmsHPROFILE input_buffer_profile=NULL,input_gamma_profile=NULL;
+    cmsHPROFILE output_buffer_profile=NULL;
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
     input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
         cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+    input_gamma_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
+        cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
 
+    NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
         if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
-        cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,Our->ImageW*Our->ImageH);
-        cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
-    }
-    NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
-    for(int row=0;row<Our->ImageH;row++){
-        for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
-            p[0]=((real)p0[0]+0.5)/256; p[1]=((real)p0[1]+0.5)/256; p[2]=((real)p0[2]+0.5)/256; p[3]=((real)p0[3]+0.5)/256;
+        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, input_gamma_profile, TYPE_RGBA_8,
+            INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
+        cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,Our->ImageW*Our->ImageH);
+        if(input_gamma_profile!=output_buffer_profile){
+            cmsTransform = cmsCreateTransform(input_gamma_profile, TYPE_RGBA_8, output_buffer_profile, TYPE_RGBA_8,
+                INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
+            cmsDoTransform(cmsTransform,NewImage,NewImage,Our->ImageW*Our->ImageH);
+        }
+    }else{
+        for(int row=0;row<Our->ImageH;row++){
+            for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
+                p[0]=((real)p0[0])/256; p[1]=((real)p0[1])/256; p[2]=((real)p0[2])/256; p[3]=((real)p0[3])/256;
+            }
         }
     }
+    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }
 int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
@@ -1527,13 +1630,15 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
 }
 
 int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
-    int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
+    int x=INT_MAX,y=INT_MAX,x1=-INT_MAX,y1=-INT_MAX,w=-INT_MAX,h=-INT_MAX;
     for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
         our_LayerClearEmptyTiles(l);
         our_LayerEnsureImageBuffer(l,1);
         if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
-        if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
+        if(Our->ImageW+Our->ImageX>x1) x1=Our->ImageW+Our->ImageX;
+        if(Our->ImageH+Our->ImageY>y1) y1=Our->ImageH+Our->ImageY;
     }
+    w = x1-x; h=y1-y;
     if(w<=0||h<=0) return 0;
     real r = (real)(TNS_MAX2(w,h))/400.0f;
     int use_w=w/r, use_h=h/r;
@@ -1617,6 +1722,76 @@ void our_DoCropping(OurCanvasDraw* cd, real x, real y){
     cd->CanvasLastX+=dx; cd->CanvasLastY+=dy;
 }
 
+void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* colmax){
+    *rowmin = *colmin = INT_MAX; *rowmax = *colmax = -INT_MAX;
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        if(*rowmin==INT_MAX){ *rowmin = row; }
+        *rowmax=row;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
+            if(col > *colmax){ *colmax=col; }
+            if(col < *colmin){ *colmin = col; }
+        }
+    }
+}
+int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
+    if(!ol || (!dx && !dy)){ *movedx=0; *movedy=0; return 0; }
+    int rowmin,rowmax,colmin,colmax; our_LayerGetRange(ol,&rowmin,&rowmax,&colmin,&colmax);
+
+    if(dx+colmax >= OUR_TILES_PER_ROW){ dx = OUR_TILES_PER_ROW - colmax - 1; }
+    if(dy+rowmax >= OUR_TILES_PER_ROW){ dy = OUR_TILES_PER_ROW - rowmax - 1; }
+    if(colmin + dx < 0){ dx = -colmin; }
+    if(rowmin + dy < 0){ dy = -rowmin; }
+
+    if(!dx && !dy){ *movedx=0; *movedy=0; return 0; }
+
+    if(movedx){ *movedx=dx; }
+    if(movedy){ *movedy=dy; }
+
+    OurTexTile*** copy = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW);
+    for(int i=0;i<OUR_TILES_PER_ROW;i++){ copy[i] = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW); }
+    for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=0;col<OUR_TILES_PER_ROW;col++){
+            copy[row][col] = ol->TexTiles[row][col];
+            ol->TexTiles[row][col] = 0;
+        }
+    }
+    for(int row=rowmin;row<=rowmax;row++){ if(!ol->TexTiles[row]) continue;
+        for(int col=colmin;col<=colmax;col++){
+            OurTexTile* t0=copy[row][col]; if(!t0){continue; }
+            t0->l+=dx*OUR_TILE_W; t0->r+=dx*OUR_TILE_W;
+            t0->u+=dy*OUR_TILE_W; t0->b+=dy*OUR_TILE_W;
+            if(!ol->TexTiles[row+dy]){
+                ol->TexTiles[row+dy] = memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
+            }
+            ol->TexTiles[row+dy][col+dx] = t0;
+        }
+    }
+    for(int i=0;i<OUR_TILES_PER_ROW;i++){ memFree(copy[i]); }
+    memFree(copy);
+    
+    return 1;
+}
+void ourundo_Move(OurMoveUndo* undo){
+    our_LayerClearEmptyTiles(undo->Layer);
+    our_MoveLayer(undo->Layer, -undo->dx, -undo->dy,0,0);
+    laNotifyUsers("our.canvas");
+}
+void ourredo_Move(OurMoveUndo* undo){
+    our_LayerClearEmptyTiles(undo->Layer);
+    our_MoveLayer(undo->Layer, undo->dx, undo->dy,0,0);
+    laNotifyUsers("our.canvas");
+}
+void our_DoMoving(OurCanvasDraw* cd, real x, real y, int *movedx, int *movedy){
+    OurLayer* ol=Our->CurrentLayer; if(!ol){ return; }
+    int dx = x-cd->CanvasDownX, dy = y-cd->CanvasDownY;
+    dx/=OUR_TILE_W_USE; dy/=OUR_TILE_W_USE;
+    if(dx || dy){
+        our_MoveLayer(ol, dx,dy,movedx,movedy);
+        laNotifyUsers("our.canvas");
+        cd->CanvasDownX+=dx*OUR_TILE_W_USE; cd->CanvasDownY+=dy*OUR_TILE_W_USE;
+    }
+}
+
 int ourinv_ShowSplash(laOperator* a, laEvent* e){
     our_EnableSplashPanel();return LA_FINISHED;
 }
@@ -1624,6 +1799,23 @@ int ourinv_ShowSplash(laOperator* a, laEvent* e){
 int ourinv_NewLayer(laOperator* a, laEvent* e){
     our_NewLayer("Our Layer"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
+    return LA_FINISHED;
+}
+int ourinv_DuplicateLayer(laOperator* a, laEvent* e){
+    OurLayer* l=a->This?a->This->EndInstance:Our->CurrentLayer;
+    if(!l){ return LA_FINISHED; }
+    our_NewLayer(SSTR(Our->CurrentLayer->Name));
+    our_DuplicateLayerContent(Our->CurrentLayer,l);
+
+    int rowmin,rowmax,colmin,colmax;
+    our_LayerGetRange(Our->CurrentLayer,&rowmin,&rowmax,&colmin,&colmax);
+    int xmin,xmax,ymin,ymax;
+    xmin =((real)colmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; ymin=((real)rowmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    xmax =((real)colmax+1-OUR_TILE_CTR+0.5)*OUR_TILE_W_USE; ymax=((real)rowmax+1-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    our_RecordUndo(Our->CurrentLayer,xmin,xmax,ymin,ymax,1,0);
+    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
+    
+    laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     return LA_FINISHED;
 }
 int ourinv_RemoveLayer(laOperator* a, laEvent* e){
@@ -1706,7 +1898,8 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 FILE* fp=fopen(ex->FilePath->Ptr,"rb"); if(!fp) return LA_FINISHED;
                 if(!ol) ol=our_NewLayer("Imported");
                 int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:OUR_PNG_READ_OUTPUT_LINEAR_CLAY);
-                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, 0, 0, 0);
+                int UseOffsets = ex->Offsets[0] && ex->Offsets[1];
+                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, UseOffsets, ex->Offsets[0], ex->Offsets[1]);
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
@@ -1744,6 +1937,13 @@ void ourui_ImportLayer(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     }laElse(uil,b);{
         laShowLabel(uil,c,"Input image is not tagged as sRGB.",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
     }laEndCondition(uil,b);
+    laUiItem* row = laBeginRow(uil,cl,0,0);
+    laShowLabel(uil,cl,"Use Offsets",0,0);
+    b=laOnConditionToggle(uil,cl,0,0,0,0,0);{
+        laEndRow(uil,row);
+        laShowItem(uil,cl,Operator,"offsets");
+    }laEndCondition(uil,b);
+    laEndRow(uil,row);
 
     b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
 }
@@ -1841,10 +2041,17 @@ int ourinv_MoveBrush(laOperator* a, laEvent* e){
 int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
     char* id=strGetArgumentString(a->ExtraInstructionsP,"binding"); if(!id){ return LA_CANCELED; }
     int num; int ret=sscanf(id,"%d",&num); if(ret>9||ret<0){ return LA_CANCELED; }
+    OurBrush* found=0,*first=0; int set=0;
     for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){ 
         if(b->Binding==num){
-            ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break;
-        } 
+            if(!first){ first=b; }
+            if(found){ ourset_CurrentBrush(Our,b); set=1; laNotifyUsers("our.tools.brushes"); break; }
+            elif(b == Our->CurrentBrush){ found = b; }
+        }
+    }
+    if(!found || (found && !set)){ found = first; }
+    if(!set && found){
+         ourset_CurrentBrush(Our,found); laNotifyUsers("our.tools.brushes");
     }
     return LA_FINISHED;
 }
@@ -1862,6 +2069,11 @@ int ourinv_ToggleErase(laOperator* a, laEvent* e){
     if(Our->Erasing){ Our->Erasing=0; }else{ Our->Erasing=1; } laNotifyUsers("our.erasing");
     return LA_FINISHED;
 }
+int ourinv_CycleSketch(laOperator* a, laEvent* e){
+    Our->SketchMode++; Our->SketchMode%=3;
+    laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.sketch_mode");
+    laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 
 void our_SmoothGlobalInput(real *x, real *y, int reset){
     if(reset){ Our->LastX=*x; Our->LastY=*y; return; }
@@ -1877,15 +2089,15 @@ int ourinv_Action(laOperator* a, laEvent* e){
     real ofx,ofy; our_GetBrushOffset(ex,Our->CurrentBrush,e->Orientation,&ofx,&ofy); ex->DownTilt = e->Orientation;
     real x,y; our_UiToCanvas(&ex->Base,e,&x,&y); x-=ofx; y-=ofy; our_SmoothGlobalInput(&x,&y,1);
     ex->CanvasLastX=x;ex->CanvasLastY=y;ex->LastPressure=-1;ex->LastTilt[0]=e->Orientation;ex->LastTilt[1]=e->Deviation;
-    ex->CanvasDownX=x; ex->CanvasDownY=y;
+    ex->CanvasDownX=x; ex->CanvasDownY=y; ex->MovedX=0; ex->MovedY=0;
     Our->ActiveTool=Our->Tool; Our->CurrentScale = 1.0f/ex->Base.ZoomX;
     Our->xmin=FLT_MAX;Our->xmax=-FLT_MAX;Our->ymin=FLT_MAX;Our->ymax=-FLT_MAX; Our->ResetBrush=1; ex->HideBrushCircle=1;
     Our->PaintProcessedEvents=0; Our->BadEventsGiveUp=0; Our->BadEventCount=0;
-    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder) return LA_FINISHED; our_StartCropping(ex); }
-    if(l->Hide || l->Transparency==1 || l->Lock){ return LA_FINISHED; }
+    if(Our->ActiveTool==OUR_TOOL_CROP){ if(!Our->ShowBorder){ ex->HideBrushCircle=0; return LA_FINISHED;} our_StartCropping(ex); }
+    if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor();
+    laHideCursor(); Our->ShowBrushName=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -1936,6 +2148,26 @@ int ourmod_Crop(laOperator* a, laEvent* e){
 
     return LA_RUNNING;
 }
+int ourmod_Move(laOperator* a, laEvent* e){
+    OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){
+        OurMoveUndo* undo = memAcquire(sizeof(OurMoveUndo));
+        undo->dx = ex->MovedX; undo->dy = ex->MovedY; undo->Layer = Our->CurrentLayer;
+        laFreeNewerDifferences();
+        laRecordCustomDifferences(undo,ourundo_Move,ourredo_Move,memFree); laPushDifferences("Move layer",0);
+        ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED;
+    }
+
+    if(e->type==LA_MOUSEMOVE||e->type==LA_L_MOUSE_DOWN){
+        real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
+        int movedx=0,movedy=0;
+        our_DoMoving(ex,x,y,&movedx,&movedy);
+        ex->MovedX+=movedx; ex->MovedY+=movedy;
+        laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    }
+
+    return LA_RUNNING;
+}
 int ourmod_Action(laOperator* a, laEvent* e){
     OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_CANCELED;
     OurLayer* l=Our->CurrentLayer; OurBrush* ob=Our->CurrentBrush;
@@ -1944,6 +2176,8 @@ int ourmod_Action(laOperator* a, laEvent* e){
         return ourmod_Paint(a,e);
     case OUR_TOOL_CROP:
         return ourmod_Crop(a,e);
+    case OUR_TOOL_MOVE:
+        return ourmod_Move(a,e);
     default: return LA_FINISHED;
     }
     return LA_RUNNING;
@@ -1970,6 +2204,12 @@ int ourchk_CropToRef(laPropPack *This, laStringSplitor *ss){ if(Our->ShowRef&&Ou
 int ourinv_CropToRef(laOperator* a, laEvent* e){
     if((!Our->ShowRef) || (!Our->ShowBorder)) return LA_FINISHED;
     real W,H,W2,H2; OUR_GET_REF_SIZE(W,H)
+    char* arg = strGetArgumentString(a->ExtraInstructionsP,"border");
+    if(strSame(arg,"outer")){
+        W+=Our->RefPaddings[0]*2; H+=Our->RefPaddings[1]*2;
+    }elif(strSame(arg,"inner")){
+        W-=Our->RefMargins[0]*2; H-=Our->RefMargins[1]*2;
+    }
     real dpc=OUR_DPC; W*=dpc; H*=dpc; W2=W/2; H2=H/2;
     Our->X=-W2; Our->W=W; Our->Y=H2; Our->H=H;
     laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); laNotifyUsers("our.canvas");
@@ -2092,6 +2332,7 @@ void* ourget_our(void* unused, void* unused1){
     return Our;
 }
 void ourget_LayerTileStart(OurLayer* l, int* xy){
+    our_LayerClearEmptyTiles(l);
     our_LayerEnsureImageBuffer(l, 1); xy[0]=Our->ImageX; xy[1]=Our->ImageY+Our->ImageH;
 }
 void ourset_LayerTileStart(OurLayer* l, int* xy){
@@ -2120,6 +2361,9 @@ void ourset_LayerAlpha(OurLayer* l, real a){
 }
 void ourset_LayerHide(OurLayer* l, int hide){
     l->Hide=hide; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
+void ourset_LayerAsSketch(OurLayer* l, int sketch){
+    l->AsSketch=sketch; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_LayerBlendMode(OurLayer* l, int mode){
     l->BlendMode=mode; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
@@ -2174,6 +2418,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     Our->CurrentBrush=b;
     if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
     else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
+    Our->ShowBrushName = 1;
     laNotifyUsers("our.tools.current_brush"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
@@ -2214,6 +2459,7 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     if(Our->BrushPage==3 && (b->ShowInPages&(1<<2))) return 1;
     return 0;
 }
+void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas"); }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -2320,6 +2566,7 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
+    laCreateOperatorType("OUR_duplicate_layer","Duplicate Layer","Duplicate a layer",0,0,0,ourinv_DuplicateLayer,0,'⎘',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,U'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
@@ -2340,6 +2587,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CANVAS","Follow Canvas","Transform the pixels into current canvas interpretation",OUR_PNG_READ_OUTPUT_CANVAS,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Write sRGB pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
+    laAddIntProperty(pc,"offsets","Offsets","Offsets of the imported layer (0 for default)",0,"X,Y",0,0,0,0,0,0,offsetof(OurPNGReadExtra,Offsets),0,0,2,0,0,0,0,0,0,0,0);
 
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
     laCreateOperatorType("OUR_remove_brush","Remove Brush","Remove this brush",0,0,0,ourinv_RemoveBrush,0,U'🗴',0);
@@ -2360,6 +2608,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
 
     laCreateOperatorType("OUR_toggle_erasing","Toggle Erasing","Toggle erasing",0,0,0,ourinv_ToggleErase,0,0,0);
+    laCreateOperatorType("OUR_cycle_sketch","Cycle Sketches","Cycle sketch layer display mode",0,0,0,ourinv_CycleSketch,0,0,0);
 
     laCreateOperatorType("OUR_crop_to_ref","Crop To Ref","Crop to reference lines",ourchk_CropToRef,0,0,ourinv_CropToRef,0,0,0);
 
@@ -2371,6 +2620,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
+    laRegisterUiTemplate("panel_thumbnail", "Thumbnail", ourui_ThumbnailPanel, 0, 0, 0, GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
     laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0,10,15);
@@ -2391,6 +2641,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,U'🖌');
     laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,U'🖼');
+    laAddEnumItemAs(p,"MOVE","Moving","Moving the layer",OUR_TOOL_MOVE,U'🤚');
     p=laAddEnumProperty(pc,"lock_background","Lock background","Lock background color to prevent accidental changes",0,0,0,0,0,offsetof(OurPaint,LockBackground),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","Unlocked","You can change background color",0,0);
     laAddEnumItemAs(p,"LOCK","Locked","Background color is locked to prevent accidental changes",1,U'🔏');
@@ -2412,6 +2663,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
+    p=laAddEnumProperty(pc,"show_brush_name","Show brush name","Show brush name next to the cursor",0,0,0,0,0,offsetof(OurPaint,ShowBrushName),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
+    laAddEnumItemAs(p,"FALSE","No","Don't show brush name next to the cursor",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Show brush name next to the cursor",1,0);
     p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);
@@ -2555,7 +2809,11 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"ref_paddings","Paddings","Paddings of the reference block",0,"L/R,T/B","cm",0,0,0,0,0,offsetof(OurPaint,RefPaddings),0,0,2,0,0,0,0,ourset_RefPaddings,0,0,0);
     laAddFloatProperty(pc,"ref_middle_margin","Middle Margin","Margin in the middle of the spread",0,0,"cm",0,0,0,0,0,offsetof(OurPaint,RefMargins[2]),0,ourset_RefMiddleMargin,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"ref_biases","Reference Biases","Position biases when reading reference block",0,0,0,0,0,0,0,0,offsetof(OurPaint,RefBiases),0,0,0,0,0,0,0,0,0,0,0);
-    
+    p=laAddEnumProperty(pc,"sketch_mode","Sketch Mode","Show sketch layers differently",0,0,0,0,0,offsetof(OurPaint,SketchMode),0,ourset_ShowSketch,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Show sketch layers as normal layers",0,0);
+    laAddEnumItemAs(p,"FULL","Full","Show sketch layers in full opacity",1,0);
+    laAddEnumItemAs(p,"NONE","None","Show double page spread",2,0);
+
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of the layer",0,0,0,0,1,offsetof(OurLayer,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -2575,7 +2833,11 @@ void ourRegisterEverything(){
     laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
-    laAddOperatorProperty(pc,"merge","Merge","Merge Layer","OUR_merge_layer",U'🠳',0);
+    laAddOperatorProperty(pc,"merge","Merge","Merge layer","OUR_merge_layer",U'🠳',0);
+    laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate layer","OUR_duplicate_layer",U'⎘',0);
+    p=laAddEnumProperty(pc,"as_sketch","As Sketch","As sketch layer (for quick toggle)",0,0,0,0,0,offsetof(OurLayer,AsSketch),0,ourset_LayerAsSketch,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Layer is normal",0,U'🖌');
+    laAddEnumItemAs(p,"SKETCH","Sketch","Layer is a sketch layer",1,U'🖉');
     
     laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", ourextramod_Canvas, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
@@ -2599,6 +2861,16 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, '[', "direction=smaller");
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
     laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_KEY_DOWN, 'e', 0);
+    laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_KEY_DOWN, 's', 0);
+
+    laNewCustomSignal("our.pick",OUR_SIGNAL_PICK);
+    laNewCustomSignal("our.move",OUR_SIGNAL_MOVE);
+    laNewCustomSignal("our.toggle_erasing",OUR_SIGNAL_TOGGLE_ERASING);
+    laNewCustomSignal("our.toggle_sketch",OUR_SIGNAL_TOGGLE_SKETCH);
+    laNewCustomSignal("our.zoom_in",OUR_SIGNAL_ZOOM_IN);
+    laNewCustomSignal("our.zoom_out",OUR_SIGNAL_ZOOM_OUT);
+    laNewCustomSignal("our.bursh_bigger",OUR_SIGNAL_BRUSH_BIGGER);
+    laNewCustomSignal("our.brush_smaller",OUR_SIGNAL_BRUSH_SMALLER);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
