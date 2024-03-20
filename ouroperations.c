@@ -984,6 +984,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     }
     return 1;
 }
+void our_LayerClearEmptyTiles(OurLayer* ol);
 int our_CanvasEnsureImageBuffer(){
     int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
     for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){

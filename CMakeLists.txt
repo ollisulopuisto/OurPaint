@@ -80,7 +80,7 @@ target_link_libraries(OurPaint
 )
 
 SET(INSTALL_EXTRAS
-    README.md default_brushes.udf COPYING COPYING_CC_BY_NC)
+    README.md default_brushes.udf default_pallettes.udf COPYING COPYING_CC_BY_NC)
 
 SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to find lagui fonts")
 
