@@ -96,7 +96,8 @@ else()
 install(TARGETS OurPaint RUNTIME_DEPENDENCY_SET runtime_deps DESTINATION ${INSTALL_PATH_BIN})
 LIST(APPEND pre_exclude_regexes "api-ms-.*")
 LIST(APPEND pre_exclude_regexes "ext-ms-.*")
-LIST(APPEND post_exclude_regexes ".*WINDOWS[\\/]system32.*")
+list(APPEND post_exclude_regexes ".*[Ww][Ii][Nn][Dd][Oo][Ww][Ss][\\/][Ss][Yy][Ss][Tt][Ee][Mm]32.*")
+list(APPEND post_exclude_regexes ".*[Ww][Ii][Nn][Dd][Oo][Ww][Ss][\\/][Ss][Yy][Ss][Ww][Oo][Ww]64.*")
 LIST(APPEND post_exclude_regexes "^/lib" "^/usr" "^/bin")
 install(RUNTIME_DEPENDENCY_SET runtime_deps
     PRE_EXCLUDE_REGEXES ${pre_exclude_regexes}
