@@ -1103,7 +1103,7 @@ void our_CanvasFillImageBufferBackground(){
     }
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
-    if(composite && (ol->Hide || ol->Transparency==1)) return;
+    if(composite && (ol->Hide || ol->Transparency==1 || (Our->SketchMode==2 && ol->AsSketch))) return;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             int sx=ol->TexTiles[row][col]->l+OUR_TILE_SEAM,sy=ol->TexTiles[row][col]->b+OUR_TILE_SEAM;
