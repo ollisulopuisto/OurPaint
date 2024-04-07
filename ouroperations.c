@@ -2414,7 +2414,7 @@ void oursetraw_FileThumbnail(void* unused, void* data, int DataSize){
     return;
 }
 void ourget_CanvasIdentifier(void* unused, char* buf, char** ptr){
-    *ptr="Main canvas";
+    *ptr=transLate("Main canvas");
 }
 void* ourget_FirstLayer(void* unused, void* unused1){
     return Our->Layers.pFirst;

@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Main canvas","主画布",
 "Inner","内边框",
 "Outer","外边框",
 "Cycle Sketches","切换草稿",
