@@ -68,7 +68,12 @@ void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, voi
     (*ptr)=calloc(1,*psize); cmsSaveProfileToMem(profile4, *ptr, psize);
     cmsMLUfree(copy); cmsMLUfree(manu); cmsMLUfree(desc); cmsFreeToneCurve(tonecurve); cmsCloseProfile(profile4);
 }
+void our_cmsErrorLogger(cmsContext ContextID,cmsUInt32Number ErrorCode,const char *Text){
+    logPrintNew("[LCMS] %s\n",Text);
+}
 void our_InitColorProfiles(){
+    cmsSetLogErrorHandler(our_cmsErrorLogger);
+
     cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
     cmsCIExyYTRIPLE adobe_primaries_prequantized = { {0.639996511, 0.329996864, 1.0}, {0.210005295, 0.710004866, 1.0}, {0.149997606, 0.060003644, 1.0} };
     char* manu="sRGB chromaticities from A Standard Default Color Space for the Internet - sRGB, http://www.w3.org/Graphics/Color/sRGB; and http://www.color.org/specification/ICC1v43_2010-12.pdf";
@@ -77,6 +82,54 @@ void our_InitColorProfiles(){
     manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
     our_InitRGBProfile(1,&adobe_primaries_prequantized,&Our->icc_LinearClay,&Our->iccsize_LinearClay,"Copyright Yiming 2022.",manu,"Yiming's Linear ClayRGB icc profile.");
     our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
+
+    real data[12288];
+    real data_new[12288];
+    real cmyk8[16384];
+    for(int i=0;i<16;i++){
+        for(int j=0;j<16;j++){
+            for(int k=0;k<16;k++){
+                real* p=&data[(i*256+j*16+k)*3];
+                p[0]=(real)i/16; p[1]=(real)j/16; p[2]=(real)k/16;
+            }
+        }
+    }
+
+    if(0){ // TRYING TO CREATE GLSL LUT FOR REAL TIME CMYK PROOFING
+        char path[4096]; getcwd(path,4096); strcat(path,"/SWOP2006_Coated3v2.icc");
+        printf("%s\n",path);
+        cmsHPROFILE cmyk=cmsOpenProfileFromFile(path,"r");
+        cmsHPROFILE srgb=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
+        cmsHPROFILE argb=cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay);
+        cmsHTRANSFORM htransform=cmsCreateProofingTransform(srgb,TYPE_RGB_DBL,cmyk,TYPE_CMYK_DBL,cmyk,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
+        cmsDoTransform(htransform,data,cmyk8,4096);
+        htransform=cmsCreateProofingTransform(cmyk,TYPE_CMYK_DBL,srgb,TYPE_RGB_DBL,cmyk,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
+        cmsDoTransform(htransform,cmyk8,data_new,4096);
+
+        FILE* fp=fopen("transform_out_table","w");
+        for(int i=0;i<16;i++){
+            for(int j=0;j<16;j++){
+                for(int k=0;k<16;k++){
+                    real* p=&data_new[(i*256+j*16+k)*3];
+                    fprintf(fp,"{%.2lf,%.2lf,%.2lf},",p[0],p[1],p[2]);
+                }
+                fprintf(fp,"  ");
+            }
+            fprintf(fp,"\n");
+        }
+        fprintf(fp,"\n");
+        for(int i=0;i<16;i++){
+            for(int j=0;j<16;j++){
+                for(int k=0;k<16;k++){
+                    real* p=&data[(i*256+j*16+k)*3];
+                    fprintf(fp,"{%.2lf,%.2lf,%.2lf},",p[0],p[1],p[2]);
+                }
+                fprintf(fp,"  ");
+            }
+            fprintf(fp,"\n");
+        }
+        fflush(fp);fclose(fp);
+    }
 }
 
 void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
