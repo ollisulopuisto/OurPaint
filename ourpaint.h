@@ -408,6 +408,8 @@ STRUCTURE(OurPaint){
 
     real xmin,xmax,ymin,ymax; // stroke bbox for undo region
     int ResetBrush;
+    
+    int SaveFailed;
 
     uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;

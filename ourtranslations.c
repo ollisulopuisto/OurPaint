@@ -23,6 +23,15 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Can't allocate memory for size", "无法为该尺寸分配内存"
+"Export Error","导出错误",
+"Try erasing some contents to make the canvas smaller.\n","请尝试擦除一些内容以缩小画布尺寸。\n",
+"Moving","移动",
+"Offset","偏移",
+"Visual Offset:","视觉偏移：",
+"Notes","笔记本",
+"Pallettes","调色板",
+"Thumbnail","缩略图",
 "Factor","程度",
 "Paper","纸张",
 "Pattern:","图案：",

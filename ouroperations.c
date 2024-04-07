@@ -544,8 +544,8 @@ void our_CanvasDrawCropping(OurCanvasDraw* ocd){
     if(Our->Tool==OUR_TOOL_CROP){
         tnsColor4dv(laAccentColor(LA_BT_TEXT));
         tnsVertex2d(Our->X,Our->Y); tnsVertex2d(Our->X+Our->W,Our->Y); tnsVertex2d(Our->X+Our->W,Our->Y-Our->H); tnsVertex2d(Our->X,Our->Y-Our->H);
-        tnsPackAs(GL_LINE_LOOP);
-        glLineWidth(3); tnsFlush(); glLineWidth(1);
+        tnsLineWidth(3); tnsPackAs(GL_LINE_LOOP);
+        tnsLineWidth(1); tnsFlush(); 
     }
 }
 void our_CanvasGetRefString(char* ref){
@@ -591,7 +591,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     tnsFlush();
 }
 void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
-    real colorw[4]={1,1,1,0.3}; real colork[4]={0,0,0,0.3};
+    real colorw[4]={1,1,1,0.5}; real colork[4]={0,0,0,0.5};
     if(Our->Tool==OUR_TOOL_MOVE || (Our->Tool==OUR_TOOL_CROP && Our->ShowBorder)){
         tnsUseImmShader();
         tnsDrawStringM("🤚",0,colork,ocd->Base.OnX-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-LA_RH,0);
@@ -604,14 +604,15 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     if (!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock ||
         (l->AsSketch && Our->SketchMode==2)|| ocd->Base.SelectThrough || (Our->Tool==OUR_TOOL_CROP && !Our->ShowBorder)){
         real d = Radius * 0.707;
-        tnsColor4d(0,0,0,0.3);
+        tnsColor4d(0,0,0,0.5);
         tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY-d-1);
         tnsVertex2d(ocd->Base.OnX-d+1, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d+1, ocd->Base.OnY+d-1);
         tnsPackAs(GL_LINES);
-        tnsColor4d(1,1,1,0.3);
+        tnsColor4d(1,1,1,0.5);
         tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY+d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY-d-1);
         tnsVertex2d(ocd->Base.OnX-d, ocd->Base.OnY-d-1); tnsVertex2d(ocd->Base.OnX+d, ocd->Base.OnY+d-1);
         tnsPackAs(GL_LINES);
+        tnsLineWidth(1.0);
         return;
     }
     if(Our->ShowBrushName){
@@ -620,29 +621,29 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsUseNoTexture();
     }
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
-    tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+    tnsColor4d(1,1,1,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
-    tnsColor4d(0,0,0,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+    tnsColor4d(0,0,0,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     if(Our->EventHasTwist){
-        tnsColor4d(0,0,0,0.3);
+        tnsColor4d(0,0,0,0.5);
         tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle+gap)*Radius);
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle-gap)*Radius);
         tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle-gap)*Radius);
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle+gap)*Radius);
         tnsPackAs(GL_LINES);
-        tnsColor4d(1,1,1,0.3);
+        tnsColor4d(1,1,1,0.5);
         tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle)*Radius);
         tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle)*Radius);
         tnsPackAs(GL_LINES);
     }
     if(Our->CurrentBrush && Our->CurrentBrush->VisualOffset > 1e-4){
         tnsMakeCircle2d(v,48,ocd->PointerX,ocd->PointerY,Radius/4+0.5,0);
-        tnsColor4d(1,1,1,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+        tnsColor4d(1,1,1,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
         tnsMakeCircle2d(v,48,ocd->PointerX,ocd->PointerY,Radius/4-0.5,0);
-        tnsColor4d(0,0,0,0.3); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
+        tnsColor4d(0,0,0,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
         tnsVertex2d(ocd->PointerX,ocd->PointerY);
         tnsVertex2d(ocd->Base.OnX,ocd->Base.OnY);
-        real vcolor[8]={1,1,1,0.3,0,0,0,0.3};
+        real vcolor[8]={1,1,1,0.3,0,0,0,0.5};
         tnsColorArray4d(vcolor,2); tnsPackAs(GL_LINES);
     }
     tnsLineWidth(1.0);
@@ -719,6 +720,7 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
 
     if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
+        real colorw[4]={1,1,1,0.5}; real colork[4]={0,0,0,0.5};
         if(Our->ShowStripes){ int UH=TNS_MIN2(LA_RH,(ui->B-ui->U)/8); real varr[8]; real carr[16];
             tnsUseNoTexture();
             tnsVectorSet4(&varr[0], ui->L,ui->B-UH,ui->R,ui->B-UH);
@@ -739,7 +741,8 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
             }
         }
         char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
-        tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
+        tnsDrawStringAuto(buf,colork,ui->L+bt->LM+1,ui->R-bt->RM,ui->B-LA_RH-bt->BM+1,0);
+        tnsDrawStringAuto(buf,colorw,ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
     }
     
     la_CanvasDefaultOverlay(ui, h);
@@ -1032,15 +1035,15 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
                 if(BlendMode==OUR_BLEND_NORMAL){
-                    our_CanvasAlphaMix(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    our_CanvasAlphaMix(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
                 }elif(BlendMode==OUR_BLEND_ADD){
-                    our_CanvasAdd(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    our_CanvasAdd(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
                 }
             }
         }
     }else{
         for(int row=0;row<OUR_TILE_W_USE;row++){
-            memcpy(&Our->ImageBuffer[((SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TILE_W_USE);
+            memcpy(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TILE_W_USE);
         }
     }
     free(ot->Data); ot->Data=0;
@@ -1052,7 +1055,7 @@ void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     int bufsize=sizeof(uint16_t)*(OUR_TILE_W+pl+pr)*(OUR_TILE_W+pu+pb)*4;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W_USE+pl+pr, height=OUR_TILE_W_USE+pu+pb;
     for(int row=0;row<height;row++){
-        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
+        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((int64_t)(SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
     }
     if(!our_BufferAnythingVisible(ot->Data, bufsize/sizeof(uint16_t)/4)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
     else{
@@ -1075,6 +1078,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
     if(!OnlyCalculate){
         if(Our->ImageBuffer) free(Our->ImageBuffer);
         Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+        if(!Our->ImageBuffer){ return 0; }
     }
     return 1;
 }
@@ -1091,15 +1095,16 @@ int our_CanvasEnsureImageBuffer(){
     Our->ImageX=x; Our->ImageY=y; Our->ImageW=w; Our->ImageH=h;
     if(Our->ImageBuffer) free(Our->ImageBuffer);
     Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
+    if(!Our->ImageBuffer){ return 0; }
     return 1;
 }
 void our_CanvasFillImageBufferBackground(){
-    int count=Our->ImageW*Our->ImageH;
+    int64_t count=Our->ImageW*Our->ImageH;
     real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
     Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
     Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255;
-    for(int i=0;i<count;i++){
-        uint16_t* p=&Our->ImageBuffer[i*4]; tnsVectorSet4v(p,Our->BColorU16);
+    for(int64_t i=0;i<count;i++){
+        uint16_t* p=&Our->ImageBuffer[(int64_t)i*4]; tnsVectorSet4v(p,Our->BColorU16);
     }
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
@@ -1126,14 +1131,14 @@ void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
 }
 #define GET_FINAL_ROW_TYPE(TYPE,BCOLOR) \
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
-    if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[Our->ImageW*(Our->ImageH-row-1)*4];\
+    if(!UseFrame) return &((TYPE*)Our->ImageBuffer)[(int64_t)Our->ImageW*(Our->ImageH-row-1)*4];\
     int userow=(h-row-1)-(Our->ImageY-(y-h));\
-    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); } return temp; }\
+    if(userow<0 || userow>=Our->ImageH){ for(int i=0;i<w;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); } return temp; }\
     int sstart=x>Our->ImageX?(x-Our->ImageX):0, tstart=x>Our->ImageX?0:(Our->ImageX-x);\
     int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));\
-    for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); }\
-    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[i*4],BCOLOR); }\
-    memcpy(&temp[tstart*4],&((TYPE*)Our->ImageBuffer)[(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
+    for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); }\
+    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); }\
+    memcpy(&temp[(int64_t)tstart*4],&((TYPE*)Our->ImageBuffer)[(int64_t)(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
     return temp;\
 }
 GET_FINAL_ROW_TYPE(uint16_t,Our->BColorU16)
@@ -1159,25 +1164,33 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
         cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
 
     NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
-    if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
-        if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
-        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-        cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, input_gamma_profile, TYPE_RGBA_8,
-            INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
-        cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,Our->ImageW*Our->ImageH);
-        if(input_gamma_profile!=output_buffer_profile){
-            cmsTransform = cmsCreateTransform(input_gamma_profile, TYPE_RGBA_8, output_buffer_profile, TYPE_RGBA_8,
+    if(NewImage){
+        int64_t total_pixels = (int64_t)Our->ImageW*Our->ImageH;
+        if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT && total_pixels<=UINT32_MAX){
+            if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
+            elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
+            cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, input_gamma_profile, TYPE_RGBA_8,
                 INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
-            cmsDoTransform(cmsTransform,NewImage,NewImage,Our->ImageW*Our->ImageH);
-        }
-    }else{
-        for(int row=0;row<Our->ImageH;row++){
-            for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[(row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[(row*Our->ImageW+col)*4];
-                p[0]=((real)p0[0])/256; p[1]=((real)p0[1])/256; p[2]=((real)p0[2])/256; p[3]=((real)p0[3])/256;
+            cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,total_pixels);
+            cmsDeleteTransform(cmsTransform);
+            if(input_gamma_profile!=output_buffer_profile){
+                cmsTransform = cmsCreateTransform(input_gamma_profile, TYPE_RGBA_8, output_buffer_profile, TYPE_RGBA_8,
+                    INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
+                cmsDoTransform(cmsTransform,NewImage,NewImage,total_pixels);
+                cmsDeleteTransform(cmsTransform);
+            }
+        }else{
+            if(total_pixels>UINT32_MAX){
+                logPrintNew("Export: [TODO] Image pixel count exceeds UINT32_MAX, not doing any transforms.\n");
+            }
+            for(int row=0;row<Our->ImageH;row++){
+                for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[((int64_t)row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[((int64_t)row*Our->ImageW+col)*4];
+                    p[0]=((real)p0[0])/256; p[1]=((real)p0[1])/256; p[2]=((real)p0[2])/256; p[3]=((real)p0[3])/256;
+                }
             }
         }
     }
-    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile); cmsDeleteTransform(cmsTransform);
+    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }
 int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
@@ -1386,7 +1399,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
 
     int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
-        png_read_row(png_ptr, &Our->ImageBuffer[((H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
+        png_read_row(png_ptr, &Our->ImageBuffer[((int64_t)(H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
         lastprog=i/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
@@ -1405,7 +1418,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
         output_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
         if(input_buffer_profile && output_buffer_profile){
             cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
-            cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,Our->ImageW*Our->ImageH);
+            cmsDoTransform(cmsTransform,Our->ImageBuffer,Our->ImageBuffer,(int64_t)Our->ImageW*Our->ImageH);
         }
     }
 
@@ -1652,7 +1665,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     our_CanvasDrawTextures();
 
     if(Our->ImageBuffer){ free(Our->ImageBuffer); }
-    int bufsize=w*h*sizeof(uint16_t)*4;
+    int bufsize=use_w*use_h*sizeof(uint16_t)*4;
     Our->ImageBuffer=malloc(bufsize);
     tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
     glGetTextureSubImage(off->pColor[0]->GLTexHandle, 0, 0, 0, 0, use_w, use_h, 1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
@@ -1660,6 +1673,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
 
+    Our->ImageW = use_w; Our->ImageH = use_h;
     our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY);
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
@@ -1682,9 +1696,9 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
 
     *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData;
 
-    free(Our->ImageBuffer);
-    Our->ImageBuffer=0;
+    free(Our->ImageBuffer); Our->ImageBuffer=0;
 
+    Our->ImageW = w; Our->ImageH = h;
     return 1;
 }
 int our_GetFileThumbnail(char* file, uint8_t** buf, int* sizeof_buf){
@@ -1792,6 +1806,17 @@ void our_DoMoving(OurCanvasDraw* cd, real x, real y, int *movedx, int *movedy){
     }
 }
 
+void our_ShowAllocationError(laEvent* e){
+    char buf[256];
+    Our->SaveFailed=1;
+    sprintf(buf, "%s %dx%d.\n",transLate("Can't allocate memory for size"),Our->ImageW,Our->ImageH);
+    logPrintNew("Export: %s",buf);
+    if(e){
+        strcat(buf,transLate("Try erasing some contents to make the canvas smaller.\n"));
+        laEnableMessagePanel(0,0,"Export Error",buf,e->x,e->y,200,e);
+    }
+}
+
 int ourinv_ShowSplash(laOperator* a, laEvent* e){
     our_EnableSplashPanel();return LA_FINISHED;
 }
@@ -1856,13 +1881,14 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
     if (a->ConfirmData){
         if (a->ConfirmData->StrData){
             our_LayerClearEmptyTiles(ol);
-            if(!our_LayerEnsureImageBuffer(ol, 0)) return LA_FINISHED;
+            if(!our_LayerEnsureImageBuffer(ol, 0)){ our_ShowAllocationError(e); return LA_FINISHED; }
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
             laShowProgress(0,-1);
             our_LayerToImageBuffer(ol, 0);
             laShowProgress(0.5,-1);
             our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT);
+            if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
             laHideProgress();
             fclose(fp);
         }
@@ -1971,7 +1997,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
     }else{
          if (a->ConfirmData){
             if (a->ConfirmData->Mode==LA_CONFIRM_OK){
-                if(!our_CanvasEnsureImageBuffer()) return LA_FINISHED;
+                if(!our_CanvasEnsureImageBuffer()){ our_ShowAllocationError(e); return LA_FINISHED; }
                 FILE* fp=fopen(ex->FilePath->Ptr,"wb");
                 if(!fp) return LA_FINISHED;
                 static int LayerCount=0; static int CurrentLayer=0; LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0;
@@ -1982,7 +2008,9 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
                 }
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
+                if(!Our->ImageBuffer){ our_ShowAllocationError(e); fclose(fp); return LA_FINISHED; }
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
+                if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
                 laHideProgress();
                 fclose(fp);
             }
@@ -2224,9 +2252,10 @@ OurColorPallette* our_NewPallette(char* Name){
 OurColorItem* our_PalletteNewColor(OurColorPallette* cp,tnsVector3d Color){
     OurColorItem* ci=memAcquire(sizeof(OurColorItem)); memAssignRef(ci,&ci->Parent,cp);
     tnsVectorSet3v(ci->Color,Color); lstAppendItem(&cp->Colors,ci); return ci;
+    laMarkMemChanged(cp);
 }
 void our_PalletteRemoveColor(OurColorItem* ci){
-    lstRemoveItem(&ci->Parent->Colors,ci); memLeave(ci);
+    lstRemoveItem(&ci->Parent->Colors,ci); memLeave(ci); laMarkMemChanged(ci->Parent);
 }
 void our_RemovePallette(OurColorPallette* cp){
     strSafeDestroy(&cp->Name); while(cp->Colors.pFirst){ our_PalletteRemoveColor(cp->Colors.pFirst); }
@@ -2308,6 +2337,21 @@ int ourinv_ClearEmptyTiles(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int ourgetstate_Canvas(void* unused_canvas){
+    int level; laMemNodeHyper* m=memGetHead(Our->CanvasSaverDummyList.pFirst,&level); if(!m || level!=2) return -1;
+    if(m->Modified || !m->FromFile) return LA_BT_WARNING;
+    return -1;
+}
+int ourgetstate_Brush(OurBrush* brush){
+    int level; laMemNodeHyper* m=memGetHead(brush,&level); if(!m || level!=2) return -1;
+    if(m->Modified || !m->FromFile) return LA_BT_WARNING;
+    return -1;
+}
+int ourgetstate_Pallette(OurColorPallette* pallette){
+    int level; laMemNodeHyper* m=memGetHead(pallette,&level); if(!m || level!=2) return -1;
+    if(m->Modified || !m->FromFile) return LA_BT_WARNING;
+    return -1;
+}
 void* ourgetraw_FileThumbnail(void* unused, int* r_size, int* r_is_copy){
     void* buf=0;
     if(our_RenderThumbnail(&buf, r_size)){ *r_is_copy=1; return buf; }
@@ -2343,7 +2387,7 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
     our_LayerClearEmptyTiles(l);
-    if(!our_LayerEnsureImageBuffer(l, 0)){ *r_is_copy=0; return 0; }
+    if(!our_LayerEnsureImageBuffer(l, 0)){ our_ShowAllocationError(0); *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
@@ -2551,6 +2595,17 @@ void ourPushEverything(){
     laFreeOlderDifferences(0);
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
 }
+void ourPreSave(){
+    Our->SaveFailed=0;
+}
+void ourPostSave(){
+    if(Our->SaveFailed){
+        laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+        laEvent e={0}; e.type=LA_MOUSEMOVE;
+        our_ShowAllocationError(&e);
+    }
+    Our->SaveFailed=0;
+}
 void ourCleanUp(){
     while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst,1); }
     while(Our->Brushes.pFirst){ our_RemoveBrush(Our->Brushes.pFirst); }
@@ -2634,7 +2689,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_paint","Our Paint","OurPaint main",0,0,sizeof(OurPaint),0,0,1);
     laAddRawProperty(pc,"thumbnail","Thumbnail","Thumbnail of this file",0,0,ourgetraw_FileThumbnail,oursetraw_FileThumbnail,LA_READ_ONLY);
-    laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
+    laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,ourgetstate_Canvas,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
@@ -2692,10 +2747,10 @@ void ourRegisterEverything(){
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
-    sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,0,0,offsetof(OurPaint,Brushes),0);
+    sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,ourgetstate_Brush,0,offsetof(OurPaint,Brushes),0);
     sp->UiFilter=ourfilter_BrushInPage;
     laAddSubGroup(pc,"current_brush","Current Brush","Current brush","our_brush",0,0,0,offsetof(OurPaint,CurrentBrush),ourget_FirstBrush,0,laget_ListNext,ourset_CurrentBrush,0,0,0,LA_UDF_REFER);
-    sp=laAddSubGroup(pc,"pallettes","Pallettes","Pallettes","our_pallette",0,0,ourui_Pallette,offsetof(OurPaint,CurrentPallette),0,0,0,ourset_CurrentPallette,0,0,offsetof(OurPaint,Pallettes),0);
+    sp=laAddSubGroup(pc,"pallettes","Pallettes","Pallettes","our_pallette",0,0,ourui_Pallette,offsetof(OurPaint,CurrentPallette),0,0,0,ourset_CurrentPallette,ourgetstate_Pallette,0,offsetof(OurPaint,Pallettes),0);
     //sp->UiFilter=ourfilter_BrushInPage;
     laAddSubGroup(pc,"current_pallette","Current Pallette","Current pallette","our_pallette",0,0,0,offsetof(OurPaint,CurrentPallette),ourget_FirstPallette,0,laget_ListNext,ourset_CurrentPallette,0,0,0,LA_UDF_REFER);
     
@@ -2893,6 +2948,7 @@ void ourRegisterEverything(){
 
     laSetFrameCallbacks(ourPreFrame,0,0);
     laSetDiffCallback(ourPushEverything);
+    laSetSaveCallback(ourPreSave, ourPostSave);
     laSetCleanupCallback(ourCleanUp);
 
     ourMakeTranslations();
