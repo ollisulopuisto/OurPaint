@@ -306,6 +306,7 @@ STRUCTURE(OurPNGWriteExtra){
     laSafeString* FilePath;
     int BitDepth;
     int ColorProfile;
+    int Transparent;
 };
 
 STRUCTURE(OurPaint){

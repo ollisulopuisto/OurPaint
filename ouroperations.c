@@ -1134,7 +1134,8 @@ int our_CanvasEnsureImageBuffer(){
     if(!Our->ImageBuffer){ return 0; }
     return 1;
 }
-void our_CanvasFillImageBufferBackground(){
+void our_CanvasFillImageBufferBackground(int transparent){
+    if(transparent){ return; } // it should already be 0,0,0,0.
     int64_t count=Our->ImageW*Our->ImageH;
     real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
     Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
@@ -1191,6 +1192,14 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     cmsHTRANSFORM cmsTransform = NULL;
     cmsHPROFILE input_buffer_profile=NULL,input_gamma_profile=NULL;
     cmsHPROFILE output_buffer_profile=NULL;
+
+    /* unpremultiply */
+    for(int row=0;row<Our->ImageH;row++){
+        for(int col=0;col<Our->ImageW;col++){ uint16_t* p=&Our->ImageBuffer[((int64_t)row*Our->ImageW+col)*4];
+            real a=(real)p[3]/65535.0f;
+            if(a>0){ p[0]=(real)p[0]/a; p[1]=(real)p[1]/a; p[2]=(real)p[2]/a; }
+        }
+    }
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
@@ -2037,7 +2046,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 FILE* fp=fopen(ex->FilePath->Ptr,"wb");
                 if(!fp) return LA_FINISHED;
                 static int LayerCount=0; static int CurrentLayer=0; LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0;
-                our_CanvasFillImageBufferBackground();
+                our_CanvasFillImageBufferBackground(ex->Transparent);
                 laShowProgress(0,-1);
                 for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
                     our_LayerToImageBuffer(l, 1);
@@ -2073,6 +2082,10 @@ void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     }laEndCondition(uil,b);
 
     laShowLabel(uil,cl,"Canvas Current:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,cr,0,"our.canvas.color_interpretation");
+
+    laShowSeparator(uil,c);
+    laShowItem(uil,cl,Operator,"transparent")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
+    laShowSeparator(uil,c);
 
     b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
 }
@@ -2698,7 +2711,10 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
-
+    p=laAddEnumProperty(pc, "transparent","Transparent","Transparent background",0,0,0,0,0,offsetof(OurPNGWriteExtra,Transparent),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"OPAQUE","Opaque","Opaque background",0,0);
+    laAddEnumItemAs(p,"TRANSPARENT","Transparent","TransparentBackground",1,0);
+    
     laCreateOperatorType("OUR_toggle_erasing","Toggle Erasing","Toggle erasing",0,0,0,ourinv_ToggleErase,0,0,0);
     laCreateOperatorType("OUR_cycle_sketch","Cycle Sketches","Cycle sketch layer display mode",0,0,0,ourinv_CycleSketch,0,0,0);
 
