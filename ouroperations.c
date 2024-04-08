@@ -821,23 +821,6 @@ int ourextramod_Canvas(laOperator *a, laEvent *e){
         ocd->Base.OnX=e->x-offx; ocd->Base.OnY=e->y-offy;
         laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
     }
-
-    if(e->type==LA_SIGNAL_EVENT){
-        switch(e->key){
-        case OUR_SIGNAL_BRUSH_SMALLER: 
-            laInvoke(a,"OUR_brush_resize",e,0,"direction=smaller",0);
-            break;
-        case OUR_SIGNAL_BRUSH_BIGGER:
-            laInvoke(a,"OUR_brush_resize",e,0,"direction=bigger",0);
-            break;
-        case OUR_SIGNAL_ZOOM_IN: 
-            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=in",0);
-            break;
-        case OUR_SIGNAL_ZOOM_OUT:
-            laInvoke(a,"LA_2d_view_zoom",e,&ui->ExtraPP,"direction=out",0);
-            break;
-        }
-    }
     return LA_RUNNING_PASS;
 }
 
@@ -2952,24 +2935,26 @@ void ourRegisterEverything(){
     km = &ct->KeyMapper;
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_DOWN, 0, "direction=out");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_MOUSE_WHEEL_UP, 0, "direction=in");
-    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ',', "direction=out");
-    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, '.', "direction=in");
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_M_MOUSE_DOWN, 0, "mode=mouse;lock=true;");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
-    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, ' ', 0);
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, 0);
+
+    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_ZOOM_OUT, "direction=out");
+    laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_ZOOM_IN, "direction=in");
+    laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_PICK, 0);
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_MOVE, 0);
 
     km=&MAIN.KeyMap; char buf[128];
     for(int i=0;i<=9;i++){
         sprintf(buf,"binding=%d",i); laAssignNewKey(km, 0, "OUR_brush_quick_switch", 0, 0, LA_KEY_DOWN, '0'+i, buf);
     }
-    laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, '[', "direction=smaller");
-    laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_KEY_DOWN, ']', "direction=bigger");
-    laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_KEY_DOWN, 'e', 0);
-    laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_KEY_DOWN, 's', 0);
+    laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_BRUSH_SMALLER, "direction=smaller");
+    laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_BRUSH_BIGGER, "direction=bigger");
+    laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_TOGGLE_ERASING, 0);
+    laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_TOGGLE_SKETCH, 0);
 
     laNewCustomSignal("our.pick",OUR_SIGNAL_PICK);
     laNewCustomSignal("our.move",OUR_SIGNAL_MOVE);
@@ -2979,6 +2964,16 @@ void ourRegisterEverything(){
     laNewCustomSignal("our.zoom_out",OUR_SIGNAL_ZOOM_OUT);
     laNewCustomSignal("our.bursh_bigger",OUR_SIGNAL_BRUSH_BIGGER);
     laNewCustomSignal("our.brush_smaller",OUR_SIGNAL_BRUSH_SMALLER);
+
+    laInputMapping* im=MAIN.InputMapping->CurrentInputMapping;
+    if(!im) im=laNewInputMapping("Our Paint Default");
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,",",0,OUR_SIGNAL_ZOOM_OUT);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,".",0,OUR_SIGNAL_ZOOM_IN);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"[",0,OUR_SIGNAL_BRUSH_SMALLER);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"]",0,OUR_SIGNAL_BRUSH_BIGGER);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Space",0,OUR_SIGNAL_MOVE);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"s",0,OUR_SIGNAL_TOGGLE_SKETCH);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"e",0,OUR_SIGNAL_TOGGLE_ERASING);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
