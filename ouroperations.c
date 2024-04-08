@@ -2621,6 +2621,7 @@ int ourProcessInitArgs(int argc, char* argv[]){
         fclose(fp);
         return -1;
     }
+    return 0;
 }
 
 void ourPreFrame(){
