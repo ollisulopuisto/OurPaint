@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Boost","增强",
 "Transparent","透明",
 "Opaque","实色",
 "Clear Empty Tiles","清理空白图块",

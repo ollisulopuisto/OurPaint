@@ -388,7 +388,10 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     b=laBeginRow(uil,c,0,0);
     laShowItem(uil,c,0,"our.preferences.spectral_mode");
     laShowItem(uil,c,0,"our.current_color")->Expand=1;
+    laUiItem* b2=laOnConditionToggle(uil,c,0,0,0,0,0);
     laEndRow(uil,b);
+    laShowItem(uil,c,0,"our.color_boost")->Expand=1;
+    laElse(uil,b2); laEndRow(uil,b2); laEndCondition(uil,b2);
 }
 void ourui_PallettesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* b,*b1,*b2;
@@ -2525,6 +2528,16 @@ void ourset_PalletteColor(void* unused, OurColorItem* ci){
     tnsVectorSet3v(Our->CurrentColor,ci->Color);
     laNotifyUsers("our.current_color");
 }
+float ourget_ColorBoost(void* unused){
+    return tnsLength3d(Our->CurrentColor);
+}
+void ourset_ColorBoost(void* unused, real boost){
+    real v=tnsLength3d(Our->CurrentColor);
+    if(v<=0){ tnsVectorSet3(Our->CurrentColor,boost,boost,boost); return; }
+    real fac = boost/v;
+    tnsVectorMultiSelf3d(Our->CurrentColor,fac);
+    laNotifyUsers("our.color_boost");
+}
 void ourset_ShowRef(void* unused, int c){ Our->ShowRef=c; laNotifyUsers("our.canvas"); }
 void ourset_RefCategory(void* unused, int c){ Our->RefCategory=c; laNotifyUsers("our.canvas"); }
 void ourset_RefSize(void* unused, int c){ Our->RefSize=c; laNotifyUsers("our.canvas"); }
@@ -2746,6 +2759,7 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddFloatProperty(pc,"current_color","Current Color","Current color used to paint",0,"R,G,B",0,1,0,0.05,0.8,0,offsetof(OurPaint,CurrentColor),0,0,3,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
+    laAddFloatProperty(pc,"color_boost","Boost","Color boost to over 1.0",0,0,"x",5,0,0.05,0.5,0,0,ourget_ColorBoost,ourset_ColorBoost,0,0,0,0,0,0,0,0,LA_PROP_IS_LINEAR_SRGB);
     p=laAddEnumProperty(pc,"tool","Tool","Tool to use on the canvas",0,0,0,0,0,offsetof(OurPaint,Tool),0,ourset_Tool,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PAINT","Paint","Paint stuff on the canvas",OUR_TOOL_PAINT,U'🖌');
     laAddEnumItemAs(p,"CROP","Cropping","Crop the focused region",OUR_TOOL_CROP,U'🖼');
