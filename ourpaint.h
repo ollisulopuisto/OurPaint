@@ -341,7 +341,7 @@ STRUCTURE(OurPaint){
     real DefaultScale;
 
     int BrushPage;
-    int Tool,ActiveTool,Erasing,EventErasing,BrushLock;
+    int Tool,ActiveTool,Erasing,EventErasing,BrushMix;
     int LockBackground;
     int BackgroundType;
     int BackgroundRandom;
@@ -384,7 +384,7 @@ STRUCTURE(OurPaint){
     GLint uBrushRoutineSelection;
     GLint uMixRoutineSelection;
     GLint uBrushErasing;
-    GLint uBrushLock;
+    GLint uBrushMix;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
     GLint RoutineDoMixNormal;

@@ -40,7 +40,7 @@ uniform float uBrushRecentness;
 uniform vec4 uBrushColor;
 uniform vec4 uBackgroundColor;
 uniform int uBrushErasing;
-uniform int uBrushLock;
+uniform int uBrushMix;
 const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);
 const vec4 p22=vec4(2.2,2.2,2.2,2.2);
 const float WGM_EPSILON=0.001f;
@@ -270,9 +270,10 @@ subroutine(BrushRoutines) void DoDabs(){
     vec4 final_color;
     dab(dd,origfpx,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
     if(final_color.a>0){
-        if(uBrushLock==0){ dabc=final_color; }
-        else if(uBrushLock==1){ dabc.rgb=final_color.rgb/final_color.a*dabc.a;}
-        else if(uBrushLock==2){ vec3 xyz=rgb_to_hcy(dabc.rgb); xyz.xy=rgb_to_hcy(final_color.rgb).xy; dabc.rgb=hcy_to_rgb(xyz); }
+        if(uBrushMix==0){ dabc=final_color; }
+        else if(uBrushMix==1){ dabc.rgb=final_color.rgb/final_color.a*dabc.a;}
+        else if(uBrushMix==2){ vec3 xyz=rgb_to_hcy(dabc.rgb); xyz.xy=rgb_to_hcy(final_color.rgb).xy; dabc.rgb=hcy_to_rgb(xyz); }
+        else if(uBrushMix==3){ dabc.rgb=dabc.rgb+final_color.rgb*0.01;dabc.a=dabc.a*0.99+final_color.a*0.01; }
         imageStore(img, px, dabc);
     }
 }

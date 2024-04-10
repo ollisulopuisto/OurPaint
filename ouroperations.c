@@ -285,7 +285,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(&cb->PP,0));{
             b1=laBeginRow(uil,c,1,0);
-            laShowItem(uil,c,0,"our.erasing"); laShowItem(uil,c,0,"our.brush_lock")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowItem(uil,c,0,"our.erasing"); laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND;
             laEndRow(uil,b1);
             laShowLabel(uil,c,"Brush Settings:",0,0);
             laShowItem(uil,c,&cb->PP,"name");
@@ -1630,7 +1630,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     glUseProgram(Our->CanvasProgram);
     glUniform1i(Our->uBrushErasing,Our->Erasing);
-    glUniform1i(Our->uBrushLock,Our->BrushLock);
+    glUniform1i(Our->uBrushMix,Our->BrushMix);
     uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
     uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
     glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
@@ -2629,7 +2629,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     laColumn *c = laFirstColumn(uil);
     laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
-    laShowItem(uil,c,0,"our.brush_lock")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+    laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
     laShowSeparator(uil,c)->Expand=1;
@@ -2776,10 +2776,11 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"erasing","Erasing","Is in erasing mode",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,Erasing),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","Draw","Is drawing mode",0,0);
     laAddEnumItemAs(p,"TRUE","Erase","Is erasing mode",1,0);
-    p=laAddEnumProperty(pc,"brush_lock","Lock values","Lock pixel values when applying brush dabs",0,0,0,0,0,offsetof(OurPaint,BrushLock),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"NONE","Normal","Brush operates normally",0,U'🖌');
-    laAddEnumItemAs(p,"ALPHA","Alpha","Locks alpha channel",1,U'⮻');
+    p=laAddEnumProperty(pc,"brush_mix","Brush Mix","Brush mixing method",0,0,0,0,0,offsetof(OurPaint,BrushMix),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NORMAL","Normal","Brush operates normally",0,U'🖌');
+    laAddEnumItemAs(p,"LOCK_ALPHA","Alpha","Locks alpha channel",1,U'⮻');
     laAddEnumItemAs(p,"TINT","Tint","Locks alpha channel and the brightness of the color",2,U'🌈');
+    laAddEnumItemAs(p,"ADD","Accumulate","Accumulate values",3,U'🔦');
     p=laAddEnumProperty(pc, "brush_page","Brush Page","Show brushes in pages",0,0,0,0,0,offsetof(OurPaint,BrushPage),0,ourset_BrushPage,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"ALL","~","Show all brushes",0,'~');
     laAddEnumItemAs(p,"P1","1","Show brush page 1",1,'1');
@@ -3103,7 +3104,7 @@ int ourInit(){
     Our->uBrushForce=glGetUniformLocation(Our->CanvasProgram,"uBrushForce");
     Our->uBrushGunkyness=glGetUniformLocation(Our->CanvasProgram,"uBrushGunkyness");
     Our->uBrushErasing=glGetUniformLocation(Our->CanvasProgram,"uBrushErasing");
-    Our->uBrushLock=glGetUniformLocation(Our->CanvasProgram,"uBrushLock");
+    Our->uBrushMix=glGetUniformLocation(Our->CanvasProgram,"uBrushMix");
 
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
