@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Brush Settings:","笔刷设置：",
 "Boost","增强",
 "Transparent","透明",
 "Opaque","实色",

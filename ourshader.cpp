@@ -40,6 +40,7 @@ uniform float uBrushRecentness;
 uniform vec4 uBrushColor;
 uniform vec4 uBackgroundColor;
 uniform int uBrushErasing;
+uniform int uBrushLock;
 const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);
 const vec4 p22=vec4(2.2,2.2,2.2,2.2);
 const float WGM_EPSILON=0.001f;
@@ -216,6 +217,46 @@ int dab(float d, vec2 fpx, vec4 color, float size, float hardness, float smudge,
     final=c2;
     return 1;
 }
+
+#ifndef saturate
+#define saturate(v) clamp(v, 0, 1)
+#endif
+const float HCV_EPSILON = 1e-10;
+const float HCY_EPSILON = 1e-10;
+vec3 hue_to_rgb(float hue){
+    float R = abs(hue * 6 - 3) - 1;
+    float G = 2 - abs(hue * 6 - 2);
+    float B = 2 - abs(hue * 6 - 4);
+    return saturate(vec3(R,G,B));
+}
+vec3 hcy_to_rgb(vec3 hcy){
+    const vec3 HCYwts = vec3(0.299, 0.587, 0.114);
+    vec3 RGB = hue_to_rgb(hcy.x);
+    float Z = dot(RGB, HCYwts);
+    if (hcy.z < Z) { hcy.y *= hcy.z / Z; }
+    else if (Z < 1) { hcy.y *= (1 - hcy.z) / (1 - Z); }
+    return (RGB - Z) * hcy.y + hcy.z;
+}
+vec3 rgb_to_hcv(vec3 rgb){
+    // Based on work by Sam Hocevar and Emil Persson
+    vec4 P = (rgb.g < rgb.b) ? vec4(rgb.bg, -1.0, 2.0/3.0) : vec4(rgb.gb, 0.0, -1.0/3.0);
+    vec4 Q = (rgb.r < P.x) ? vec4(P.xyw, rgb.r) : vec4(rgb.r, P.yzx);
+    float C = Q.x - min(Q.w, Q.y);
+    float H = abs((Q.w - Q.y) / (6 * C + HCV_EPSILON) + Q.z);
+    return vec3(H, C, Q.x);
+}
+vec3 rgb_to_hcy(vec3 rgb){
+    const vec3 HCYwts = vec3(0.299, 0.587, 0.114);
+    // Corrected by David Schaeffer
+    vec3 HCV = rgb_to_hcv(rgb);
+    float Y = dot(rgb, HCYwts);
+    float Z = dot(hue_to_rgb(HCV.x), HCYwts);
+    if (Y < Z) { HCV.y *= Z / (HCY_EPSILON + Y); }
+    else { HCV.y *= (1 - Z) / (HCY_EPSILON + 1 - Y); }
+    return vec3(HCV.x, HCV.y, Y);
+}
+
+
 subroutine void BrushRoutines();
 subroutine(BrushRoutines) void DoDabs(){
     ivec2 px = ivec2(gl_GlobalInvocationID.xy)+uBrushCorner;
@@ -228,8 +269,12 @@ subroutine(BrushRoutines) void DoDabs(){
     vec4 smudgec=pow(spectral_mix_unpre(pow(imageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(imageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);
     vec4 final_color;
     dab(dd,origfpx,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
-    dabc=final_color;
-    imageStore(img, px, dabc);
+    if(final_color.a>0){
+        if(uBrushLock==0){ dabc=final_color; }
+        else if(uBrushLock==1){ dabc.rgb=final_color.rgb/final_color.a*dabc.a;}
+        else if(uBrushLock==2){ vec3 xyz=rgb_to_hcy(dabc.rgb); xyz.xy=rgb_to_hcy(final_color.rgb).xy; dabc.rgb=hcy_to_rgb(xyz); }
+        imageStore(img, px, dabc);
+    }
 }
 subroutine(BrushRoutines) void DoSample(){
     ivec2 p=ivec2(gl_GlobalInvocationID.xy);
