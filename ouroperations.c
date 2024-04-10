@@ -30,16 +30,17 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
 
 void our_CanvasAlphaMix(uint16_t* target, uint16_t* source, real alpha){
     real a_1=(real)(65535-source[3]*alpha)/65535;
-    target[3]=source[3]*alpha+target[3]*a_1;
-    target[0]=source[0]*alpha+target[0]*a_1;
-    target[1]=source[1]*alpha+target[1]*a_1;
-    target[2]=source[2]*alpha+target[2]*a_1;
+    int a=(int)source[3]*alpha+(int)target[3]*a_1; TNS_CLAMP(a,0,65535);
+    int r=(int)source[0]*alpha+(int)target[0]*a_1; TNS_CLAMP(r,0,65535);
+    int g=(int)source[1]*alpha+(int)target[1]*a_1; TNS_CLAMP(g,0,65535);
+    int b=(int)source[2]*alpha+(int)target[2]*a_1; TNS_CLAMP(b,0,65535);
+    target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAdd(uint16_t* target, uint16_t* source, real alpha){
-    int a=(int)(source[3]*alpha+target[3]); TNS_CLAMP(a,0,65535);
-    int r=(int)(source[0]*alpha+target[0]); TNS_CLAMP(r,0,65535);
-    int g=(int)(source[1]*alpha+target[1]); TNS_CLAMP(g,0,65535);
-    int b=(int)(source[2]*alpha+target[2]); TNS_CLAMP(b,0,65535);
+    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,65535);
+    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,65535);
+    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,65535);
+    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,65535);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 
