@@ -377,9 +377,24 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laShowItem(uil,c,0,"our.preferences.smoothness");
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
-            laShowItemFull(uil,c,0,"our.tools.current_brush.size",0,0,0,0);
-            laShowItemFull(uil,c,0,"our.tools.current_brush.size_100",0,0,0,0);
-            laShowItemFull(uil,c,0,"our.tools.current_brush.size_10",0,0,0,0);
+            laUiItem* uib=laShowItemFull(uil,c,0,"our.preferences.brush_number",0,0,0,0); uib->Flags|=LA_UI_FLAGS_EXPAND;
+            laUiItem* bn=laOnConditionThat(uil,c,laPropExpression(&uib->PP,""));{
+                laUiItem* row=laBeginRow(uil,c,0,0);
+                laUiItem* bt=laOnConditionToggle(uil,c,0,0,0,0,0);{
+                laUiItem* values=laShowItemFull(uil,c,0,"our.preferences.brush_numbered_thicknesses",0,0,0,0);
+                values->Flags|=LA_UI_FLAGS_TRANSPOSE; values->Expand=1;
+                }laElse(uil,bt);{
+                    laShowLabel(uil,c,"Sizes Per Number",0,0);
+                }laEndCondition(uil,bt);
+                laEndRow(uil,row);
+            }laElse(uil,bn);{
+                laShowItemFull(uil,c,0,"our.tools.current_brush.size",0,0,0,0);
+                laShowItemFull(uil,c,0,"our.tools.current_brush.size_100",0,0,0,0);
+                laShowItemFull(uil,c,0,"our.tools.current_brush.size_10",0,0,0,0);
+            }laEndCondition(uil,bn);
+
+            laShowSeparator(uil,c);
+
             OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
             laShowSeparator(uil,c)->Expand=1; laShowItemFull(uil,c,0,"our.preferences.lock_radius",LA_WIDGET_ENUM_HIGHLIGHT,"text=Lock;",0,0); OUR_ER
         }laEndCondition(uil,b);
@@ -498,6 +513,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
     laShowItem(uil,cl,0,"our.preferences.show_grid");
+    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
     laShowSeparator(uil,c);
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
@@ -2172,9 +2188,22 @@ int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
 int ourinv_BrushResize(laOperator* a, laEvent* e){
     OurBrush* b=Our->CurrentBrush; if(!b) return LA_CANCELED;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"bigger")){ b->Size*=1.25; }else{ b->Size/=1.25; }
+    if(strSame(direction,"bigger")){ if(!Our->BrushNumber){ b->Size*=1.25; }else{ int num=Our->BrushNumber+1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; b->Size=Our->BrushNumberedThicknesses[num-1]; } }
+    else{ if(!Our->BrushNumber){ b->Size/=1.25; }else{ int num=Our->BrushNumber-1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; b->Size=Our->BrushNumberedThicknesses[num-1]; } }
     TNS_CLAMP(b->Size,0,1000);
-    laNotifyUsers("our.tools.current_brush.size");
+    laNotifyUsers("our.tools.current_brush.size"); if(Our->BrushNumber){ laNotifyUsers("our.preferences.brush_number"); }
+    return LA_FINISHED;
+}
+int ourinv_BrushSetNumber(laOperator* a, laEvent* e){
+    OurBrush* b=Our->CurrentBrush; if(!b) return LA_CANCELED;
+    char* number=strGetArgumentString(a->ExtraInstructionsP,"number"); if(!number){return LA_CANCELED;}
+    switch(number[0]){
+    case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+        Our->BrushNumber=number[0]-'0'+1; break;
+    case '#': default:
+        Our->BrushNumber=0;
+    }
+    laNotifyUsers("our.tools.current_brush.size"); laNotifyUsers("our.preferences.brush_number");
     return LA_FINISHED;
 }
 
@@ -2593,6 +2622,13 @@ void ourset_RefAlpha(void* unused, real a){
     Our->RefAlpha=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_BrushPage(void* unused, int a){ Our->BrushPage=a; laNotifyUsers("our.tools.brushes"); }
+void ourset_BrushNumber(void* unused, int a){ TNS_CLAMP(a,0,10); Our->BrushNumber=a;
+    if(Our->CurrentBrush && a!=0){
+        Our->CurrentBrush->Size=Our->BrushNumberedThicknesses[a-1];
+        laNotifyUsers("our.tools.current_brush.size");
+        laNotifyUsers("our.tools.brushes");
+    }
+}
 void ourset_BrushShowInPages(OurBrush* b, int index, int v){
     int flag=(1<<index); if(v){ b->ShowInPages|=flag; }else{ b->ShowInPages&=(~flag); }
     laNotifyUsers("our.tools.brushes");
@@ -2610,6 +2646,10 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     return 0;
 }
 void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas"); }
+void oursetarr_NumberedThicknesses(void* unused, int index, real v){
+    Our->BrushNumberedThicknesses[index] = v;
+    if(index == Our->BrushNumber-1){ if(Our->CurrentBrush){ Our->CurrentBrush->Size=v; } }
+}
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -2673,6 +2713,9 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
             laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED;
         }laElse(uil,b1);{
             laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+        }laEndCondition(uil,b1);
+        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
+            laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
         }laEndCondition(uil,b1);
     }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
@@ -2764,6 +2807,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_move_brush","Move Brush","Remove this brush",0,0,0,ourinv_MoveBrush,0,0,0);
     laCreateOperatorType("OUR_brush_quick_switch","Brush Quick Switch","Brush quick switch",0,0,0,ourinv_BrushQuickSwitch,0,0,0);
     laCreateOperatorType("OUR_brush_resize","Brush Resize","Brush resize",0,0,0,ourinv_BrushResize,0,0,0);
+    laCreateOperatorType("OUR_set_brush_number","Set Brush Number","Choose a numbered brush",0,0,0,ourinv_BrushSetNumber,0,0,0);
     laCreateOperatorType("OUR_action","Action","Doing action on a layer",0,0,0,ourinv_Action,ourmod_Action,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
     at=laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,ourexit_ExportImage,ourinv_ExportImage,ourmod_ExportImage,U'🖼',0);
@@ -2863,6 +2907,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
     laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
+    p=laAddEnumProperty(pc,"brush_numbers_on_header","Brush Numbers On Header","Show brush numbers on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,BrushNumbersOnHeader),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Hide brush numbers on header",0,0);
+    laAddEnumItemAs(p,"SHOWN","Shown","Show brush numbers on header",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
@@ -2870,6 +2917,19 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"show_grid","Ref Grids","Whether to show visual reference grids",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowGrid),0,ourset_ShowGrid,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference grids",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show visual reference grid on top of the canvas",1,0);
+    p=laAddEnumProperty(pc, "brush_number","Brush Number","Select brush radius by number",0,0,0,0,0,offsetof(OurPaint,BrushNumber),0,ourset_BrushNumber,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FREE","#","Brush size is freely adjustable",0,0);
+    laAddEnumItemAs(p,"NUMBER0","0","Use brush number 0",1, 0);
+    laAddEnumItemAs(p,"NUMBER1","1","Use brush number 1",2, 0);
+    laAddEnumItemAs(p,"NUMBER2","2","Use brush number 2",3, 0);
+    laAddEnumItemAs(p,"NUMBER3","3","Use brush number 3",4, 0);
+    laAddEnumItemAs(p,"NUMBER4","4","Use brush number 4",5, 0);
+    laAddEnumItemAs(p,"NUMBER5","5","Use brush number 5",6, 0);
+    laAddEnumItemAs(p,"NUMBER6","6","Use brush number 6",7, 0);
+    laAddEnumItemAs(p,"NUMBER7","7","Use brush number 7",8, 0);
+    laAddEnumItemAs(p,"NUMBER8","8","Use brush number 8",9, 0);
+    laAddEnumItemAs(p,"NUMBER9","9","Use brush number 9",10,0);
+    laAddFloatProperty(pc,"brush_numbered_thicknesses","Thicknesses","Thicknesses of each numbered brush",0,0,"px",200,0.1,0.1,5,0,offsetof(OurPaint,BrushNumberedThicknesses),0,0,10,0,oursetarr_NumberedThicknesses,0,0,0,0,0,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -3049,6 +3109,17 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "OUR_brush_resize", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_BRUSH_BIGGER, "direction=bigger");
     laAssignNewKey(km, 0, "OUR_toggle_erasing", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_TOGGLE_ERASING, 0);
     laAssignNewKey(km, 0, "OUR_cycle_sketch", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_TOGGLE_SKETCH, 0);
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_0, "number=0");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_1, "number=1");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_2, "number=2");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_3, "number=3");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_4, "number=4");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_5, "number=5");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_6, "number=6");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_7, "number=7");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_8, "number=8");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_NUMBER_9, "number=9");
+    laAssignNewKey(km, 0, "OUR_set_brush_number", 0, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_SELECT_BRUSH_FREE, "number=#");
 
     laNewCustomSignal("our.pick",OUR_SIGNAL_PICK);
     laNewCustomSignal("our.move",OUR_SIGNAL_MOVE);
@@ -3058,6 +3129,17 @@ void ourRegisterEverything(){
     laNewCustomSignal("our.zoom_out",OUR_SIGNAL_ZOOM_OUT);
     laNewCustomSignal("our.bursh_bigger",OUR_SIGNAL_BRUSH_BIGGER);
     laNewCustomSignal("our.brush_smaller",OUR_SIGNAL_BRUSH_SMALLER);
+    laNewCustomSignal("our.brush_number_0",OUR_SIGNAL_SELECT_BRUSH_NUMBER_0);
+    laNewCustomSignal("our.brush_number_1",OUR_SIGNAL_SELECT_BRUSH_NUMBER_1);
+    laNewCustomSignal("our.brush_number_2",OUR_SIGNAL_SELECT_BRUSH_NUMBER_2);
+    laNewCustomSignal("our.brush_number_3",OUR_SIGNAL_SELECT_BRUSH_NUMBER_3);
+    laNewCustomSignal("our.brush_number_4",OUR_SIGNAL_SELECT_BRUSH_NUMBER_4);
+    laNewCustomSignal("our.brush_number_5",OUR_SIGNAL_SELECT_BRUSH_NUMBER_5);
+    laNewCustomSignal("our.brush_number_6",OUR_SIGNAL_SELECT_BRUSH_NUMBER_6);
+    laNewCustomSignal("our.brush_number_7",OUR_SIGNAL_SELECT_BRUSH_NUMBER_7);
+    laNewCustomSignal("our.brush_number_8",OUR_SIGNAL_SELECT_BRUSH_NUMBER_8);
+    laNewCustomSignal("our.brush_number_9",OUR_SIGNAL_SELECT_BRUSH_NUMBER_9);
+    laNewCustomSignal("our.brush_free",OUR_SIGNAL_SELECT_BRUSH_FREE);
 
     laInputMapping* im=MAIN.InputMapping->CurrentInputMapping;
     if(!im) im=laNewInputMapping("Our Paint Default");
@@ -3068,6 +3150,17 @@ void ourRegisterEverything(){
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Space",0,OUR_SIGNAL_MOVE);
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"s",0,OUR_SIGNAL_TOGGLE_SKETCH);
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"e",0,OUR_SIGNAL_TOGGLE_ERASING);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num0",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_0);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num1",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_1);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num2",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_2);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num3",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_3);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num4",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_4);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num5",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_5);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num6",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_6);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num7",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_7);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num8",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_8);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num9",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_9);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"NumDot",0,OUR_SIGNAL_SELECT_BRUSH_FREE);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
@@ -3198,6 +3291,12 @@ int ourInit(){
     Our->RefSize=4;
     tnsVectorSet3(Our->RefMargins,1.5,1.5,1.0);
     tnsVectorSet2(Our->RefPaddings,1.5,1.5);
+
+    Our->BrushNumberedThicknesses[0]=4.0f;
+    real sqrt2=sqrt(2.0f);
+    for(int i=1;i<10;i++){
+        Our->BrushNumberedThicknesses[i] = Our->BrushNumberedThicknesses[i-1] * sqrt2;
+    }
 
     tnsEnableShaderv(T->immShader);
 

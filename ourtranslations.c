@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Brush Numbers On Header","在菜单显示笔刷编号",
+"Sizes Per Number","各个号数的尺寸",
 "Nodes Help","节点帮助",
 "Full","全",
 "Ref Grids","参考网格",

@@ -64,6 +64,17 @@ extern const char OUR_COMPOSITION_SHADER[];
 #define OUR_SIGNAL_BRUSH_BIGGER 7
 #define OUR_SIGNAL_BRUSH_SMALLER 8
 #define OUR_SIGNAL_TOGGLE_SKETCH 9
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_0 10
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_1 11
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_2 12
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_3 13
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_4 14
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_5 15
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_6 16
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_7 17
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_8 18
+#define OUR_SIGNAL_SELECT_BRUSH_NUMBER_9 19
+#define OUR_SIGNAL_SELECT_BRUSH_FREE 20
 
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
@@ -340,6 +351,8 @@ STRUCTURE(OurPaint){
     real CurrentScale;
     real DefaultScale;
 
+    int BrushNumber;
+    real BrushNumberedThicknesses[10];
     int BrushPage;
     int Tool,ActiveTool,Erasing,EventErasing,BrushMix;
     int LockBackground;
@@ -360,6 +373,7 @@ STRUCTURE(OurPaint){
     int DefaultColorProfile;
     int PaintUndoLimit;
     int SpectralMode;
+    int BrushNumbersOnHeader;
     int SketchMode;
 
     tnsTexture* SmudgeTexture;
