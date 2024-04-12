@@ -400,10 +400,12 @@ STRUCTURE(OurPaint){
     real BorderAlpha;
 
     int ShowStripes;
+    int ShowGrid;
     int ShowRef;
     int RefSize;
     int RefCategory;
     int RefOrientation;
+    int RefCutHalf;
     real RefMargins[3],RefPaddings[2];
     int RefBiases[2];
     real RefAlpha;

@@ -23,6 +23,13 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Nodes Help","节点帮助",
+"Full","全",
+"Ref Grids","参考网格",
+"Accumulate","累积",
+"Tint","染色",
+"Left","左",
+"Right","右",
 "Brush Settings:","笔刷设置：",
 "Boost","增强",
 "Transparent","透明",
@@ -56,7 +63,7 @@ static const char *entries[]={
 "Spread","对开",
 "Reference:","参考：",
 "Credits to Sponsors","感谢赞助者",
-"Visual Reference Stripes","视觉参考亮度带",
+"Ref Stripes","参考亮度带",
 "Release Notes","发行日志",
 "Spectral Brush","光谱笔刷",
 "Spectral","光谱",

@@ -285,7 +285,12 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(&cb->PP,0));{
             b1=laBeginRow(uil,c,1,0);
-            laShowItem(uil,c,0,"our.erasing"); laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowItem(uil,c,0,"our.erasing"); 
+            laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_DISABLED;
+            }laElse(uil,b);{
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND;
+            }laEndCondition(uil,b);
             laEndRow(uil,b1);
             laShowLabel(uil,c,"Brush Settings:",0,0);
             laShowItem(uil,c,&cb->PP,"name");
@@ -325,11 +330,6 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowSeparator(uil,c);
             laShowItem(uil,c,&cb->PP,"default_as_eraser");
         }laEndCondition(uil,b);
-
-        laShowSeparator(uil,c);
-        laShowLabel(uil,c,"Display:",0,0);
-        laShowItem(uil,c,0,"our.preferences.enable_brush_circle");
-        laShowItem(uil,c,0,"our.preferences.show_stripes");
     }laEndCondition(uil,bt);
 
     bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_CROP)));{
@@ -338,11 +338,16 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,cl,0,"our.canvas.border_alpha");
             laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
-            laShowItem(uil,cl,0,"OUR_crop_to_ref");
-            laUiItem* b1=laBeginRow(uil,cl,1,0);
-            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=inner;text=Inner",0,0);
-            laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=outer;text=Outer",0,0);
-            laEndRow(uil,b1);
+            laUiItem* b2=laOnConditionThat(uil,cr,laPropExpression(0,"our.canvas.ref_mode"));{
+                laShowItem(uil,cl,0,"OUR_crop_to_ref")->Flags|=LA_TEXT_ALIGN_CENTER;
+                laUiItem* b1=laBeginRow(uil,cl,1,0);
+                laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=inner;text=Inner",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+                laShowItemFull(uil,cl,0,"OUR_crop_to_ref",0,"border=outer;text=Outer",0,0);
+                laEndRow(uil,b1);
+                b1=laOnConditionThat(uil,cl,laEqual(laPropExpression(0,"our.canvas.ref_mode"),laIntExpression(2)));
+                laShowItem(uil,cl,0,"our.canvas.ref_cut_half")->Flags|=LA_UI_FLAGS_EXPAND;
+                laEndCondition(uil,b1);
+            }laEndCondition(uil,b2);
         }laEndCondition(uil,b);
         
         laShowLabel(uil,cr,"Reference:",0,0);
@@ -357,6 +362,14 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,cr,0,"our.canvas.ref_middle_margin");
         }laEndCondition(uil,b);
     }laEndCondition(uil,bt);
+
+    laShowSeparator(uil,c);
+    laShowLabel(uil,c,"Display:",0,0);
+    laShowItem(uil,c,0,"our.preferences.enable_brush_circle");
+    laUiItem*b =laBeginRow(uil,c,1,0);
+    laShowItem(uil,c,0,"our.preferences.show_stripes");
+    laShowItem(uil,c,0,"our.preferences.show_grid");
+    laEndRow(uil,b);
 }
 void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* b1, *b2;
@@ -419,9 +432,14 @@ void ourui_PallettesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedP
     }laEndCondition(uil,b1);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,0);cr=laRightColumn(c,15);
+    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,15);cr=laRightColumn(c,0);
     
-    laShowItemFull(uil,cr,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
+    laUiItem*row=laBeginRow(uil,cr,0,0);
+    laShowSeparator(uil,cr)->Expand=1;
+    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintnodeshelp;text=Nodes Help", 0, 0);
+    laEndRow(uil,row);
+
+    laShowItemFull(uil,cl,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
         laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     }laEndCondition(uil,b);
@@ -479,6 +497,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.smoothness");
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
+    laShowItem(uil,cl,0,"our.preferences.show_grid");
     laShowSeparator(uil,c);
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
@@ -800,6 +819,14 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
                 tnsColor4dv(&ca[(i%4)*4]); tnsPackAs(GL_TRIANGLE_FAN);
             }
         }
+        if(Our->ShowGrid){
+            tnsUseNoTexture();
+            int delta=LA_RH*1.5; if(delta<15){delta=15;} int c=0;
+            for(int i=ui->L+delta;i<ui->R;i+=delta*2){ tnsVertex2d(i,ui->B); tnsVertex2d(i,ui->U); } tnsColor4d(0,0,0,0.5); tnsPackAs(GL_LINES);
+            for(int i=ui->L+delta*2;i<ui->R;i+=delta*2){ tnsVertex2d(i,ui->B); tnsVertex2d(i,ui->U); } tnsColor4d(1,1,1,0.5); tnsPackAs(GL_LINES);
+            for(int i=ui->U+delta;i<ui->B;i+=delta*2){ tnsVertex2d(ui->L,i); tnsVertex2d(ui->R,i); } tnsColor4d(0,0,0,0.5); tnsPackAs(GL_LINES);
+            for(int i=ui->U+delta*2;i<ui->B;i+=delta*2){ tnsVertex2d(ui->L,i); tnsVertex2d(ui->R,i); } tnsColor4d(1,1,1,0.5); tnsPackAs(GL_LINES);
+        }
         char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
         tnsDrawStringAuto(buf,colork,ui->L+bt->LM+1,ui->R-bt->RM,ui->B-LA_RH-bt->BM+1,0);
         tnsDrawStringAuto(buf,colorw,ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
@@ -1115,7 +1142,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
             if(col<l) l=col; if(col>r) r=col; any++;
         }
     }
-    if(!any) return 0;
+    if(!any) return -1;
     Our->ImageW = OUR_TILE_W_USE*(r-l+1); Our->ImageH = OUR_TILE_W_USE*(u-b+1);
     Our->ImageX =((real)l-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; Our->ImageY=((real)b-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     if(!OnlyCalculate){
@@ -1630,7 +1657,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     glUseProgram(Our->CanvasProgram);
     glUniform1i(Our->uBrushErasing,Our->Erasing);
-    glUniform1i(Our->uBrushMix,Our->BrushMix);
+    glUniform1i(Our->uBrushMix,Our->Erasing?0:Our->BrushMix);
     uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
     uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
     glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
@@ -1934,7 +1961,9 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
     if (a->ConfirmData){
         if (a->ConfirmData->StrData){
             our_LayerClearEmptyTiles(ol);
-            if(!our_LayerEnsureImageBuffer(ol, 0)){ our_ShowAllocationError(e); return LA_FINISHED; }
+            int ensure = our_LayerEnsureImageBuffer(ol, 0);
+            if(!ensure){ our_ShowAllocationError(e); return LA_FINISHED; }
+            if(ensure<0){ return LA_FINISHED; }
             FILE* fp=fopen(a->ConfirmData->StrData,"wb");
             if(!fp) return LA_FINISHED;
             laShowProgress(0,-1);
@@ -2297,6 +2326,13 @@ int ourinv_CropToRef(laOperator* a, laEvent* e){
     }
     real dpc=OUR_DPC; W*=dpc; H*=dpc; W2=W/2; H2=H/2;
     Our->X=-W2; Our->W=W; Our->Y=H2; Our->H=H;
+    if(Our->ShowRef==2){
+        if(Our->RefCutHalf==1){
+            if(Our->RefOrientation){ Our->H=H2; }else{ Our->W=W2; }
+        }elif(Our->RefCutHalf==2){
+            if(Our->RefOrientation){ Our->H-=H2;Our->Y+=H2; }else{ Our->W=W2; Our->X+=W2;  }
+        }
+    }
     laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); laNotifyUsers("our.canvas");
     return LA_FINISHED;
 }
@@ -2444,7 +2480,8 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
     our_LayerClearEmptyTiles(l);
-    if(!our_LayerEnsureImageBuffer(l, 0)){ our_ShowAllocationError(0); *r_is_copy=0; return 0; }
+    int ensure=our_LayerEnsureImageBuffer(l, 0);
+    if(ensure<=0){ if(!ensure){ our_ShowAllocationError(0); } *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
@@ -2490,6 +2527,7 @@ void ourset_ColorInterpretation(void* unused, int a){
 }
 void ourset_ShowTiles(void* unused, int a){ Our->ShowTiles=a; laNotifyUsers("our.canvas"); }
 void ourset_ShowStripes(void* unused, int a){ Our->ShowStripes=a; laNotifyUsers("our.canvas"); }
+void ourset_ShowGrid(void* unused, int a){ Our->ShowGrid=a; laNotifyUsers("our.canvas"); }
 void ourset_CanvasSize(void* unused, int* wh){
     Our->W=wh[0]; Our->H=wh[1]; if(Our->W<32) Our->W=32; if(Our->H<32) Our->H=32; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
@@ -2520,7 +2558,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
     else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
     Our->ShowBrushName = 1;
-    laNotifyUsers("our.tools.current_brush"); laGraphRequestRebuild();
+    laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
     memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
@@ -2628,8 +2666,14 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
 void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
     laColumn *c = laFirstColumn(uil);
     laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
-    laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
-    laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+    laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(0)));{
+        laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
+        laUiItem* b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
+            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED;
+        }laElse(uil,b1);{
+            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+        }laEndCondition(uil,b1);
+    }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
     laShowSeparator(uil,c)->Expand=1;
@@ -2819,9 +2863,12 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
     laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
-    p=laAddEnumProperty(pc,"show_stripes","Visual Reference Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show visual reference stripes at the top and bottom of the canvas",1,0);
+    p=laAddEnumProperty(pc,"show_grid","Ref Grids","Whether to show visual reference grids",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowGrid),0,ourset_ShowGrid,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't show visual reference grids",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Show visual reference grid on top of the canvas",1,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -2942,6 +2989,10 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"ref_paddings","Paddings","Paddings of the reference block",0,"L/R,T/B","cm",0,0,0,0,0,offsetof(OurPaint,RefPaddings),0,0,2,0,0,0,0,ourset_RefPaddings,0,0,0);
     laAddFloatProperty(pc,"ref_middle_margin","Middle Margin","Margin in the middle of the spread",0,0,"cm",0,0,0,0,0,offsetof(OurPaint,RefMargins[2]),0,ourset_RefMiddleMargin,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"ref_biases","Reference Biases","Position biases when reading reference block",0,0,0,0,0,0,0,0,offsetof(OurPaint,RefBiases),0,0,0,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"ref_cut_half","Cut Half","Cut to half of the image",0,0,0,0,0,offsetof(OurPaint,RefCutHalf),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FULL","Full","Use full image",0,0);
+    laAddEnumItemAs(p,"LEFT","Left","Cut to left portion",1,0);
+    laAddEnumItemAs(p,"RIGHT","Right","Cut to right portion",2,0);
     p=laAddEnumProperty(pc,"sketch_mode","Sketch Mode","Show sketch layers differently",0,0,0,0,0,offsetof(OurPaint,SketchMode),0,ourset_ShowSketch,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Show sketch layers as normal layers",0,0);
     laAddEnumItemAs(p,"FULL","Full","Show sketch layers in full opacity",1,0);
