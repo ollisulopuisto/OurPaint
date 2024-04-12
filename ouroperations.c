@@ -2554,9 +2554,10 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     if(ob){
         if(ob->DefaultAsEraser){ Our->SaveEraserSize=ob->Size; }else{ Our->SaveBrushSize=ob->Size; }
     }
-    Our->CurrentBrush=b;
-    if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
-    else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
+    Our->CurrentBrush=b; if(b){
+        if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
+        else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
+    }
     Our->ShowBrushName = 1;
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
