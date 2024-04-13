@@ -300,7 +300,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
                 laShowItemFull(uil,cr,0,"LA_panel_activator",0,"text=Edit;panel_id=panel_brush_nodes",0,0);
             }laEndCondition(uil,b3);
 
-            OUR_BR laShowItem(uil,c,&cb->PP,"size")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
+            OUR_BR laShowItem(uil,c,&cb->PP,"size_offset")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
             laShowItem(uil,c,&cb->PP,"slender");
@@ -379,24 +379,15 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
             laUiItem* uib=laShowItemFull(uil,c,0,"our.preferences.brush_number",0,0,0,0); uib->Flags|=LA_UI_FLAGS_EXPAND;
             laUiItem* bn=laOnConditionThat(uil,c,laPropExpression(&uib->PP,""));{
-                laUiItem* row=laBeginRow(uil,c,0,0);
-                laUiItem* bt=laOnConditionToggle(uil,c,0,0,0,0,0);{
-                laUiItem* values=laShowItemFull(uil,c,0,"our.preferences.brush_numbered_thicknesses",0,0,0,0);
-                values->Flags|=LA_UI_FLAGS_TRANSPOSE; values->Expand=1;
-                }laElse(uil,bt);{
-                    laShowLabel(uil,c,"Sizes Per Number",0,0);
-                }laEndCondition(uil,bt);
-                laEndRow(uil,row);
+                laShowItemFull(uil,c,0,"our.canvas.brush_base_size",0,0,0,0);
             }laElse(uil,bn);{
-                laShowItemFull(uil,c,0,"our.tools.current_brush.size",0,0,0,0);
-                laShowItemFull(uil,c,0,"our.tools.current_brush.size_100",0,0,0,0);
-                laShowItemFull(uil,c,0,"our.tools.current_brush.size_10",0,0,0,0);
+                laShowItemFull(uil,c,0,"our.preferences.brush_size",0,0,0,0);
             }laEndCondition(uil,bn);
 
             laShowSeparator(uil,c);
 
             OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
-            laShowSeparator(uil,c)->Expand=1; laShowItemFull(uil,c,0,"our.preferences.lock_radius",LA_WIDGET_ENUM_HIGHLIGHT,"text=Lock;",0,0); OUR_ER
+            laShowSeparator(uil,c)->Expand=1; OUR_ER
         }laEndCondition(uil,b);
         b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.brush_page"),laIntExpression(OUR_BRUSH_PAGE_LIST)));{
             laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0);
@@ -693,7 +684,7 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsDrawStringM("🤚",0,colorw,ocd->Base.OnX-2-LA_RH,ocd->Base.OnX+10000,ocd->Base.OnY-2-LA_RH,0);
         return;
     }
-    real v[96]; real Radius=(Our->CurrentBrush?Our->CurrentBrush->Size:100.0f)/ocd->Base.ZoomX, gap=rad(2);
+    real v[96]; real Radius=OUR_BRUSH_ACTUAL_SIZE(Our->CurrentBrush)/ocd->Base.ZoomX, gap=rad(2);
     tnsUseImmShader();tnsUseNoTexture(); tnsLineWidth(1.5);
     OurLayer* l = Our->CurrentLayer;
     if (!Our->CurrentBrush || !l || l->Hide || l->Transparency==1 || l->Lock ||
@@ -713,6 +704,12 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     if(Our->ShowBrushName){
         tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colork,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH,ocd->Base.OnY-LA_RH,LA_TEXT_ALIGN_RIGHT);
         tnsDrawStringAuto(SSTR(Our->CurrentBrush->Name),colorw,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH-2,ocd->Base.OnY-2-LA_RH,LA_TEXT_ALIGN_RIGHT);
+        tnsUseNoTexture();
+    }
+    if(Our->ShowBrushNumber){
+        char buf[32]; if(Our->BrushNumber){ sprintf(buf,"#%d",Our->BrushNumber); }else{ sprintf(buf,"[%.1lf]",OUR_BRUSH_ACTUAL_SIZE(Our->CurrentBrush)); }
+        tnsDrawStringAuto(buf,colork,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH,ocd->Base.OnY,LA_TEXT_ALIGN_RIGHT);
+        tnsDrawStringAuto(buf,colorw,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH-2,ocd->Base.OnY-2,LA_TEXT_ALIGN_RIGHT);
         tnsUseNoTexture();
     }
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius+0.5,0);
@@ -951,10 +948,10 @@ int our_MergeLayer(OurLayer* l){
     return 1;
 }
 
-OurBrush* our_NewBrush(char* name, real Size, real Hardness, real DabsPerSize, real Transparency, real Smudge, real SmudgeResampleLength,
+OurBrush* our_NewBrush(char* name, real SizeOffset, real Hardness, real DabsPerSize, real Transparency, real Smudge, real SmudgeResampleLength,
     int PressureSize, int PressureHardness, int PressureTransparency, int PressureSmudge){
     OurBrush* b=memAcquireHyper(sizeof(OurBrush)); strSafeSet(&b->Name,name); lstAppendItem(&Our->Brushes, b);
-    b->Size=Size; b->Hardness=Hardness; b->DabsPerSize=DabsPerSize; b->Transparency=Transparency; b->Smudge=Smudge;
+    b->SizeOffset=SizeOffset; b->Hardness=Hardness; b->DabsPerSize=DabsPerSize; b->Transparency=Transparency; b->Smudge=Smudge;
     b->PressureHardness=PressureHardness; b->PressureSize=PressureSize; b->PressureTransparency=PressureTransparency; b->PressureSmudge=PressureSmudge;
     b->SmudgeResampleLength = SmudgeResampleLength;
     memAssignRef(Our, &Our->CurrentBrush, b);
@@ -1552,13 +1549,14 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     Our->NextDab=0;
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
     real smfac=(1-b->Smoothness/1.1); xto=tnsLinearItp(x,xto,smfac); yto=tnsLinearItp(y,yto,smfac);  *r_xto=xto; *r_yto=yto;
-    real size=b->Size; real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
+    real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
     if(len>1000){ *r_xto=xto; *r_yto=yto; b->BrushRemainingDist=0; return 0; /* Prevent crazy events causing GPU hang. */ }
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
-    b->EvalSize=b->Size; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
+    real bsize=pow(2,Our->BrushSize+b->SizeOffset);
+    b->EvalSize=bsize; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
-    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/b->Size; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness;
+    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
@@ -1591,7 +1589,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             if(od->Size>1e-1 && (!b->EvalDiscard)) Our->NextDab++;
         }
         step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
-        b->EvalStrokeLength+=step/b->Size; b->EvalStrokeLengthAccum+=step/b->Size; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
+        b->EvalStrokeLength+=step/bsize; b->EvalStrokeLengthAccum+=step/bsize; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
         od->ResampleSmudge=0;
         if(b->Smudge>1e-3){ b->SmudgeAccum+=step;
             if(b->SmudgeAccum>(b->EvalSmudgeLength*od->Size)){ b->SmudgeAccum-=(b->EvalSmudgeLength*od->Size); od->ResampleSmudge=1; }
@@ -2144,7 +2142,7 @@ void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, la
 }
 
 int ourinv_NewBrush(laOperator* a, laEvent* e){
-    our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0);
+    our_NewBrush("Our Brush",0,0.95,9,0.5,0.5,5,0,0,0,0);
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.tools.brushes"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add brush",0);
     return LA_FINISHED;
 }
@@ -2188,10 +2186,10 @@ int ourinv_BrushQuickSwitch(laOperator* a, laEvent* e){
 int ourinv_BrushResize(laOperator* a, laEvent* e){
     OurBrush* b=Our->CurrentBrush; if(!b) return LA_CANCELED;
     char* direction=strGetArgumentString(a->ExtraInstructionsP,"direction");
-    if(strSame(direction,"bigger")){ if(!Our->BrushNumber){ b->Size*=1.25; }else{ int num=Our->BrushNumber+1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; b->Size=Our->BrushNumberedThicknesses[num-1]; } }
-    else{ if(!Our->BrushNumber){ b->Size/=1.25; }else{ int num=Our->BrushNumber-1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; b->Size=Our->BrushNumberedThicknesses[num-1]; } }
-    TNS_CLAMP(b->Size,0,1000);
-    laNotifyUsers("our.tools.current_brush.size"); if(Our->BrushNumber){ laNotifyUsers("our.preferences.brush_number"); }
+    if(strSame(direction,"bigger")){ if(!Our->BrushNumber){ Our->BrushSize+=0.25; }else{ int num=Our->BrushNumber+1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; Our->BrushSize=((real)Our->BrushNumber)/2; } }
+    else{ if(!Our->BrushNumber){ Our->BrushSize-=0.25; }else{ int num=Our->BrushNumber-1; TNS_CLAMP(num,1,10); Our->BrushNumber=num; Our->BrushSize=((real)Our->BrushNumber)/2; } }
+    TNS_CLAMP(Our->BrushSize,0,10); Our->ShowBrushNumber=1;
+    laNotifyUsers("our.preferences.brush_size"); if(Our->BrushNumber){ laNotifyUsers("our.preferences.brush_number"); }
     return LA_FINISHED;
 }
 int ourinv_BrushSetNumber(laOperator* a, laEvent* e){
@@ -2240,7 +2238,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor(); Our->ShowBrushName=0;
+    laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -2539,6 +2537,12 @@ void ourset_BrushMove(OurBrush* b, int move){
     if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
     elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
 }
+void ourset_BrushSize(void* unused, real v){
+    Our->BrushSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas");
+}
+void ourset_BrushBaseSize(void* unused, real v){
+    Our->BrushBaseSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas");
+}
 void ourset_BackgroundColor(void* unused, real* arr){
     memcpy(Our->BackgroundColor, arr, sizeof(real)*3); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
@@ -2578,16 +2582,16 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
     }
 }
 void ourset_CurrentBrush(void* unused, OurBrush* b){
-    real r; if(Our->LockRadius) r=Our->CurrentBrush?Our->CurrentBrush->Size:15;
+    real r;
     OurBrush* ob=Our->CurrentBrush;
     if(ob){
-        if(ob->DefaultAsEraser){ Our->SaveEraserSize=ob->Size; }else{ Our->SaveBrushSize=ob->Size; }
+        if(ob->DefaultAsEraser){ Our->SaveEraserSize=Our->BrushSize; }else{ Our->SaveBrushSize=Our->BrushSize; }
     }
     Our->CurrentBrush=b; if(b){
-        if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveEraserSize?Our->SaveEraserSize:r; }
-        else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->LockRadius) b->Size=Our->SaveBrushSize?Our->SaveBrushSize:r; }
+        if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->SaveEraserSize)Our->BrushSize=Our->SaveEraserSize; }
+        else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->SaveBrushSize)Our->BrushSize=Our->SaveBrushSize; }
     }
-    Our->ShowBrushName = 1;
+    Our->ShowBrushName = 1; Our->ShowBrushNumber=1;
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
@@ -2624,7 +2628,7 @@ void ourset_RefAlpha(void* unused, real a){
 void ourset_BrushPage(void* unused, int a){ Our->BrushPage=a; laNotifyUsers("our.tools.brushes"); }
 void ourset_BrushNumber(void* unused, int a){ TNS_CLAMP(a,0,10); Our->BrushNumber=a;
     if(Our->CurrentBrush && a!=0){
-        Our->CurrentBrush->Size=Our->BrushNumberedThicknesses[a-1];
+        Our->BrushSize = ((real)a)/2;
         laNotifyUsers("our.tools.current_brush.size");
         laNotifyUsers("our.tools.brushes");
     }
@@ -2646,10 +2650,6 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     return 0;
 }
 void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas"); }
-void oursetarr_NumberedThicknesses(void* unused, int index, real v){
-    Our->BrushNumberedThicknesses[index] = v;
-    if(index == Our->BrushNumber-1){ if(Our->CurrentBrush){ Our->CurrentBrush->Size=v; } }
-}
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -2879,15 +2879,10 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
-    p=laAddEnumProperty(pc,"lock_radius","Lock Radius","Lock radius when changing brushes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,LockRadius),0,0,0,0,0,0,0,0,0,0);
-    laAddEnumItemAs(p,"FALSE","No","Don't lock radius",0,0);
-    laAddEnumItemAs(p,"TRUE","Yes","Lock radius when changing brushes",1,0);
+    laAddFloatProperty(pc,"brush_size","Brush Size","Brush size for drawing",0,0,0,10,0,0.05,2,0,offsetof(OurPaint,BrushSize),0,0,0,0,0,0,0,ourset_BrushSize,0,0,0);
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
-    p=laAddEnumProperty(pc,"show_brush_name","Show brush name","Show brush name next to the cursor",0,0,0,0,0,offsetof(OurPaint,ShowBrushName),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
-    laAddEnumItemAs(p,"FALSE","No","Don't show brush name next to the cursor",0,0);
-    laAddEnumItemAs(p,"TRUE","Yes","Show brush name next to the cursor",1,0);
     p=laAddEnumProperty(pc,"allow_none_pressure","Allow Non-pressure","Allow non-pressure events, this enables mouse painting.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,AllowNonPressure),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't allow non-pressure device inputs",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Allow non-pressure device inputs such as a mouse",1,0);
@@ -2929,8 +2924,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NUMBER7","7","Use brush number 7",8, 0);
     laAddEnumItemAs(p,"NUMBER8","8","Use brush number 8",9, 0);
     laAddEnumItemAs(p,"NUMBER9","9","Use brush number 9",10,0);
-    laAddFloatProperty(pc,"brush_numbered_thicknesses","Thicknesses","Thicknesses of each numbered brush",0,0,"px",200,0.1,0.1,5,0,offsetof(OurPaint,BrushNumberedThicknesses),0,0,10,0,oursetarr_NumberedThicknesses,0,0,0,0,0,0);
-    
+
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
     sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,ourgetstate_Brush,0,offsetof(OurPaint,Brushes),0);
@@ -2944,9 +2938,7 @@ void ourRegisterEverything(){
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddIntProperty(pc,"binding","Binding","Keyboard binding for shortcut access of the brush",0,0,0,9,-1,1,0,0,offsetof(OurBrush,Binding),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"size_10","~10","Base size(radius) of the brush (max at 10)",0,0,"px",10,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
-    laAddFloatProperty(pc,"size_100","~100","Base size(radius) of the brush (max at 100)",0,0,"px",100,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
-    laAddFloatProperty(pc,"size","Size","Base size(radius) of the brush",0,0,"px",1000,0,1,10,0,offsetof(OurBrush,Size),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"size_offset","Size Offset","Base size(radius) offset of the brush, in 2^n px",0,0,0,5,-5,0.05,0,0,offsetof(OurBrush,SizeOffset),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"transparency","Transparency","Transparency of a dab",0,0,0,1,0,0.05,0.5,0,offsetof(OurBrush,Transparency),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"hardness","Hardness","Hardness of the brush",0,0,0,1,0,0.05,0.95,0,offsetof(OurBrush,Hardness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"smudge","Smudge","Smudge of the brush",0,0,0,1,0,0.05,0.95,0,offsetof(OurBrush,Smudge),0,0,0,0,0,0,0,0,0,0,0);
@@ -3006,6 +2998,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),ourpost_Canvas,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
+    laAddFloatProperty(pc,"brush_base_size","Brush Base Size","Brush base size for using numbered sizes",0,0,0,5,0,0.05,2,0,offsetof(OurPaint,BrushBaseSize),0,0,0,0,0,0,0,ourset_BrushBaseSize,0,0,0);
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
     laAddStringProperty(pc,"notes","Notes","Notes of this painting",LA_WIDGET_STRING_MULTI,0,0,0,1,offsetof(OurPaint,Notes),0,0,0,0,0);
@@ -3276,7 +3269,7 @@ int ourInit(){
     srand(time(0));
     Our->BackgroundRandom=rand()-RAND_MAX/2;
 
-    Our->LockRadius=1;
+    Our->BrushSize=2; Our->BrushBaseSize=2;
     Our->EnableBrushCircle=1;
     Our->PaintUndoLimit=100;
 
@@ -3302,7 +3295,7 @@ int ourInit(){
 
     tnsVectorSet3(Our->BackgroundColor,0.2,0.2,0.2);
     our_NewLayer("Our Layer");
-    OurBrush* ob=our_NewBrush("Our Brush",15,0.95,9,0.5,0.5,5,0,0,0,0); laset_InstanceUID(ob,"OURBRUSH_Default_Yiming");
+    OurBrush* ob=our_NewBrush("Our Brush",0,0.95,9,0.5,0.5,5,0,0,0,0); laset_InstanceUID(ob,"OURBRUSH_Default_Yiming");
     laMarkMemClean(ob); laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
     laAddRootDBInst("our.canvas");

@@ -79,7 +79,7 @@ int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laNodeVisitInfo* vi){
 int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
     if(!Our->CurrentBrush){ return 0; } // unlikely;
     n->rCanvasScale = Our->CurrentScale;
-    n->rSize = Our->CurrentBrush->Size;
+    n->rSize = OUR_BRUSH_ACTUAL_SIZE(Our->CurrentBrush);
     n->rTransparency = Our->CurrentBrush->Transparency;
     n->rHardness = Our->CurrentBrush->Hardness;
     n->rSmudge = Our->CurrentBrush->Smudge;

@@ -23,8 +23,10 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Brush Size","笔刷尺寸",
+"Brush Base Size","笔刷基础尺寸",
+"Size Offset","尺寸偏移",
 "Brush Numbers On Header","在菜单显示笔刷编号",
-"Sizes Per Number","各个号数的尺寸",
 "Nodes Help","节点帮助",
 "Full","全",
 "Ref Grids","参考网格",
@@ -112,7 +114,6 @@ static const char *entries[]={
 "Position:","位置：",
 "Size:","尺寸：",
 "Brush tool not selected","未选择笔刷工具",
-"Lock","锁定",
 "Border Alpha","边框透明度",
 "No","无",
 "Our Paint is made by Wu Yiming.","好得涂 由吴奕茗制作。",

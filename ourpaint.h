@@ -97,6 +97,8 @@ STRUCTURE(OurCanvasDraw){
 #define OUR_TILE_SEAM 12
 #define OUR_TILE_W_USE (OUR_TILE_W-OUR_TILE_SEAM*2)
 
+#define OUR_BRUSH_ACTUAL_SIZE(b) (Our->BrushNumber?Our->BrushBaseSize*pow(2,(real)Our->BrushNumber/2+(b?b->SizeOffset:0)):pow(2,Our->BrushSize+(b?b->SizeOffset:0)))
+
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
     uint16_t* Data;
@@ -182,7 +184,7 @@ STRUCTURE(OurBrushDeviceNode){
 STRUCTURE(OurBrush){
     laListItem Item;
     laSafeString* Name;
-    real Size;
+    real SizeOffset;
     real DabsPerSize;
     real Hardness;
     real Transparency;
@@ -353,6 +355,8 @@ STRUCTURE(OurPaint){
 
     int BrushNumber;
     real BrushNumberedThicknesses[10];
+    real BrushBaseSize;
+    real BrushSize;
     int BrushPage;
     int Tool,ActiveTool,Erasing,EventErasing,BrushMix;
     int LockBackground;
@@ -367,8 +371,7 @@ STRUCTURE(OurPaint){
     int AllowNonPressure,PaintProcessedEvents;
     int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
-    int LockRadius;
-    int EnableBrushCircle,ShowBrushName; int EventHasTwist; real EventTwistAngle;
+    int EnableBrushCircle,ShowBrushName,ShowBrushNumber; int EventHasTwist; real EventTwistAngle;
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;
