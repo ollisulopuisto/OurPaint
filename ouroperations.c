@@ -3164,6 +3164,7 @@ void ourRegisterEverything(){
 
     laManagedSaveProp* msp= laSaveProp("our.canvas");
     laSaveAlongside(msp,"our.thumbnail");
+    laSetThumbnailProp("our.thumbnail");
     laSaveProp("our.tools");
 
     laGetSaverDummy(Our,Our->CanvasSaverDummyProp);
