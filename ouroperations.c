@@ -501,7 +501,6 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     laShowItem(uil,cr,0,"our.preferences.show_stripes");
-    laShowItem(uil,cl,0,"our.preferences.lock_radius");
     laShowItem(uil,cr,0,"our.preferences.smoothness");
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");

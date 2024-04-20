@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Multi-thread Write","多线程写入",
 "Brush Size","笔刷尺寸",
 "Brush Base Size","笔刷基础尺寸",
 "Size Offset","尺寸偏移",
