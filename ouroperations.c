@@ -19,6 +19,8 @@
 #include "ourpaint.h"
 #include "png.h"
 #include "lcms2.h"
+#include <unistd.h>
+#include <threads.h>
 
 OurPaint *Our;
 extern LA MAIN;
@@ -505,6 +507,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
     laShowItem(uil,cl,0,"our.preferences.show_grid");
     laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
+    laShowItem(uil,cl,0,"our.preferences.multithread_write");
     laShowSeparator(uil,c);
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
@@ -901,10 +904,10 @@ void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
 void ourbeforefree_Layer(OurLayer* l){
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue;
-            if(l->TexTiles[row][col]->Texture) tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0;
-            if(l->TexTiles[row][col]->Data) free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0;
-            if(l->TexTiles[row][col]->FullData) free(l->TexTiles[row][col]->FullData); l->TexTiles[row][col]->FullData=0;
-            if(l->TexTiles[row][col]->CopyBuffer) free(l->TexTiles[row][col]->CopyBuffer); l->TexTiles[row][col]->CopyBuffer=0;
+            if(l->TexTiles[row][col]->Texture){ tnsDeleteTexture(l->TexTiles[row][col]->Texture); l->TexTiles[row][col]->Texture=0; }
+            if(l->TexTiles[row][col]->Data){ free(l->TexTiles[row][col]->Data); l->TexTiles[row][col]->Data=0; }
+            if(l->TexTiles[row][col]->FullData){ free(l->TexTiles[row][col]->FullData); l->TexTiles[row][col]->FullData=0; }
+            if(l->TexTiles[row][col]->CopyBuffer){ free(l->TexTiles[row][col]->CopyBuffer); l->TexTiles[row][col]->CopyBuffer=0; }
             memFree(l->TexTiles[row][col]);
         }
         memFree(l->TexTiles[row]); l->TexTiles[row]=0;
@@ -989,7 +992,7 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
         t->cl=0;t->cr=OUR_TILE_W;t->cu=OUR_TILE_W;t->cb=0;
     }else{
         int _l=floor(xmin),_r=ceil(xmax),_u=ceil(ymax),_b=floor(ymin);
-        if(t->CopyBuffer) free(t->CopyBuffer); t->CopyBuffer=0; //shouldn't happen
+        if(t->CopyBuffer){ free(t->CopyBuffer); t->CopyBuffer=0; } //shouldn't happen
         if(_l>=t->r || _r<t->l || _b>=t->u || _u<t->b || _l==_r || _u==_b) return;
         t->cl=TNS_MAX2(_l,t->l)-t->l;t->cr=TNS_MIN2(_r,t->r)-t->l;t->cu=TNS_MIN2(_u,t->u)-t->b;t->cb=TNS_MAX2(_b,t->b)-t->b;
     }
@@ -1208,10 +1211,11 @@ void our_LayerToTexture(OurLayer* ol){
         }
     }
 }
-void our_GetFinalDimension(int UseFrame, int* x, int* y, int* w, int* h){
+void our_GetFinalDimension(int UseFrame, int SegmentY,int SegmentH, int* x, int* y, int* w, int* h){
     if(UseFrame){ *x=Our->X; *y=Our->Y; *w=Our->W; *h=Our->H; }
     else{ *x=Our->ImageX; *y=Our->ImageY; *w=Our->ImageW; *h=Our->ImageH; }
-    printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
+    if(SegmentH>0){ *y=SegmentY; *h=SegmentH; }
+    //printf("%d %d %d %d, %d %d %d %d\n",Our->X, Our->Y, Our->W, Our->H,Our->ImageX, Our->ImageY, Our->ImageW, Our->ImageH);
 }
 #define GET_FINAL_ROW_TYPE(TYPE,BCOLOR) \
 TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, TYPE* temp){\
@@ -1285,7 +1289,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }
-int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile){
+int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile, int SegmentY, int SegmentH){
     if((!fp)&&(!WriteToBuffer)) return 0;
     if(!Our->ImageBuffer) return 0;
     real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
@@ -1308,7 +1312,7 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
         png_init_io(png_ptr, fp);
     }
 
-    int X,Y,W,H; our_GetFinalDimension(UseFrame, &X,&Y,&W,&H);
+    int X,Y,W,H; our_GetFinalDimension(UseFrame,SegmentY,SegmentH, &X,&Y,&W,&H);
     
     png_set_IHDR(png_ptr, info_ptr,W,H,UseBitDepth,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
     if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);use_icc=Our->icc_sRGB;use_icc_size=Our->iccsize_sRGB;tns2LogsRGB(bk); }
@@ -1329,14 +1333,14 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
 
     int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
-        char* final=GetFinalRow(UseFrame,i,X,Y,W,H,temp_row);
+        char* final=GetFinalRow(UseFrame,i+SegmentY,X,Y,W,H,temp_row);
         png_write_row(png_ptr, (png_const_bytep)final);
         lastprog=i/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
-    if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
+    if(!SegmentH){ if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; } }
 
     if(WriteToBuffer){ *buf=LayerWrite.data; *sizeof_buf=LayerWrite.NextData; }
 
@@ -1406,7 +1410,7 @@ cleanup_png_peek:
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
     return 1;
 }
-int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, int OutputProfileMode, int UseOffsets, int StartX, int StartY){
+int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, int OutputProfileMode, int UseOffsets, int StartX, int StartY, int NoEnsure){
     int result=0;
     if((!fp&&!buf) || !l) return 0;
 
@@ -1487,11 +1491,12 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
     int W = png_get_image_width(png_ptr, info_ptr);
     int H = png_get_image_height(png_ptr, info_ptr);
 
-    our_EnsureImageBufferOnRead(l,W,H,UseOffsets,StartX,StartY);
+    if(!NoEnsure){ our_EnsureImageBufferOnRead(l,W,H,UseOffsets,StartX,StartY); }
+    int LoadY=NoEnsure?StartY:Our->LoadY;
 
     int prog=0,lastprog=0;
     for(int i=0;i<H;i++){
-        png_read_row(png_ptr, &Our->ImageBuffer[((int64_t)(H-i-1+Our->LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
+        png_read_row(png_ptr, &Our->ImageBuffer[((int64_t)(H-i-1+LoadY)*Our->ImageW+Our->LoadX)*4], NULL);
         lastprog=i/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)i/H); }
     }
 
@@ -1514,7 +1519,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
         }
     }
 
-    our_LayerToTexture(l);
+    if(!NoEnsure){ our_LayerToTexture(l); }
 
     result=1;
 
@@ -1524,7 +1529,7 @@ cleanup_png_read:
     if(output_buffer_profile) cmsCloseProfile(output_buffer_profile);
     if(cmsTransform) cmsDeleteTransform(cmsTransform);
     if(png_ptr && info_ptr) png_destroy_read_struct(&png_ptr,&info_ptr,0);
-    if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
+    if(!NoEnsure){ if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; } }
 
     return result;
 }
@@ -1983,7 +1988,7 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
             laShowProgress(0,-1);
             our_LayerToImageBuffer(ol, 0);
             laShowProgress(0.5,-1);
-            our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT);
+            our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT,0,0);
             if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
             laHideProgress();
             fclose(fp);
@@ -2021,7 +2026,7 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
                 if(!ol) ol=our_NewLayer("Imported");
                 int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:OUR_PNG_READ_OUTPUT_LINEAR_CLAY);
                 int UseOffsets = ex->Offsets[0] && ex->Offsets[1];
-                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, UseOffsets, ex->Offsets[0], ex->Offsets[1]);
+                our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, UseOffsets, ex->Offsets[0], ex->Offsets[1],0);
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");laPushDifferences("New Layer",0);
                 our_LayerRefreshLocal(ol);
@@ -2105,7 +2110,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 }
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
                 if(!Our->ImageBuffer){ our_ShowAllocationError(e); fclose(fp); return LA_FINISHED; }
-                our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile);
+                our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile,0,0);
                 if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
                 laHideProgress();
                 fclose(fp);
@@ -2434,10 +2439,10 @@ void our_LayerClearEmptyTiles(OurLayer* ol){
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!ol->TexTiles[row][col]) continue;
             OurTexTile* ot=ol->TexTiles[row][col];
             if(!our_TileHasPixels(ot)){
-                if(ot->Texture) tnsDeleteTexture(ot->Texture); ot->Texture=0;
-                if(ot->Data) free(ot->Data); ot->Data=0;
-                if(ot->FullData) free(ot->FullData); ot->FullData=0;
-                if(ot->CopyBuffer) free(ot->CopyBuffer); ot->CopyBuffer=0;
+                if(ot->Texture){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
+                if(ot->Data){ free(ot->Data); ot->Data=0; }
+                if(ot->FullData){ free(ot->FullData); ot->FullData=0; }
+                if(ot->CopyBuffer){ free(ot->CopyBuffer); ot->CopyBuffer=0; }
                 memFree(ot); ol->TexTiles[row][col]=0;
             }else{
                 rowhas=1;
@@ -2472,7 +2477,7 @@ int ourgetstate_Pallette(OurColorPallette* pallette){
     if(m->Modified || !m->FromFile) return LA_BT_WARNING;
     return -1;
 }
-void* ourgetraw_FileThumbnail(void* unused, int* r_size, int* r_is_copy){
+void* ourgetraw_FileThumbnail(void* unused, uint32_t* r_size, int* r_is_copy){
     void* buf=0;
     if(our_RenderThumbnail(&buf, r_size)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return 0;
@@ -2502,7 +2507,7 @@ void ourget_LayerTileStart(OurLayer* l, int* xy){
 void ourset_LayerTileStart(OurLayer* l, int* xy){
     Our->TempLoadX = xy[0]; Our->TempLoadY = xy[1];
 }
-void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
+void* ourget_LayerImage(OurLayer* l, uint32_t* r_size, int* r_is_copy){
     static int LayerCount=0; static int CurrentLayer=0;
     void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
@@ -2510,13 +2515,117 @@ void* ourget_LayerImage(OurLayer* l, int* r_size, int* r_is_copy){
     int ensure=our_LayerEnsureImageBuffer(l, 0);
     if(ensure<=0){ if(!ensure){ our_ShowAllocationError(0); } *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
-    if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT)){ *r_is_copy=1; return buf; }
+    if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT,0,0)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
 }
-void ourset_LayerImage(OurLayer* l, void* data, int size){
-    if(!data) return;
-    our_LayerImportPNG(l, 0, data, 0, 0, 1, Our->TempLoadX, Our->TempLoadY);
+OurThreadImportPNGData* ourthread_ImportPNGGetTask(OurThreadImportPNGDataMain* main){
+    laSpinLock(&main->lock);
+    if(main->next>=main->max){ laSpinUnlock(&main->lock); return 0; }
+    OurThreadImportPNGData* d=&main->data[main->next]; main->next++;
+    laSpinUnlock(&main->lock);
+    return d;
 }
+int ourthread_ImportPNG(OurThreadImportPNGDataMain* main){
+    OurThreadImportPNGData* data;
+    while(data=ourthread_ImportPNGGetTask(main)){
+        our_LayerImportPNG(data->l, 0, data->data, 0, 0, 1, Our->TempLoadX, data->starty,1);
+    }
+}
+void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
+    if(!pdata) return; char* data=pdata;
+    if(l->ReadSegmented.Count>0){
+        OurLayerImageSegmented* seg=data; data+=sizeof(OurLayerImageSegmented);
+
+        logPrint("\n    Reading segmented layer for size %dx%d...",seg->Width,seg->Height);
+
+        int threads = sysconf(_SC_NPROCESSORS_ONLN); TNS_CLAMP(threads,1,32);
+        int taskcount=l->ReadSegmented.Count;
+        if(threads>taskcount){threads=taskcount;}
+        thrd_t* th=calloc(threads,sizeof(thrd_t));
+        OurThreadImportPNGData* edata=calloc(taskcount,sizeof(OurThreadImportPNGData));
+        OurThreadImportPNGDataMain emain={0};
+        emain.data=edata;emain.max=taskcount;emain.next=0; laSpinInit(&emain.lock);
+
+        int StartY=Our->TempLoadY; uint64_t offset=0;
+        our_EnsureImageBufferOnRead(l,seg->Width,seg->Height,1,Our->TempLoadX,Our->TempLoadY);
+        int LoadY=Our->ImageH;
+
+        for(int i=0;i<taskcount;i++){
+            LoadY-=l->ReadSegmented.H[i];
+            edata[i].main=&emain; edata[i].starty=LoadY; edata[i].data=&data[offset]; edata[i].l=l;
+            offset+=seg->Sizes[i]; 
+        }
+        for(int i=0;i<threads;i++){ thrd_create(&th[i],ourthread_ImportPNG,&emain); }
+        for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
+
+        laSpinDestroy(&emain.lock);
+        free(th); free(edata);
+
+        our_LayerToTexture(l); if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
+        return;
+    }
+    our_LayerImportPNG(l, 0, data, 0, 0, 1, Our->TempLoadX, Our->TempLoadY,0);
+}
+int ourget_LayerImageShouldSegment(OurLayer* unused){
+    return Our->SegmentedWrite;
+}
+void writetestpngfiles(void* data, int size, int i){
+    char buf[128]; sprintf(buf,"p%d.png",i);
+    FILE* f=fopen(buf,"wb"); fwrite(data,size,1,f); fclose(f);
+}
+int ourthread_ExportPNG(OurThreadExportPNGData* data){
+    if(!our_ImageExportPNG(0,1,&data->pointers[data->i+1],&data->r_sizes[data->i+1], 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT,data->segy,data->h)){ data->fail=1; }
+}
+void ourget_LayerImageSegmented(OurLayer* l, int* r_chunks, uint32_t* r_sizes, void** pointers){
+    static int LayerCount=0; static int CurrentLayer=0;
+    void* buf=0; if(!l->Item.pPrev){ LayerCount=lstCountElements(&Our->Layers); CurrentLayer=0; }
+    CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
+    our_LayerClearEmptyTiles(l);
+    int ensure=our_LayerEnsureImageBuffer(l, 0);
+    if(ensure<=0){ if(!ensure){ our_ShowAllocationError(0); } *r_chunks=0; return; }
+    our_LayerToImageBuffer(l, 0);
+
+    OurLayerImageSegmented* seg=calloc(1,sizeof(OurLayerImageSegmented));
+    memcpy(seg, &l->ReadSegmented,sizeof(OurLayerImageSegmented));
+    int threads=seg->Count; *r_chunks=seg->Count+1;
+    pointers[0]=seg; r_sizes[0]=sizeof(OurLayerImageSegmented);
+
+    logPrintNew("\n    Writing segmented layer...");
+
+    int segy=0;  int anyfailed=0;
+    thrd_t* th=calloc(threads,sizeof(thrd_t));
+    OurThreadExportPNGData* edata=calloc(threads,sizeof(OurThreadExportPNGData));
+    for(int i=0;i<threads;i++){
+        edata[i].i=i; edata[i].pointers=pointers;edata[i].r_sizes=r_sizes;edata[i].h=seg->H[i];edata[i].segy=segy;
+        thrd_create(&th[i],ourthread_ExportPNG,&edata[i]);
+        segy+=seg->H[i];
+    }
+    for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
+    for(int i=0;i<threads;i++){ seg->Sizes[i]=r_sizes[i+1]; anyfailed+=edata[i].fail; }
+    free(th); free(edata);
+
+    if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
+    if(anyfailed){ *r_chunks=0;
+        for(int i=0;i<threads;i++){ if(pointers[i]){ free(pointers[i]); pointers[i]=0; } }
+        logPrintNew("    [ ERROR ] Failed to write some segments of the layer (%dx%d). Nothing written as a result.\n",Our->ImageW,Our->ImageH);
+        return;
+    }
+    logPrint(" for size %dx%d",Our->ImageW,segy);
+}
+void* ourget_LayerImageSegmentedInfo(OurLayer* l, int* r_size, int* r_is_copy){
+    if(!Our->SegmentedWrite){ *r_is_copy=0; *r_size=0; return 0; }
+
+    int threads = sysconf(_SC_NPROCESSORS_ONLN); TNS_CLAMP(threads,1,32);
+    int X,Y,W,H; our_GetFinalDimension(0,0,0,&X,&Y,&W,&H); l->ReadSegmented.Width=W; l->ReadSegmented.Height=H;
+    int useh=H/threads; l->ReadSegmented.Count=threads; 
+    for(int i=0;i<threads-1;i++){ l->ReadSegmented.H[i]=useh; } l->ReadSegmented.H[threads-1]=H-useh*(threads-1);
+
+    *r_is_copy=0; *r_size=sizeof(OurLayerImageSegmented); return &l->ReadSegmented;
+}
+void ourset_LayerImageSegmentedInfo(OurLayer* l, void* data, int size){
+    memcpy(&l->ReadSegmented,data,sizeof(OurLayerImageSegmented));
+}
+
 void ourset_LayerMove(OurLayer* l, int move){
     if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas"); }
     elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas"); }
@@ -2924,6 +3033,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NUMBER7","7","Use brush number 7",8, 0);
     laAddEnumItemAs(p,"NUMBER8","8","Use brush number 8",9, 0);
     laAddEnumItemAs(p,"NUMBER9","9","Use brush number 9",10,0);
+    p=laAddEnumProperty(pc,"multithread_write","Multi-thread Write","Whether to write layers in segments with multiple threads to increase speed",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SegmentedWrite),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","Sequential","Write layers into a whole image",0,0);
+    laAddEnumItemAs(p,"SEGMENTED","Segmented","Write layers in segmented images with multiple threads",1,0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -3068,7 +3180,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"blend_mode","Blend Mode","How this layer is blended onto the stuff below",0,0,0,0,0,offsetof(OurLayer,BlendMode),0,ourset_LayerBlendMode,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Normal alpha blend",OUR_BLEND_NORMAL,0);
     laAddEnumItemAs(p,"ADD","Add","Pixel values are simply added together",OUR_BLEND_ADD,0);
-    laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
+    laAddRawProperty(pc,"segmented_info","Segmented Info","Image segmented info",0,0,ourget_LayerImageSegmentedInfo,ourset_LayerImageSegmentedInfo,LA_UDF_ONLY);
+    p=laAddRawProperty(pc,"image","Image","The image data of this tile",0,0,ourget_LayerImage,ourset_LayerImage,LA_UDF_ONLY);
+    laRawPropertyExtraFunctions(p,ourget_LayerImageSegmented,ourget_LayerImageShouldSegment);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
     laAddOperatorProperty(pc,"merge","Merge","Merge layer","OUR_merge_layer",U'🠳',0);

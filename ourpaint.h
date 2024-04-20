@@ -111,6 +111,12 @@ STRUCTURE(OurTexTile){
 #define OUR_BLEND_NORMAL 0
 #define OUR_BLEND_ADD 1
 
+typedef struct OurLayerImageSegmented{
+    uint32_t Sizes[32];
+    int H[32];
+    int Count; int Width,Height;
+}OurLayerImageSegmented;
+
 STRUCTURE(OurLayer){
     laListItem Item;
     laSafeString* Name;
@@ -121,6 +127,7 @@ STRUCTURE(OurLayer){
     int BlendMode;
     int AsSketch;
     OurTexTile** TexTiles[OUR_TILES_PER_ROW];
+    OurLayerImageSegmented ReadSegmented;
 };
 
 STRUCTURE(OurLayerWrite){
@@ -321,6 +328,25 @@ STRUCTURE(OurPNGWriteExtra){
     int ColorProfile;
     int Transparent;
 };
+STRUCTURE(OurThreadExportPNGData){
+    uint32_t* r_sizes;
+    void** pointers;
+    int i;
+    int segy,h;
+    int fail;
+};
+NEED_STRUCTURE(OurThreadImportPNGDataMain);
+STRUCTURE(OurThreadImportPNGData){
+    OurThreadImportPNGDataMain* main;
+    void* data;
+    OurLayer* l;
+    int starty;
+};
+STRUCTURE(OurThreadImportPNGDataMain){
+    OurThreadImportPNGData* data;
+    int next,max;
+    SYSLOCK lock;
+};
 
 STRUCTURE(OurPaint){
     real pad;
@@ -378,6 +404,7 @@ STRUCTURE(OurPaint){
     int SpectralMode;
     int BrushNumbersOnHeader;
     int SketchMode;
+    int SegmentedWrite;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
