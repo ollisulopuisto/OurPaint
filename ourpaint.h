@@ -50,8 +50,8 @@ extern const char OUR_COMPOSITION_SHADER[];
 #define OUR_AT_CROP_BR 8
 
 #define OUR_VERSION_MAJOR 0
-#define OUR_VERSION_MINOR 2
-#define OUR_VERSION_SUB 1
+#define OUR_VERSION_MINOR 3
+#define OUR_VERSION_SUB 0
 
 #define OUR_PAINT_NAME_STRING "Our Paint v0.2"
 
