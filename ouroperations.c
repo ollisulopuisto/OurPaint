@@ -473,6 +473,8 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowLabel(gu,gc,"- 贵州混混",0,0);
         laShowLabel(gu,gc,"- Louis Lithium",0,0);
         laShowLabel(gu,gc,"- Nayeli Lafeuille",0,0);
+        laShowLabel(gu,gc,"- Ibrahim Lawai",0,0);
+        laShowLabel(gu,gc,"- Jacob Curtis",0,0);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -534,7 +536,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
     }
     laUiItem* b=laBeginRow(uil,cl,0,0); laShowLabel(uil,cl,OUR_PAINT_NAME_STRING,0,0);
-    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230910202654;text=Release Notes", 0, 0);
+    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20240421171033;text=Release Notes", 0, 0);
     laEndRow(uil,b);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     b=laBeginRow(uil,cl,0,0);
@@ -2805,7 +2807,7 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         
         laShowLabel(muil, mc, "Help", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
-        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20230910202654;text=Release Notes", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20240421171033;text=Release Notes", 0, 0);
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
         
         laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
