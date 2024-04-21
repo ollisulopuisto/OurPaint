@@ -19,8 +19,10 @@
 #include "ourpaint.h"
 #include "png.h"
 #include "lcms2.h"
-#include <unistd.h>
 #include <threads.h>
+#ifdef __linux__
+#include <unistd.h>
+#endif
 
 OurPaint *Our;
 extern LA MAIN;
@@ -2532,6 +2534,16 @@ int ourthread_ImportPNG(OurThreadImportPNGDataMain* main){
         our_LayerImportPNG(data->l, 0, data->data, 0, 0, 1, Our->TempLoadX, data->starty,1);
     }
 }
+static int our_ProcessorCount() {
+#ifdef __linux__
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+#ifdef _WIN32
+    SYSTEM_INFO sysinfo; GetSystemInfo(&sysinfo);
+    return sysinfo.dwNumberOfProcessors;
+#endif
+    return 1;
+}
 void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
     if(!pdata) return; char* data=pdata;
     if(l->ReadSegmented.Count>0){
@@ -2539,7 +2551,7 @@ void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
 
         logPrint("\n    Reading segmented layer for size %dx%d...",seg->Width,seg->Height);
 
-        int threads = sysconf(_SC_NPROCESSORS_ONLN); TNS_CLAMP(threads,1,32);
+        int threads = our_ProcessorCount(); TNS_CLAMP(threads,1,32);
         int taskcount=l->ReadSegmented.Count;
         if(threads>taskcount){threads=taskcount;}
         thrd_t* th=calloc(threads,sizeof(thrd_t));
@@ -2616,7 +2628,7 @@ void ourget_LayerImageSegmented(OurLayer* l, int* r_chunks, uint32_t* r_sizes, v
 void* ourget_LayerImageSegmentedInfo(OurLayer* l, int* r_size, int* r_is_copy){
     if(!Our->SegmentedWrite){ *r_is_copy=0; *r_size=0; return 0; }
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN); TNS_CLAMP(threads,1,32);
+    int threads = our_ProcessorCount(); TNS_CLAMP(threads, 1, 32);
     int X,Y,W,H; our_GetFinalDimension(0,0,0,&X,&Y,&W,&H); l->ReadSegmented.Width=W; l->ReadSegmented.Height=H;
     int useh=H/threads; l->ReadSegmented.Count=threads; 
     for(int i=0;i<threads-1;i++){ l->ReadSegmented.H[i]=useh; } l->ReadSegmented.H[threads-1]=H-useh*(threads-1);
