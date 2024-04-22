@@ -2636,7 +2636,9 @@ void* ourget_LayerImageSegmentedInfo(OurLayer* l, int* r_size, int* r_is_copy){
     *r_is_copy=0; *r_size=sizeof(OurLayerImageSegmented); return &l->ReadSegmented;
 }
 void ourset_LayerImageSegmentedInfo(OurLayer* l, void* data, int size){
-    memcpy(&l->ReadSegmented,data,sizeof(OurLayerImageSegmented));
+    if (data && size) {
+        memcpy(&l->ReadSegmented, data, sizeof(OurLayerImageSegmented));
+    }
 }
 
 void ourset_LayerMove(OurLayer* l, int move){
