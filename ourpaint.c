@@ -22,6 +22,11 @@ extern LA MAIN;
 extern tnsMain* T;
 extern OurPaint *Our;
 
+#ifdef _WIN32
+__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+#endif
+
 int main(int argc, char *argv[]){
     if(ourProcessInitArgs(argc,argv) < 0){ return 0; }
     laInitArguments ia={0}; laSetDefaultInitArguments(&ia);
