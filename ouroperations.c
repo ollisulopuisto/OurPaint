@@ -529,6 +529,8 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     
     laShowSeparator(uil,c);
 
+#ifdef __linux__
+
     laShowLabel(uil,c,"System:",0,0);
     laShowItem(uil,cl,0,"OUR_register_file_associations");
     laUiItem* b=laOnConditionThat(uil,cr,laPropExpression(0,"our.preferences.file_registered"));{
@@ -538,6 +540,8 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     }laEndCondition(uil,b);
 
     laShowSeparator(uil,c);
+
+#endif
 
     laShowLabel(uil,c,"Developer:",0,0);
     laShowItem(uil,cl,0,"our.preferences.show_debug_tiles");
@@ -2861,6 +2865,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
 }
 
 int our_FileAssociationsRegistered(){
+#ifdef __linux__
     char* homedir=getenv("HOME"); char buf[2048]; struct stat statbuf;
     sprintf(buf,"%s/.local/share/mime/image/ourpaint.xml",homedir);
     if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
@@ -2869,8 +2874,13 @@ int our_FileAssociationsRegistered(){
     sprintf(buf,"%s/.local/share/applications/ourpaint.desktop",homedir);
     if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
     return 1;
+#endif
+#ifdef _WIN32
+    return 0;
+#endif
 }
 int our_RegisterFileAssociations(){
+#ifdef __linux__
     char* homedir=getenv("HOME"); char buf[2048]; char exepath[1024]; int failed=0; FILE* f;
     logPrintNew("Registering file associations...\n");
 
@@ -2907,14 +2917,23 @@ int our_RegisterFileAssociations(){
 reg_cleanup:
     if(failed) return 0;
     return 1;
+#endif
+#ifdef _WIN32
+    return 0;
+#endif
 }
 int ourinv_RegisterFileAssociations(laOperator* a, laEvent* e){
+#ifdef __linux__
     if(!our_RegisterFileAssociations()){
         laEnableMessagePanel(0,0,"Error","Failed to register file associations,\n see terminal for details.",e->x,e->y,200,e);
     }else{
         laEnableMessagePanel(0,0,"Success","Successfully registered file associations.",e->x,e->y,200,e);
     }
     Our->FileRegistered=our_FileAssociationsRegistered(); laNotifyUsers("our.preferences.file_registered");
+#endif
+#ifdef _WIN32
+    laEnableMessagePanel(0, 0, "Error", "Feature not supported yet.", e->x, e->y, 200, e);
+#endif
     return LA_FINISHED;
 }
 
