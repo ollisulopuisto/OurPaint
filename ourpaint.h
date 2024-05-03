@@ -35,6 +35,9 @@ extern "C" {
 #endif
 extern const char OUR_CANVAS_SHADER[];
 extern const char OUR_COMPOSITION_SHADER[];
+extern const char OUR_MIME[];
+extern const char OUR_THUMBNAILER[];
+extern const char OUR_DESKTOP[];
 #ifdef __cplusplus
 } // extern "C"
 #endif
@@ -458,6 +461,7 @@ STRUCTURE(OurPaint){
     int ResetBrush;
     
     int SaveFailed;
+    int FileRegistered;
 
     uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;

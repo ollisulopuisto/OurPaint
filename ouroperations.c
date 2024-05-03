@@ -22,6 +22,7 @@
 #include <threads.h>
 #ifdef __linux__
 #include <unistd.h>
+#include <libgen.h>
 #endif
 
 OurPaint *Our;
@@ -525,6 +526,17 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Exporting Defaults:",0,0);
     laShowLabel(uil,cl,"Bit Depth:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_bit_depth");
     laShowLabel(uil,cl,"Color Profile:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_color_profile");
+    
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"System:",0,0);
+    laShowItem(uil,cl,0,"OUR_register_file_associations");
+    laUiItem* b=laOnConditionThat(uil,cr,laPropExpression(0,"our.preferences.file_registered"));{
+        laShowLabel(uil,cr,"Registered",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+    }laElse(uil,b);{
+        laShowLabel(uil,cr,"Not registered",0,0)->Flags|=LA_UI_FLAGS_HIGHLIGHT;
+    }laEndCondition(uil,b);
+
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Developer:",0,0);
@@ -2848,6 +2860,64 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     //laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
 }
 
+int our_FileAssociationsRegistered(){
+    char* homedir=getenv("HOME"); char buf[2048]; struct stat statbuf;
+    sprintf(buf,"%s/.local/share/mime/image/ourpaint.xml",homedir);
+    if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
+    sprintf(buf,"%s/.local/share/thumbnailers/ourpaint.thumbnailer",homedir);
+    if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
+    sprintf(buf,"%s/.local/share/applications/ourpaint.desktop",homedir);
+    if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
+    return 1;
+}
+int our_RegisterFileAssociations(){
+    char* homedir=getenv("HOME"); char buf[2048]; char exepath[1024]; int failed=0; FILE* f;
+    logPrintNew("Registering file associations...\n");
+
+    int exepathsize=readlink("/proc/self/exe",exepath,1024);
+    if(exepathsize<0){ logPrint("Unknown executable path\n",buf); failed=1; goto reg_cleanup; }
+
+    sprintf(buf,"%s/.local/share/mime/image/",homedir);
+    if(!laEnsureDir(buf)){ logPrint("Can't create dir %s\n", buf); failed=1; goto reg_cleanup; }
+    strcat(buf,"ourpaint.xml");
+    f=fopen(buf,"w"); if(!f){ logPrint("Can't open %s\n",buf); failed=1; goto reg_cleanup; }
+    fprintf(f,"%s",OUR_MIME); fflush(f); fclose(f);
+
+    sprintf(buf,"%s/.local/share/thumbnailers/",homedir);
+    if(!laEnsureDir(buf)){ logPrint("Can't create dir %s\n", buf); failed=1; goto reg_cleanup; }
+    strcat(buf,"ourpaint.thumbnailer");
+    f=fopen(buf,"w"); if(!f){ logPrint("Can't open %s\n",buf); failed=1; goto reg_cleanup; }
+    char* thumbstr=strSub(OUR_THUMBNAILER,"%OURPAINT_EXEC%",exepath);
+    fprintf(f,"%s",thumbstr); fflush(f); fclose(f); free(thumbstr);
+
+    sprintf(buf,"%s/.local/share/applications/",homedir);
+    if(!laEnsureDir(buf)){ logPrint("Can't create dir %s\n", buf); failed=1; goto reg_cleanup; }
+    strcat(buf,"ourpaint.desktop");
+    f=fopen(buf,"w"); if(!f){ logPrint("Can't open %s\n",buf); failed=1; goto reg_cleanup; }
+    char* deskstr=strSub(OUR_DESKTOP,"%OURPAINT_EXEC%",exepath);
+    strDiscardLastSegmentSeperateBy(exepath,'/');
+    char* pathstr=strSub(deskstr,"%OURPAINT_DIR%",exepath); free(deskstr);
+    fprintf(f,"%s",pathstr); fflush(f); fclose(f); free(pathstr);
+
+    system("update-mime-database ~/.local/share/mime/");
+    system("xdg-mime default ourpaint.desktop image/ourpaint");
+
+    logPrintNew("Done.\n");
+
+reg_cleanup:
+    if(failed) return 0;
+    return 1;
+}
+int ourinv_RegisterFileAssociations(laOperator* a, laEvent* e){
+    if(!our_RegisterFileAssociations()){
+        laEnableMessagePanel(0,0,"Error","Failed to register file associations,\n see terminal for details.",e->x,e->y,200,e);
+    }else{
+        laEnableMessagePanel(0,0,"Success","Successfully registered file associations.",e->x,e->y,200,e);
+    }
+    Our->FileRegistered=our_FileAssociationsRegistered(); laNotifyUsers("our.preferences.file_registered");
+    return LA_FINISHED;
+}
+
 int ourProcessInitArgs(int argc, char* argv[]){
     if(argc == 4 && strstr(argv[1],"--t")==argv[1]){
         FILE* fp=fopen(argv[2],"rb"); if(!fp){ printf("Can't open file %s\n",argv[2]); return -1; }
@@ -2959,6 +3029,8 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
+    laCreateOperatorType("OUR_register_file_associations","Register File Associations","Register file associations to current user",0,0,0,ourinv_RegisterFileAssociations,0,0,0);
+
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_thumbnail", "Thumbnail", ourui_ThumbnailPanel, 0, 0, 0, GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_layers", "Layers", ourui_LayersPanel, 0, 0,0, 0,10,15);
@@ -3051,6 +3123,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"multithread_write","Multi-thread Write","Whether to write layers in segments with multiple threads to increase speed",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SegmentedWrite),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","Sequential","Write layers into a whole image",0,0);
     laAddEnumItemAs(p,"SEGMENTED","Segmented","Write layers in segmented images with multiple threads",1,0);
+    p=laAddEnumProperty(pc,"file_registered","File Registered","Whether Our Paint is registered in the system",0,0,0,0,0,offsetof(OurPaint,FileRegistered),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
+    laAddEnumItemAs(p,"FALSE","Not registered","File association isn't registered",0,0);
+    laAddEnumItemAs(p,"TRUE","Registered","File association is registered",1,0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -3432,6 +3507,8 @@ int ourInit(){
 
     Our->SplashImage=tnsNewImage(DATA_SPLASH);
     Our->SplashImageHigh=tnsNewImage(DATA_SPLASH_HIGHDPI);
+
+    Our->FileRegistered = our_FileAssociationsRegistered();
 
     return 1;
 }

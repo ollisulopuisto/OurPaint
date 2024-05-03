@@ -23,6 +23,10 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Not registered","未注册",
+"Registered","已注册",
+"Register File Associations","注册文件关联",
+"System:","系统：",
 "Multi-thread Write","多线程写入",
 "Brush Size","笔刷尺寸",
 "Brush Base Size","笔刷基础尺寸",
