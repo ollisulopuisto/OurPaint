@@ -47,9 +47,11 @@ int main(int argc, char *argv[]){
     //laLoadHyperResources("OURPALLETTE");
 
     for(int i=1;i<argc;i++){
-        char* file=argv[i]; 
+        char* file=argv[i]; int mode=LA_UDF_MODE_APPEND;
         laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);
-        if(udf){ laExtractUDF(udf,m,LA_UDF_MODE_APPEND); laCloseUDF(udf); }
+        char* ext=strGetLastSegment(file,'.'); strToLower(ext);
+        if(strSame(ext,"ourpaint")){ mode=LA_UDF_MODE_OVERWRITE; }
+        if(udf){ laExtractUDF(udf,m,mode); laCloseUDF(udf); }
     }
 
     //laAddRootDBInst("our.tools");
