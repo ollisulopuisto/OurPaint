@@ -390,8 +390,8 @@ void ourRegisterNodes(){
     
     laNodeCategory* nc=laEnsureNodeCategory("Our Paint",0,LA_RACK_TYPE_DRIVER);
 
-    laNodeCategoryAddNodeTypes(LA_NODE_CATEGORY_DRIVER, &OUR_IDN_BRUSH_OUTPUTS,0);
-    laNodeCategoryAddNodeTypes(nc, &OUR_IDN_BRUSH_DEVICE, 0);
-    laNodeCategoryAddNodeTypes(nc, &OUR_IDN_BRUSH_SETTINGS, 0);
+    laNodeCategoryAddNodeTypes(LA_NODE_CATEGORY_DRIVER, &OUR_IDN_BRUSH_OUTPUTS,0LL);
+    laNodeCategoryAddNodeTypes(nc, &OUR_IDN_BRUSH_DEVICE, 0LL);
+    laNodeCategoryAddNodeTypes(nc, &OUR_IDN_BRUSH_SETTINGS, 0LL);
 }
 
