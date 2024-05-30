@@ -3392,7 +3392,7 @@ void ourRegisterEverything(){
 
     laGetSaverDummy(Our,Our->CanvasSaverDummyProp);
 
-    laAddExtraExtension(LA_FILETYPE_UDF,"ourpaint","ourbrush",0);
+    laAddExtraExtension(LA_FILETYPE_UDF,"ourpaint","ourbrush",0ll);
     laAddExtraPreferencePath("our.preferences");
     laAddExtraPreferencePage("Our Paint",ourui_OurPreference);
 
