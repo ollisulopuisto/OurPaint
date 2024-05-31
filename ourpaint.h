@@ -104,12 +104,18 @@ STRUCTURE(OurCanvasDraw){
 
 #define OUR_BRUSH_ACTUAL_SIZE(b) (Our->BrushNumber?Our->BrushBaseSize*pow(2,(real)Our->BrushNumber/2+(b?b->SizeOffset:0)):pow(2,Our->BrushSize+(b?b->SizeOffset:0)))
 
+#ifdef LA_USE_GLES
+#define OUR_PIX_COMPACT uint8_t
+#else
+#define OUR_PIX_COMPACT uint16_t
+#endif
+
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
-    uint16_t* Data;
+    OUR_PIX_COMPACT* Data;
     int l,r,u,b;
-    uint16_t* FullData;
-    uint16_t* CopyBuffer;
+    OUR_PIX_COMPACT* FullData;
+    OUR_PIX_COMPACT* CopyBuffer;
     int cl,cr,cu,cb;
 };
 
@@ -467,7 +473,7 @@ STRUCTURE(OurPaint){
     int SaveFailed;
     int FileRegistered;
 
-    uint16_t *ImageBuffer;
+    OUR_PIX_COMPACT *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
 
     uint8_t* ThumbnailBuffer;

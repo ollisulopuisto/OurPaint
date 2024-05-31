@@ -18,16 +18,21 @@
 
 #include "ourpaint.h"
 
-const char OUR_SHADER_VERSION_430[]="#version 430";
-const char OUR_SHADER_VERSION_320ES[]="#version 320 es\n#define OUR_GLES";
+const char OUR_SHADER_VERSION_430[]="#version 430\n#define WORKGROUP_SIZE 32";
+const char OUR_SHADER_VERSION_320ES[]="#version 320 es\n#define OUR_GLES\n#define WORKGROUP_SIZE 16";
 
 const char OUR_CANVAS_SHADER[]=R"(
 precision highp uimage2D;
 precision highp float;
 precision highp int;
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#ifdef OUR_GLES
+layout(r32ui, binding = 0) uniform uimage2D img;
+layout(r32ui, binding = 1) coherent uniform uimage2D smudge_buckets;
+#else
 layout(rgba16ui, binding = 0) uniform uimage2D img;
 layout(rgba16ui, binding = 1) coherent uniform uimage2D smudge_buckets;
+#endif
 uniform int uCanvasType;
 uniform int uCanvasRandom;
 uniform float uCanvasFactor;
@@ -49,15 +54,31 @@ uniform int uBrushErasing;
 uniform int uBrushMix;
 
 #ifdef OUR_GLES
+
 uniform int uBrushRoutineSelectionES;
 uniform int uMixRoutineSelectionES;
-#endif
+
+vec4 cunpack(uint d){
+    return vec4(float(d&0xFFu)/255.,float((d>>8u)&0xFFu)/255.,float((d>>16u)&0xFFu)/255.,float((d>>24u)&0xFFu)/255.);
+}
+uvec4 cpack(vec4 c){
+    uint v= uint(uint(c.r*255.) | (uint(c.g*255.)<<8u) | (uint(c.b*255.)<<16u) | (uint(c.a*255.)<<24u));
+    return uvec4(v,v,v,v); 
+}
+
+#define OurImageLoad(img, p) \
+    (cunpack(imageLoad(img,p).x))
+#define OurImageStore(img, p, color) \
+    imageStore(img,p,cpack(color));
+
+#else
 
 #define OurImageLoad(img, p) \
     (vec4(imageLoad(img,p))/65535.)
-
 #define OurImageStore(img, p, color) \
     imageStore(img,p,uvec4(color*65535.))
+
+#endif
 
 const vec4 p1_22=vec4(1.0/2.2,1.0/2.2,1.0/2.2,1.0/2.2);
 const vec4 p22=vec4(2.2,2.2,2.2,2.2);
@@ -361,21 +382,40 @@ const char OUR_COMPOSITION_SHADER[]=R"(
 precision highp uimage2D;
 precision highp float;
 precision highp int;
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#ifdef OUR_GLES
+layout(r32ui, binding = 0) uniform uimage2D top;
+layout(r32ui, binding = 1) uniform uimage2D bottom;
+#else
 layout(rgba16ui, binding = 0) uniform uimage2D top;
 layout(rgba16ui, binding = 1) uniform uimage2D bottom;
+#endif
 uniform int uBlendMode;
 uniform float uAlphaTop;
 uniform float uAlphaBottom;
 
-//#define OurImageLoad imageLoad
-//#define OurImageStore imageStore
+#ifdef OUR_GLES
+
+vec4 cunpack(uint d){
+    return vec4(float(d&0xFFu)/255.,float((d>>8u)&0xFFu)/255.,float((d>>16u)&0xFFu)/255.,float((d>>24u)&0xFFu)/255.);
+}
+uint cpack(vec4 c){
+    return uint(uint(c.r*255.) | (uint(c.g*255.)<<8u) | (uint(c.b*255.)<<16u) | (uint(c.a*255.)<<24u)); 
+}
+
+#define OurImageLoad(img, p) \
+    (cunpack(imageLoad(img,p).x))
+#define OurImageStore(img, p, color) \
+    imageStore(img,p,uvec4(cpack(color)));
+
+#else
 
 #define OurImageLoad(img, p) \
     (vec4(imageLoad(img,p))/65535.)
-
 #define OurImageStore(img, p, color) \
     imageStore(img,p,uvec4(color*65535.))
+    
+#endif
 
 vec4 mix_over(vec4 colora, vec4 colorb){
     colora=colora*uAlphaTop/uAlphaBottom;
@@ -385,7 +425,7 @@ vec4 mix_over(vec4 colora, vec4 colorb){
 }
 vec4 add_over(vec4 colora, vec4 colorb){
     colora=colora*uAlphaTop/uAlphaBottom;
-    vec4 a=colora+colorb; a.a=clamp(a.a,0,1); return a;
+    vec4 a=colora+colorb; a.a=clamp(a.a,0.,1.); return a;
 }
 void main() {
     ivec2 px=ivec2(gl_GlobalInvocationID.xy);

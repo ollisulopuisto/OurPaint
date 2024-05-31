@@ -35,6 +35,8 @@ int main(int argc, char *argv[]){
     ia.HasTextureInspector=1;
     ia.HasTerminal=1;
     ia.HasHistories=1;
+    MAIN.EnableGLDebug=1;
+    MAIN.GLDebugSync=1;
     laProcessInitArguments(argc, argv, &ia);
     laGetReadyWith(&ia);
 

@@ -29,6 +29,20 @@ OurPaint *Our;
 extern LA MAIN;
 extern tnsMain* T;
 
+#ifdef LA_USE_GLES
+#define OUR_CANVAS_GL_PIX GL_R32UI
+#define OUR_CANVAS_GL_FORMAT GL_RED_INTEGER
+#define OUR_CANVAS_DATA_FORMAT GL_UNSIGNED_INT
+#define OUR_CANVAS_PIXEL_SIZE (sizeof(uint32_t))
+#define OUR_WORKGROUP_SIZE 16
+#else
+#define OUR_CANVAS_GL_PIX GL_RGBA16UI
+#define OUR_CANVAS_GL_FORMAT GL_RGBA_INTEGER
+#define OUR_CANVAS_DATA_FORMAT GL_UNSIGNED_SHORT
+#define OUR_CANVAS_PIXEL_SIZE (sizeof(uint16_t)*4)
+#define OUR_WORKGROUP_SIZE 32
+#endif
+
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb);
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
@@ -906,15 +920,15 @@ void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
             OurTexTile* tt=to->TexTiles[row][col],*ft=from->TexTiles[row][col];
             memcpy(tt,ft,sizeof(OurTexTile));
             tt->CopyBuffer=0;
-            tt->Texture=tnsCreate2DTexture(GL_RGBA16UI,OUR_TILE_W,OUR_TILE_W,0);
-            int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
+            tt->Texture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,OUR_TILE_W,OUR_TILE_W,0);
+            int bufsize=OUR_TILE_W*OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE;
             tt->FullData=malloc(bufsize);
 
             ft->Data=malloc(bufsize); int width=OUR_TILE_W;
             tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-            tnsGet2DTextureSubImage(ft->Texture, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ft->Data);
+            tnsGet2DTextureSubImage(ft->Texture, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ft->Data);
             tnsBindTexture(tt->Texture);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, ft->Data);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, ft->Data);
             
             free(ft->Data); ft->Data=0;
         }
@@ -951,9 +965,9 @@ int our_MergeLayer(OurLayer* l){
             int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
             OurTexTile*ot=ol->TexTiles[row][col];
             if((!ot) || (!ot->Texture)) our_LayerEnsureTileDirect(ol,row,col);
-            glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
-            glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
-            glDispatchCompute(32,32,1);
+            glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
+            glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
+            glDispatchCompute(OUR_WORKGROUP_SIZE,OUR_WORKGROUP_SIZE,1);
             xmin=TNS_MIN2(xmin,t->l+seam);xmax=TNS_MAX2(xmax,t->r-seam); ymin=TNS_MIN2(ymin,t->b+seam);ymax=TNS_MAX2(ymax,t->u-seam);
         }
     }
@@ -1016,32 +1030,32 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
         t->cl=TNS_MAX2(_l,t->l)-t->l;t->cr=TNS_MIN2(_r,t->r)-t->l;t->cu=TNS_MIN2(_u,t->u)-t->b;t->cb=TNS_MAX2(_b,t->b)-t->b;
     }
     int rows=t->cu-t->cb,cols=t->cr-t->cl;
-    int bufsize=cols*4*rows*sizeof(uint16_t);
+    int bufsize=cols*rows*OUR_CANVAS_PIXEL_SIZE;
     t->CopyBuffer=calloc(1,bufsize);
     for(int row=0;row<rows;row++){
-        memcpy(&t->CopyBuffer[row*cols*4],&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],sizeof(uint16_t)*4*cols);
+        memcpy(&t->CopyBuffer[row*cols*4],&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],OUR_CANVAS_PIXEL_SIZE*cols);
     }
-    uint16_t* temp=malloc(bufsize);
+    OUR_PIX_COMPACT* temp=malloc(bufsize);
     tnsBindTexture(t->Texture);
-    tnsGet2DTextureSubImage(t->Texture, t->cl, t->cb, cols,rows, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, temp);
+    tnsGet2DTextureSubImage(t->Texture, t->cl, t->cb, cols,rows, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, temp);
     for(int row=0;row<rows;row++){
         memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
     }
     free(temp);
 }
-void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r, int u, int b){
-    int rows=u-b,cols=r-l; int bufsize=rows*cols*sizeof(uint16_t)*4;
-    uint16_t* temp=malloc(bufsize);
+void our_TileSwapBuffers(OurTexTile* t, OUR_PIX_COMPACT* data, int IsRedo, int l, int r, int u, int b){
+    int rows=u-b,cols=r-l; int bufsize=rows*cols*OUR_CANVAS_PIXEL_SIZE;
+    OUR_PIX_COMPACT* temp=malloc(bufsize);
     memcpy(temp,data,bufsize);
     for(int row=0;row<rows;row++){
-        memcpy(&data[row*cols*4],&t->FullData[((+row+b)*OUR_TILE_W+l)*4],sizeof(uint16_t)*4*cols);
-        memcpy(&t->FullData[((+row+b)*OUR_TILE_W+l)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
+        memcpy(&data[row*cols*4],&t->FullData[((+row+b)*OUR_TILE_W+l)*4],OUR_CANVAS_PIXEL_SIZE*cols);
+        memcpy(&t->FullData[((+row+b)*OUR_TILE_W+l)*4],&temp[row*cols*4],OUR_CANVAS_PIXEL_SIZE*cols);
     }
     tnsBindTexture(t->Texture);
     glGetError();
-    uint16_t* use_data=temp;
+    OUR_PIX_COMPACT* use_data=temp;
     if(IsRedo){ use_data=data; }
-    glTexSubImage2D(GL_TEXTURE_2D, 0, l, b, cols,rows,GL_RGBA_INTEGER,GL_UNSIGNED_SHORT,use_data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, l, b, cols,rows,OUR_CANVAS_GL_FORMAT,OUR_CANVAS_DATA_FORMAT,use_data);
     free(temp);
 }
 void ourundo_Tiles(OurUndo* undo){
@@ -1113,14 +1127,14 @@ void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
     if(!ol->TexTiles[row][col]) ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
     OurTexTile*t=ol->TexTiles[row][col];
     if(t->Texture) return;
-    t->Texture=tnsCreate2DTexture(GL_RGBA16UI,OUR_TILE_W,OUR_TILE_W,0);
+    t->Texture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,OUR_TILE_W,OUR_TILE_W,0);
     int sx=((real)col-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE,sy=((real)row-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     t->l=sx-OUR_TILE_SEAM,t->b=sy-OUR_TILE_SEAM; t->r=t->l+OUR_TILE_W; t->u=t->b+OUR_TILE_W;
     uint16_t initColor[]={0,0,0,0};
 #ifndef LA_USE_GLES
-    glClearTexImage(t->Texture->GLTexHandle, 0, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, 0);
+    glClearTexImage(t->Texture->GLTexHandle, 0, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, 0);
 #endif
-    t->FullData=calloc(OUR_TILE_W*4,OUR_TILE_W*sizeof(uint16_t));
+    t->FullData=calloc(OUR_TILE_W,OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE);
 }
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
     int l,r,u,b;
@@ -1134,10 +1148,10 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 }
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int BlendMode, real alpha){
     if(!ot->Texture) return;
-    int bufsize=sizeof(uint16_t)*OUR_TILE_W_USE*OUR_TILE_W_USE*4;
+    int bufsize=OUR_TILE_W_USE*OUR_TILE_W_USE*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    tnsGet2DTextureSubImage(ot->Texture, seam, seam, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    tnsGet2DTextureSubImage(ot->Texture, seam, seam, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ot->Data);
     if(composite){
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
@@ -1150,7 +1164,7 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
         }
     }else{
         for(int row=0;row<OUR_TILE_W_USE;row++){
-            memcpy(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],sizeof(uint16_t)*4*OUR_TILE_W_USE);
+            memcpy(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],OUR_CANVAS_PIXEL_SIZE*OUR_TILE_W_USE);
         }
     }
     free(ot->Data); ot->Data=0;
@@ -1159,15 +1173,15 @@ void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     if(!ot->Texture) return;
     int pl=(SX!=0)?OUR_TILE_SEAM:0, pr=((SX+OUR_TILE_W_USE)!=Our->ImageW)?OUR_TILE_SEAM:0;
     int pu=(SY!=0)?OUR_TILE_SEAM:0, pb=((SY+OUR_TILE_W_USE)!=Our->ImageH)?OUR_TILE_SEAM:0;
-    int bufsize=sizeof(uint16_t)*(OUR_TILE_W+pl+pr)*(OUR_TILE_W+pu+pb)*4;
+    int bufsize=(OUR_TILE_W+pl+pr)*(OUR_TILE_W+pu+pb)*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W_USE+pl+pr, height=OUR_TILE_W_USE+pu+pb;
     for(int row=0;row<height;row++){
-        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((int64_t)(SY+row-pu)*Our->ImageW+SX-pl)*4],sizeof(uint16_t)*4*width);
+        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((int64_t)(SY+row-pu)*Our->ImageW+SX-pl)*4],OUR_CANVAS_PIXEL_SIZE*width);
     }
-    if(!our_BufferAnythingVisible(ot->Data, bufsize/sizeof(uint16_t)/4)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
+    if(!our_BufferAnythingVisible(ot->Data, bufsize/OUR_CANVAS_PIXEL_SIZE)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
     else{
         tnsBindTexture(ot->Texture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TILE_SEAM-pl, OUR_TILE_SEAM-pu, width, height, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, ot->Data);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TILE_SEAM-pl, OUR_TILE_SEAM-pu, width, height, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, ot->Data);
     }
     free(ot->Data); ot->Data=0;
 }
@@ -1663,14 +1677,15 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(Our->uBrushGunkyness,d->Gunkyness);
     glUniform1f(Our->uBrushRecentness,d->Recentness);
     glUniform4fv(Our->uBrushColor,1,d->Color);
-    glDispatchCompute((GLuint)ceil(d->Size/16), (GLuint)ceil(d->Size/16), 1);
+    int divfac=512/OUR_WORKGROUP_SIZE;
+    glDispatchCompute((GLuint)ceil(d->Size/divfac), (GLuint)ceil(d->Size/divfac), 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int End){
     for(int row=tb;row<=tu;row++){
         for(int col=tl;col<=tr;col++){
             OurTexTile* ott=l->TexTiles[row][col];
-            glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
+            glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
             int s[2]; s[0]=l->TexTiles[row][col]->l,s[1]=l->TexTiles[row][col]->b;
             glUniform2iv(Our->uImageOffset,1,s);
             for(int i=Start;i<End;i++){
@@ -1724,10 +1739,10 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
             int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
             int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
             int rowmin=(int)(floor(OUR_TILE_CTR+(float)(y-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmin,0,OUR_TILES_PER_ROW-1);
-            glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
+            glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
             for(int col=colmin;col<=colmax;col++){
                 for(int row=rowmin;row<=rowmax;row++){
-                    glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
+                    glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
                     int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
                     our_PaintDoSample(x,y,sx,sy,ssize,(col==colmax)&&(row==rowmax),Our->CurrentBrush->SmudgeRestart);
                 }
@@ -1798,10 +1813,10 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     our_CanvasDrawTextures();
 
     if(Our->ImageBuffer){ free(Our->ImageBuffer); }
-    int bufsize=use_w*use_h*sizeof(uint16_t)*4;
+    int bufsize=use_w*use_h*OUR_CANVAS_PIXEL_SIZE;
     Our->ImageBuffer=malloc(bufsize);
     tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
@@ -2454,10 +2469,10 @@ int ourinv_PalletteRemoveColor(laOperator* a, laEvent* e){
 
 int our_TileHasPixels(OurTexTile* ot){
     if(!ot || !ot->Texture) return 0;
-    int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
+    int bufsize=OUR_TILE_W*OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    tnsGet2DTextureSubImage(ot->Texture, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    tnsGet2DTextureSubImage(ot->Texture, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ot->Data);
     
     int has=0;
     int total_elems = width*width;
@@ -3423,6 +3438,7 @@ void ourRegisterEverything(){
 
 int ourInit(){
     Our=memAcquire(sizeof(OurPaint));
+    MAIN.EnableLogStdOut=1;
 
     ourRegisterEverything();
 
@@ -3430,7 +3446,7 @@ int ourInit(){
 
     char error[1024]; int status;
 
-    Our->SmudgeTexture=tnsCreate2DTexture(GL_RGBA16UI,256,1,0);
+    Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,256,1,0);
 
     Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source1 = OUR_CANVAS_SHADER;
