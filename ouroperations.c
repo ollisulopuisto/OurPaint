@@ -906,15 +906,15 @@ void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
             OurTexTile* tt=to->TexTiles[row][col],*ft=from->TexTiles[row][col];
             memcpy(tt,ft,sizeof(OurTexTile));
             tt->CopyBuffer=0;
-            tt->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
+            tt->Texture=tnsCreate2DTexture(GL_RGBA16UI,OUR_TILE_W,OUR_TILE_W,0);
             int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
             tt->FullData=malloc(bufsize);
 
             ft->Data=malloc(bufsize); int width=OUR_TILE_W;
             tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-            glGetTextureSubImage(ft->Texture->GLTexHandle, 0, 0, 0, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ft->Data);
+            tnsGet2DTextureSubImage(ft->Texture, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ft->Data);
             tnsBindTexture(tt->Texture);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA, GL_UNSIGNED_SHORT, ft->Data);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, ft->Data);
             
             free(ft->Data); ft->Data=0;
         }
@@ -951,8 +951,8 @@ int our_MergeLayer(OurLayer* l){
             int tl,tr,tu,tb; our_LayerEnsureTileDirect(ol,row,col);
             OurTexTile*ot=ol->TexTiles[row][col];
             if((!ot) || (!ot->Texture)) our_LayerEnsureTileDirect(ol,row,col);
-            glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
-            glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+            glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
+            glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
             glDispatchCompute(32,32,1);
             xmin=TNS_MIN2(xmin,t->l+seam);xmax=TNS_MAX2(xmax,t->r-seam); ymin=TNS_MIN2(ymin,t->b+seam);ymax=TNS_MAX2(ymax,t->u-seam);
         }
@@ -1023,7 +1023,7 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
     }
     uint16_t* temp=malloc(bufsize);
     tnsBindTexture(t->Texture);
-    glGetTextureSubImage(t->Texture->GLTexHandle, 0, t->cl, t->cb, 0, cols,rows,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, temp);
+    tnsGet2DTextureSubImage(t->Texture, t->cl, t->cb, cols,rows, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, temp);
     for(int row=0;row<rows;row++){
         memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
     }
@@ -1041,7 +1041,7 @@ void our_TileSwapBuffers(OurTexTile* t, uint16_t* data, int IsRedo, int l, int r
     glGetError();
     uint16_t* use_data=temp;
     if(IsRedo){ use_data=data; }
-    glTexSubImage2D(GL_TEXTURE_2D, 0, l, b, cols,rows,GL_RGBA,GL_UNSIGNED_SHORT,use_data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, l, b, cols,rows,GL_RGBA_INTEGER,GL_UNSIGNED_SHORT,use_data);
     free(temp);
 }
 void ourundo_Tiles(OurUndo* undo){
@@ -1113,11 +1113,13 @@ void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
     if(!ol->TexTiles[row][col]) ol->TexTiles[row][col]=memAcquireSimple(sizeof(OurTexTile));
     OurTexTile*t=ol->TexTiles[row][col];
     if(t->Texture) return;
-    t->Texture=tnsCreate2DTexture(GL_RGBA16,OUR_TILE_W,OUR_TILE_W,0);
+    t->Texture=tnsCreate2DTexture(GL_RGBA16UI,OUR_TILE_W,OUR_TILE_W,0);
     int sx=((real)col-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE,sy=((real)row-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     t->l=sx-OUR_TILE_SEAM,t->b=sy-OUR_TILE_SEAM; t->r=t->l+OUR_TILE_W; t->u=t->b+OUR_TILE_W;
     uint16_t initColor[]={0,0,0,0};
-    glClearTexImage(t->Texture->GLTexHandle, 0, GL_RGBA, GL_UNSIGNED_SHORT, 0);
+#ifndef LA_USE_GLES
+    glClearTexImage(t->Texture->GLTexHandle, 0, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, 0);
+#endif
     t->FullData=calloc(OUR_TILE_W*4,OUR_TILE_W*sizeof(uint16_t));
 }
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
@@ -1135,7 +1137,7 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
     int bufsize=sizeof(uint16_t)*OUR_TILE_W_USE*OUR_TILE_W_USE*4;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    glGetTextureSubImage(ot->Texture->GLTexHandle, 0, seam, seam, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    tnsGet2DTextureSubImage(ot->Texture, seam, seam, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ot->Data);
     if(composite){
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
@@ -1165,7 +1167,7 @@ void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     if(!our_BufferAnythingVisible(ot->Data, bufsize/sizeof(uint16_t)/4)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
     else{
         tnsBindTexture(ot->Texture);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TILE_SEAM-pl, OUR_TILE_SEAM-pu, width, height, GL_RGBA, GL_UNSIGNED_SHORT, ot->Data);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, OUR_TILE_SEAM-pl, OUR_TILE_SEAM-pu, width, height, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, ot->Data);
     }
     free(ot->Data); ot->Data=0;
 }
@@ -1661,14 +1663,14 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(Our->uBrushGunkyness,d->Gunkyness);
     glUniform1f(Our->uBrushRecentness,d->Recentness);
     glUniform4fv(Our->uBrushColor,1,d->Color);
-    glDispatchCompute(ceil(d->Size/16), ceil(d->Size/16), 1);
+    glDispatchCompute((GLuint)ceil(d->Size/16), (GLuint)ceil(d->Size/16), 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int End){
     for(int row=tb;row<=tu;row++){
         for(int col=tl;col<=tr;col++){
             OurTexTile* ott=l->TexTiles[row][col];
-            glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+            glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
             int s[2]; s[0]=l->TexTiles[row][col]->l,s[1]=l->TexTiles[row][col]->b;
             glUniform2iv(Our->uImageOffset,1,s);
             for(int i=Start;i<End;i++){
@@ -1696,9 +1698,14 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     glUseProgram(Our->CanvasProgram);
     glUniform1i(Our->uBrushErasing,Our->Erasing);
     glUniform1i(Our->uBrushMix,Our->Erasing?0:Our->BrushMix);
+#ifdef LA_USE_GLES
+    glUniform1i(Our->uBrushRoutineSelectionES,0);
+    glUniform1i(Our->uMixRoutineSelectionES,Our->SpectralMode?1:0);
+#else
     uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
     uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
     glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+#endif
     glUniform1i(Our->uCanvasType,Our->BackgroundType);
     glUniform1i(Our->uCanvasRandom,Our->BackgroundRandom);
     glUniform1f(Our->uCanvasFactor,Our->BackgroundFactor);
@@ -1706,24 +1713,32 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
             uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoSample;
+#ifdef LA_USE_GLES
+            glUniform1i(Our->uBrushRoutineSelectionES,1);
+#else
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+#endif
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
             float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
             int colmax=(int)(floor(OUR_TILE_CTR+(float)(x+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmax,0,OUR_TILES_PER_ROW-1);
             int rowmax=(int)(floor(OUR_TILE_CTR+(float)(y+ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmax,0,OUR_TILES_PER_ROW-1);
             int colmin=(int)(floor(OUR_TILE_CTR+(float)(x-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(colmin,0,OUR_TILES_PER_ROW-1);
             int rowmin=(int)(floor(OUR_TILE_CTR+(float)(y-ssize)/OUR_TILE_W_USE+0.5)); TNS_CLAMP(rowmin,0,OUR_TILES_PER_ROW-1);
-            glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+            glBindImageTexture(1, Our->SmudgeTexture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
             for(int col=colmin;col<=colmax;col++){
                 for(int row=rowmin;row<=rowmax;row++){
-                    glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16);
+                    glBindImageTexture(0, l->TexTiles[row][col]->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16UI);
                     int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
                     our_PaintDoSample(x,y,sx,sy,ssize,(col==colmax)&&(row==rowmax),Our->CurrentBrush->SmudgeRestart);
                 }
             }
             Our->CurrentBrush->SmudgeRestart=0;
             uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+#ifdef LA_USE_GLES
+            glUniform1i(Our->uBrushRoutineSelectionES,0);
+#else
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+#endif
             glUniform1i(Our->uBrushErasing,Our->Erasing);
         }
 
@@ -1786,7 +1801,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     int bufsize=use_w*use_h*sizeof(uint16_t)*4;
     Our->ImageBuffer=malloc(bufsize);
     tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    glGetTextureSubImage(off->pColor[0]->GLTexHandle, 0, 0, 0, 0, use_w, use_h, 1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
@@ -2262,7 +2277,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
+    //laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
@@ -2442,7 +2457,7 @@ int our_TileHasPixels(OurTexTile* ot){
     int bufsize=sizeof(uint16_t)*OUR_TILE_W*OUR_TILE_W*4;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    glGetTextureSubImage(ot->Texture->GLTexHandle, 0, 0, 0, 0, width, width,1, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, ot->Data);
+    tnsGet2DTextureSubImage(ot->Texture, 0, 0, width, width, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, bufsize, ot->Data);
     
     int has=0;
     int total_elems = width*width;
@@ -2991,7 +3006,7 @@ void ourRegisterEverything(){
 
     laCreateOperatorType("OUR_show_splash","Show Splash","Show splash screen",0,0,0,ourinv_ShowSplash,0,0,0);
     laCreateOperatorType("OUR_new_layer","New Layer","Create a new layer",0,0,0,ourinv_NewLayer,0,'+',0);
-    laCreateOperatorType("OUR_duplicate_layer","Duplicate Layer","Duplicate a layer",0,0,0,ourinv_DuplicateLayer,0,'⎘',0);
+    laCreateOperatorType("OUR_duplicate_layer","Duplicate Layer","Duplicate a layer",0,0,0,ourinv_DuplicateLayer,0,U'⎘',0);
     laCreateOperatorType("OUR_remove_layer","Remove Layer","Remove this layer",0,0,0,ourinv_RemoveLayer,0,U'🗴',0);
     laCreateOperatorType("OUR_move_layer","Move Layer","Remove this layer",0,0,0,ourinv_MoveLayer,0,0,0);
     laCreateOperatorType("OUR_merge_layer","Merge Layer","Merge this layer with the layer below it",ourchk_MergeLayer,0,0,ourinv_MergeLayer,0,0,0);
@@ -3415,15 +3430,21 @@ int ourInit(){
 
     char error[1024]; int status;
 
-    Our->SmudgeTexture=tnsCreate2DTexture(GL_RGBA16,256,1,0);
+    Our->SmudgeTexture=tnsCreate2DTexture(GL_RGBA16UI,256,1,0);
 
     Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source1 = OUR_CANVAS_SHADER;
     char* UseContent=tnsEnsureShaderCommoms(source1,0,0);
-    glShaderSource(Our->CanvasShader, 1, &UseContent, NULL); glCompileShader(Our->CanvasShader);
+#ifdef LA_USE_GLES
+    const GLchar* versionstr=OUR_SHADER_VERSION_320ES;
+#else
+    const GLchar* versionstr=OUR_SHADER_VERSION_430;
+#endif
+    const GLchar* sources1[]={versionstr, UseContent};
+    glShaderSource(Our->CanvasShader, 2, sources1, NULL); glCompileShader(Our->CanvasShader);
     glGetShaderiv(Our->CanvasShader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE){
-        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); printf("Canvas shader error:\n%s", error); glDeleteShader(Our->CanvasShader); return 0;
+        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); logPrintNew("Canvas shader error:\n%s", error); glDeleteShader(Our->CanvasShader); return 0;
     }
     if(UseContent){ free(UseContent); }
 
@@ -3431,22 +3452,23 @@ int ourInit(){
     glAttachShader(Our->CanvasProgram, Our->CanvasShader); glLinkProgram(Our->CanvasProgram);
     glGetProgramiv(Our->CanvasProgram, GL_LINK_STATUS, &status);
     if (status == GL_FALSE){
-        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); printf("Canvas program Linking error:\n%s", error); return 0;
+        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); logPrintNew("Canvas program Linking error:\n%s", error); return 0;
     }
 
     Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source2 = OUR_COMPOSITION_SHADER;
-    glShaderSource(Our->CompositionShader, 1, &source2, NULL); glCompileShader(Our->CompositionShader);
+    const GLchar* sources2[]={versionstr, source2};
+    glShaderSource(Our->CompositionShader, 2, sources2, NULL); glCompileShader(Our->CompositionShader);
     glGetShaderiv(Our->CompositionShader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE){
-        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); printf("Composition shader error:\n%s", error); glDeleteShader(Our->CompositionShader); return 0;
+        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); logPrintNew("Composition shader error:\n%s", error); glDeleteShader(Our->CompositionShader); return 0;
     }
 
     Our->CompositionProgram = glCreateProgram();
     glAttachShader(Our->CompositionProgram, Our->CompositionShader); glLinkProgram(Our->CompositionProgram);
     glGetProgramiv(Our->CompositionProgram, GL_LINK_STATUS, &status);
     if (status == GL_FALSE){
-        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); printf("Composition program Linking error:\n%s", error); return 0;
+        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); logPrintNew("Composition program Linking error:\n%s", error); return 0;
     }
 
     Our->uCanvasType=glGetUniformLocation(Our->CanvasProgram,"uCanvasType");
@@ -3468,13 +3490,21 @@ int ourInit(){
     Our->uBrushErasing=glGetUniformLocation(Our->CanvasProgram,"uBrushErasing");
     Our->uBrushMix=glGetUniformLocation(Our->CanvasProgram,"uBrushMix");
 
+#ifdef LA_USE_GLES
+    Our->uBrushRoutineSelectionES=glGetUniformLocation(Our->CanvasProgram, "uBrushRoutineSelectionES");
+#else
     Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
     Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
     Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
-    
+#endif
+
+#ifdef LA_USE_GLES
+    Our->uMixRoutineSelectionES=glGetUniformLocation(Our->CanvasProgram, "uMixRoutineSelectionES");
+#else
     Our->uMixRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uMixRoutineSelection");
     Our->RoutineDoMixNormal=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixNormal");
     Our->RoutineDoMixSpectral=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixSpectral");
+#endif
 
     Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
     Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");

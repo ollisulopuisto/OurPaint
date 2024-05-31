@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.1)
 project(OurPaint)
 
+if(${ANDROID})
+    include(android/apk_build.cmake)
+    return()
+endif()
+
+if(${LAGUI_USE_GLES})
+    add_definitions(-DLA_USE_GLES)
+endif()
+
+
 IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   SET(CMAKE_INSTALL_PREFIX $ENV{HOME}/OurPaint CACHE PATH "Where to install Our Paint" FORCE)
 ENDIF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -12,6 +22,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-no-pie")
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-no-pie")
+
+if(${LAGUI_USE_GLES})
+    add_definitions(-DLA_USE_GLES)
+endif()
 
 find_package(lagui REQUIRED)
 find_package(PNG REQUIRED)
@@ -48,7 +62,7 @@ include_directories(
     ${LAGUI_INCLUDE_DIRS_ALL}
 )
 
-file(GLOB_RECURSE OurPaintFiles 
+file(GLOB_RECURSE OurPaintFiles
     ourpaint.c ouroperations.c ournodes.c ourtranslations.c ourshader.cpp ourstrings.cpp
     BuildResources/data_splash.c
     BuildResources/data_splash_highdpi.c

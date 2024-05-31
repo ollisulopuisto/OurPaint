@@ -33,6 +33,8 @@ extern unsigned char DATA_SPLASH_HIGHDPI[];
 #ifdef __cplusplus
 extern "C" {
 #endif
+extern const char OUR_SHADER_VERSION_430[];
+extern const char OUR_SHADER_VERSION_320ES[];
 extern const char OUR_CANVAS_SHADER[];
 extern const char OUR_COMPOSITION_SHADER[];
 extern const char OUR_MIME[];
@@ -429,7 +431,9 @@ STRUCTURE(OurPaint){
     GLint uBrushForce;
     GLint uBrushGunkyness;
     GLint uBrushRoutineSelection;
+    GLint uBrushRoutineSelectionES;
     GLint uMixRoutineSelection;
+    GLint uMixRoutineSelectionES;
     GLint uBrushErasing;
     GLint uBrushMix;
     GLint RoutineDoDabs;
