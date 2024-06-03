@@ -469,6 +469,26 @@ void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
         laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     }laEndCondition(uil,b);
 }
+void ourui_PigmentItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *extras, int context){
+    laColumn* c=extras?extras:laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.3);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* cll,*clr; laSplitColumn(uil,cl,0.3);cll=laLeftColumn(cl,1);clr=laRightColumn(cl,0);
+    laShowItem(uil,cll,This,"__move");
+    laShowItem(uil,clr,This,"name");
+    laUiItem* r=laBeginRow(uil,clr,0,0);
+    laShowItem(uil,clr,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
+    laEndRow(uil,r);
+    laUiItem* ui=laShowItemFull(uil,cr,This,"reflectivities",0,0,0,0); ui->Flags|=LA_UI_FLAGS_VALUE_METER; ui->Extra->HeightCoeff=3;
+    laShowItemFull(uil,cr,This,"opaqueness",0,0,0,0);
+}
+void ourui_PigmentsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.3);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* cll,*clr; laSplitColumn(uil,cl,0.3);cll=laLeftColumn(cl,1);clr=laRightColumn(cl,0);
+    laUiItem* r=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"OUR_new_pigment");
+    laEndRow(uil,r);
+    laShowColumnAdjuster(uil,c);
+    laShowItemFull(uil,c,0,"our.tools.pigments",0,0,ourui_PigmentItem,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
+}
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* g; laUiList* gu; laColumn* gc;
     g = laMakeGroup(uil, c, "Our Paint", 0);
@@ -559,6 +579,34 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 
     laShowLabel(uil,c,"Developer:",0,0);
     laShowItem(uil,cl,0,"our.preferences.show_debug_tiles");
+}
+void ourui_DiplayResponseItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *extras, int context){
+    laColumn* c=extras?extras:laFirstColumn(uil),*cl,*cr; cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* cll,*clr; cll=laLeftColumn(cl,1);clr=laRightColumn(cl,0);
+    laShowItem(uil,cll,This,"__move");
+    laShowItem(uil,clr,This,"name");
+    laUiItem* r=laBeginRow(uil,clr,0,0);
+    laShowItem(uil,clr,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
+    laEndRow(uil,r);
+    laUiItem* ui;
+#define MAKE_ROW(label,prop)\
+    r=laBeginRow(uil,cr,0,0); laShowLabel(uil,cr,label,0,0); \
+    ui=laShowItemFull(uil,cr,This,prop,0,0,0,0);ui->Expand=1;ui->Flags|=LA_UI_FLAGS_VALUE_METER; ui->Extra->HeightCoeff=3; \
+    laEndRow(uil,r);
+    
+    MAKE_ROW("R","red");
+    MAKE_ROW("G","green");
+    MAKE_ROW("B","blue");
+#undef MAKE_ROW
+}
+void ourui_DisplayResponses(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+    laColumn* c=laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.3);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* cll,*clr; laSplitColumn(uil,cl,0.3);cll=laLeftColumn(cl,1);clr=laRightColumn(cl,0);
+    laUiItem* r=laBeginRow(uil,c,0,0);
+    laShowItem(uil,c,0,"OUR_new_display_response");
+    laEndRow(uil,r);
+    laShowColumnAdjuster(uil,c);
+    laShowItemFull(uil,c,0,"our.preferences.display_responses",0,0,ourui_DiplayResponseItem,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
 }
 void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
@@ -1011,6 +1059,27 @@ OurBrush* our_DuplicateBrush(OurBrush* b){
     lstInsertItemAfter(&Our->Brushes,nb,b);
     memAssignRef(Our, &Our->CurrentBrush, nb);
     return nb;
+}
+
+OurPigment* our_NewPigment(char* name){
+    OurPigment* p=memAcquireHyper(sizeof(OurPigment)); strSafeSet(&p->Name,name); lstPushItem(&Our->Pigments, p);
+    laNotifyUsers("our.tools.pigments"); 
+    return p;
+}
+void our_RemovePigment(OurPigment* p){
+    lstRemoveItem(&Our->Pigments,p);memFree(p);
+    laNotifyUsers("our.tools.pigments"); 
+}
+OurDisplayResponse* our_NewDisplayResponse(char* name){
+    OurDisplayResponse* dr=memAcquireHyper(sizeof(OurDisplayResponse)); strSafeSet(&dr->Name,name); lstPushItem(&Our->DisplayResponses, dr);
+    memAssignRef(Our,&Our->CurrentDisplayResponse,dr);
+    laNotifyUsers("our.preferences.display_responses"); 
+    return dr;
+}
+void our_RemoveDisplayResponse(OurDisplayResponse* dr){
+    OurDisplayResponse* nextdr=dr->Item.pNext?dr->Item.pNext:dr->Item.pPrev;
+    lstRemoveItem(&Our->DisplayResponses,dr); memFree(dr); memAssignRef(Our,&Our->CurrentDisplayResponse,nextdr);
+    laNotifyUsers("our.preferences.display_responses"); 
 }
 
 int our_BufferAnythingVisible(uint16_t* buf, int elemcount){
@@ -2467,6 +2536,49 @@ int ourinv_PalletteRemoveColor(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int ourinv_NewPigment(laOperator* a, laEvent* e){
+    our_NewPigment("Our Pigment"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add pigment",0);
+    return LA_FINISHED;
+}
+int ourinv_RemovePigment(laOperator* a, laEvent* e){
+    OurPigment* p=0; if(a->This && a->This->EndInstance){ p=a->This->EndInstance; }
+    if(!p) return LA_FINISHED;
+    char buf[512]; sprintf(buf,"Will remove pigment \"%s\"",SSTR(p->Name));
+    laEnableYesNoPanel(a,0,"Remove Pigment",buf,e->x,e->y,200,e);
+    return LA_RUNNING;
+}
+int ourmod_RemovePigment(laOperator* a, laEvent* e){
+    OurPigment* p=0; if(a->This && a->This->EndInstance){ p=a->This->EndInstance; }
+    if(!p) return LA_FINISHED;
+    if(a->ConfirmData){
+        if(a->ConfirmData->Mode==LA_CONFIRM_OK){
+            our_RemovePigment(p); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Remove pigment",0);
+        }
+        return LA_FINISHED;
+    }
+}
+int ourinv_NewDisplayResponse(laOperator* a, laEvent* e){
+    our_NewDisplayResponse("My RGB");
+    return LA_FINISHED;
+}
+int ourinv_RemoveDisplayResponse(laOperator* a, laEvent* e){
+    OurDisplayResponse* dr=0; if(a->This && a->This->EndInstance){ dr=a->This->EndInstance; }
+    if(!dr) return LA_FINISHED;
+    char buf[512]; sprintf(buf,"Will remove display response \"%s\"",SSTR(dr->Name));
+    laEnableYesNoPanel(a,0,"Remove...",buf,e->x,e->y,200,e);
+    return LA_RUNNING;
+}
+int ourmod_RemoveDisplayResponse(laOperator* a, laEvent* e){
+    OurDisplayResponse* dr=0; if(a->This && a->This->EndInstance){ dr=a->This->EndInstance; }
+    if(!dr) return LA_FINISHED;
+    if(a->ConfirmData){
+        if(a->ConfirmData->Mode==LA_CONFIRM_OK){
+            our_RemoveDisplayResponse(dr);
+        }
+        return LA_FINISHED;
+    }
+}
+
 int our_TileHasPixels(OurTexTile* ot){
     if(!ot || !ot->Texture) return 0;
     int bufsize=OUR_TILE_W*OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE;
@@ -2828,6 +2940,18 @@ void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
 }
 
+void ourset_PigmentMove(OurPigment* p, int move){
+    if(move<0 && p->Item.pPrev){ lstMoveUp(&Our->Pigments, p); laNotifyUsers("our.tools.pigments"); }
+    elif(move>0 && p->Item.pNext){ lstMoveDown(&Our->Pigments, p); laNotifyUsers("our.tools.pigments"); }
+}
+void ourset_DisplayResponseMove(OurDisplayResponse* dr, int move){
+    if(move<0 && dr->Item.pPrev){ lstMoveUp(&Our->DisplayResponses, dr); laNotifyUsers("our.preferences.display_responses"); }
+    elif(move>0 && dr->Item.pNext){ lstMoveDown(&Our->DisplayResponses, dr); laNotifyUsers("our.preferences.display_responses"); }
+}
+void* ourget_FirstPigment(void* unused, void* unused1){
+    return Our->Pigments.pFirst;
+}
+
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
     laAddEnumItemAs(p,"ENABLED","Enabled","Using pressure",1,0);
@@ -3076,6 +3200,11 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_pallette_new_color","New Color","New color in this pallette",0,0,0,ourinv_PalletteNewColor,0,'+',0);
     laCreateOperatorType("OUR_pallette_remove_color","Remove Color","Remove this color from the pallette",0,0,0,ourinv_PalletteRemoveColor,0,U'🗴',0);
 
+    laCreateOperatorType("OUR_new_pigment","New Pigment","New pigment",0,0,0,ourinv_NewPigment,0,'+',0);
+    laCreateOperatorType("OUR_remove_pigment","Remove Pigment","Remove pigment",0,0,0,ourinv_RemovePigment,ourmod_RemovePigment,U'🗴',0);
+    laCreateOperatorType("OUR_new_display_response","New Display Response","New display response",0,0,0,ourinv_NewDisplayResponse,0,'+',0);
+    laCreateOperatorType("OUR_remove_display_response","Remove Display Response","Remove display response",0,0,0,ourinv_RemoveDisplayResponse,ourmod_RemoveDisplayResponse,U'🗴',0);
+
     laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
     laCreateOperatorType("OUR_register_file_associations","Register File Associations","Register file associations to current user",0,0,0,ourinv_RegisterFileAssociations,0,0,0);
@@ -3089,6 +3218,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_pallettes", "Pallettes", ourui_PallettesPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
     laRegisterUiTemplate("panel_notes", "Notes", ourui_NotesPanel, 0, 0,0, 0,15,15);
+    laRegisterUiTemplate("panel_pigments", "Pigments", ourui_PigmentsPanel, 0, 0,0, 0,20,20);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -3175,6 +3305,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"file_registered","File Registered","Whether Our Paint is registered in the system",0,0,0,0,0,offsetof(OurPaint,FileRegistered),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
     laAddEnumItemAs(p,"FALSE","Not registered","File association isn't registered",0,0);
     laAddEnumItemAs(p,"TRUE","Registered","File association is registered",1,0);
+    laAddSubGroup(pc,"display_responses","Display Responses","Display responses from pigments","our_display_response",0,0,0,-1,0,0,0,0,0,0,offsetof(OurPaint,DisplayResponses),0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -3184,7 +3315,8 @@ void ourRegisterEverything(){
     sp=laAddSubGroup(pc,"pallettes","Pallettes","Pallettes","our_pallette",0,0,ourui_Pallette,offsetof(OurPaint,CurrentPallette),0,0,0,ourset_CurrentPallette,ourgetstate_Pallette,0,offsetof(OurPaint,Pallettes),0);
     //sp->UiFilter=ourfilter_BrushInPage;
     laAddSubGroup(pc,"current_pallette","Current Pallette","Current pallette","our_pallette",0,0,0,offsetof(OurPaint,CurrentPallette),ourget_FirstPallette,0,laget_ListNext,ourset_CurrentPallette,0,0,0,LA_UDF_REFER);
-    
+    laAddSubGroup(pc,"pigments","Pigments","Pigments in Our Paint","our_pigment",0,0,0,-1,0,0,0,0,0,0,offsetof(OurPaint,Pigments),0);
+
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
@@ -3302,6 +3434,23 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NORMAL","Normal","Show sketch layers as normal layers",0,0);
     laAddEnumItemAs(p,"FULL","Full","Show sketch layers in full opacity",1,0);
     laAddEnumItemAs(p,"NONE","None","Show double page spread",2,0);
+    laAddSubGroup(pc,"pigment0","Pigment 0","Pigment 0","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[0]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment1","Pigment 1","Pigment 1","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[1]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment2","Pigment 2","Pigment 2","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[2]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment3","Pigment 3","Pigment 3","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[3]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment4","Pigment 4","Pigment 4","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[4]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment5","Pigment 5","Pigment 5","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[5]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment6","Pigment 6","Pigment 6","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[6]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment7","Pigment 7","Pigment 7","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[7]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment8","Pigment 8","Pigment 8","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[8]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment9","Pigment 9","Pigment 9","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[9]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment10","Pigment 10","Pigment 10","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[10]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment11","Pigment 11","Pigment 11","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[11]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment12","Pigment 12","Pigment 12","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[12]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment13","Pigment 13","Pigment 13","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[13]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment14","Pigment 14","Pigment 14","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[14]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment15","Pigment 15","Pigment 15","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[15]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
+    laAddSubGroup(pc,"pigment16","Pigment 16","Pigment 16","our_pigment",0,0,laui_IdentifierOnly,offsetof(OurPaint,CanvasPigments[16]),ourget_FirstPigment,0,laget_ListNext,0,0,0,0,LA_UDF_REFER);
 
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
@@ -3329,7 +3478,22 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"as_sketch","As Sketch","As sketch layer (for quick toggle)",0,0,0,0,0,offsetof(OurLayer,AsSketch),0,ourset_LayerAsSketch,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Layer is normal",0,U'🖌');
     laAddEnumItemAs(p,"SKETCH","Sketch","Layer is a sketch layer",1,U'🖉');
-    
+
+    pc=laAddPropertyContainer("our_pigment","Our Pigment","OurPaint pigment",0,0,sizeof(OurPigment),0,0,2);
+    laAddStringProperty(pc,"name","Name","Name of the pigment",0,0,0,0,1,offsetof(OurPigment,Name),0,0,0,0,LA_AS_IDENTIFIER);
+    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_PigmentMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
+    laAddFloatProperty(pc,"reflectivities","Reflectivities","Reflectivities across visible wavelengths",0,0,0,1,0,0.01,1,0,offsetof(OurPigment,Reflectivities),0,0,12,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"opaqueness","Opaqueness","Opaqeness of this pigment",0,0,0,1,0,0.01,1,0,offsetof(OurPigment,Opaqueness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddOperatorProperty(pc,"remove","Remove","Remove pigment","OUR_remove_pigment",0,0);
+
+    pc=laAddPropertyContainer("our_display_response","Our Display Response","OurPaint display response",0,0,sizeof(OurDisplayResponse),0,0,2);
+    laAddStringProperty(pc,"name","Name","Name of the response characteristics",0,0,0,0,1,offsetof(OurDisplayResponse,Name),0,0,0,0,LA_AS_IDENTIFIER);
+    laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_DisplayResponseMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
+    laAddFloatProperty(pc,"red","Red Responses","Red display element responses to wavelengths input",0,0,0,1,0,0.01,1,0,offsetof(OurDisplayResponse,RedResponses),0,0,12,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"green","Green Responses","Green display element responses to wavelengths input",0,0,0,1,0,0.01,1,0,offsetof(OurDisplayResponse,GreenResponses),0,0,12,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"blue","Blue Responses","Blue display element responses to wavelengths input",0,0,0,1,0,0.01,1,0,offsetof(OurDisplayResponse,BlueResponses),0,0,12,0,0,0,0,0,0,0,0);
+    laAddOperatorProperty(pc,"remove","Remove","Remove display response","OUR_remove_display_response",0,0);
+
     laCanvasTemplate* ct=laRegisterCanvasTemplate("our_CanvasDraw", "our_canvas", ourextramod_Canvas, our_CanvasDrawCanvas, our_CanvasDrawOverlay, our_CanvasDrawInit, la_CanvasDestroy);
     pc = laCanvasHasExtraProps(ct,sizeof(OurCanvasDraw),2);
     km = &ct->KeyMapper;
@@ -3425,6 +3589,7 @@ void ourRegisterEverything(){
     laAddExtraExtension(LA_FILETYPE_UDF,"ourpaint","ourbrush",0ll);
     laAddExtraPreferencePath("our.preferences");
     laAddExtraPreferencePage("Our Paint",ourui_OurPreference);
+    laAddExtraPreferencePage("Pigment",ourui_DisplayResponses);
 
     laSetAboutTemplates(ourui_AboutContent,ourui_AboutVersion,ourui_AboutAuthor);
 

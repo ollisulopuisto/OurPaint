@@ -359,6 +359,20 @@ STRUCTURE(OurThreadImportPNGDataMain){
     SYSLOCK lock;
 };
 
+STRUCTURE(OurPigment){
+    laListItem Item;
+    laSafeString* Name;
+    real Reflectivities[12];
+    real Opaqueness;
+};
+STRUCTURE(OurDisplayResponse){
+    laListItem Item;
+    laSafeString* Name;
+    real RedResponses[12];
+    real GreenResponses[12];
+    real BlueResponses[12];
+};
+
 STRUCTURE(OurPaint){
     real pad;
 
@@ -372,6 +386,12 @@ STRUCTURE(OurPaint){
 
     laListHandle Pallettes;
     OurColorPallette* CurrentPallette;
+
+    laListHandle Pigments;
+    laListHandle DisplayResponses;
+    OurDisplayResponse* CurrentDisplayResponse;
+    OurPigment* CanvasPigments[16];
+    real CurrentPigments[16];
 
     laListHandle Layers;
     OurLayer*    CurrentLayer;
