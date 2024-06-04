@@ -378,7 +378,7 @@ void main() {
 }
 )";
 
-const char OUR_COMPOSITION_SHADER[]=R"(
+const char OUR_COMPOSITION_SHADER[] = R"(
 precision highp uimage2D;
 precision highp float;
 precision highp int;
@@ -399,8 +399,9 @@ uniform float uAlphaBottom;
 vec4 cunpack(uint d){
     return vec4(float(d&0xFFu)/255.,float((d>>8u)&0xFFu)/255.,float((d>>16u)&0xFFu)/255.,float((d>>24u)&0xFFu)/255.);
 }
-uint cpack(vec4 c){
-    return uint(uint(c.r*255.) | (uint(c.g*255.)<<8u) | (uint(c.b*255.)<<16u) | (uint(c.a*255.)<<24u)); 
+uvec4 cpack(vec4 c){
+    uint v= uint(uint(c.r*255.) | (uint(c.g*255.)<<8u) | (uint(c.b*255.)<<16u) | (uint(c.a*255.)<<24u));
+    return uvec4(v,v,v,v); 
 }
 
 #define OurImageLoad(img, p) \
