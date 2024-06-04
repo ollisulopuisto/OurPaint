@@ -69,14 +69,14 @@ uvec4 cpack(vec4 c){
 #define OurImageLoad(img, p) \
     (cunpack(imageLoad(img,p).x))
 #define OurImageStore(img, p, color) \
-    imageStore(img,p,cpack(color));
+    imageStore(img,p,cpack(color))
 
 #else
 
 #define OurImageLoad(img, p) \
     (vec4(imageLoad(img,p))/65535.)
 #define OurImageStore(img, p, color) \
-    imageStore(img,p,uvec4(color*65535.))
+    imageStore(img,p,uvec4(vec4(color)*65535.))
 
 #endif
 
@@ -169,7 +169,7 @@ float HEIGHT_CANVAS(float x,float y){
     return 1.;
 }
 float SampleCanvas(vec2 U, vec2 dir,float rfac, float force, float gunky){
-    if(uCanvasType==0 || abs(gunky-0.)<1.e-2){ return rfac; }
+    if(uCanvasType==0 || abs(gunky)<1.e-2){ return rfac; }
     U+=vec2(uImageOffset); U/=20.3; U.x=U.x+rand(U)/10.; U.y=U.y+rand(U)/10.;
 
     mat2 m = mat2(1.6,1.2,-1.2,1.6); vec2 _uv=U; _uv.x+=float(uCanvasRandom%65535)/174.41; _uv.y+=float(uCanvasRandom%65535)/439.87; _uv/=500.;
@@ -406,14 +406,14 @@ uint cpack(vec4 c){
 #define OurImageLoad(img, p) \
     (cunpack(imageLoad(img,p).x))
 #define OurImageStore(img, p, color) \
-    imageStore(img,p,uvec4(cpack(color)));
+    imageStore(img,p,cpack(color))
 
 #else
 
 #define OurImageLoad(img, p) \
     (vec4(imageLoad(img,p))/65535.)
 #define OurImageStore(img, p, color) \
-    imageStore(img,p,uvec4(color*65535.))
+    imageStore(img,p,uvec4(vec4(color)*65535.))
     
 #endif
 

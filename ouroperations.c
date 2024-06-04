@@ -1816,7 +1816,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     int bufsize=use_w*use_h*OUR_CANVAS_PIXEL_SIZE;
     Our->ImageBuffer=malloc(bufsize);
     tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
@@ -2292,7 +2292,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    //laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
+    laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
