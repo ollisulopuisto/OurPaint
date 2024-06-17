@@ -402,6 +402,7 @@ STRUCTURE(OurPaint){
     real BackgroundFactor;
     int PenID,EraserID;
     int X,Y,W,H; //border
+    real BorderFadeWidth;
     int ColorInterpretation;
     int ShowBorder,UseBorder;
     int ShowTiles;

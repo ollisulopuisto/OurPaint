@@ -355,6 +355,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
         laShowItemFull(uil,cl,0,"our.canvas.show_border",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
         laUiItem* b=laOnConditionThat(uil,cl,laPropExpression(0,"our.canvas.show_border"));{
             laShowItem(uil,cl,0,"our.canvas.border_alpha");
+            laShowItem(uil,cl,0,"our.canvas.border_fade_width");
             laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laUiItem* b2=laOnConditionThat(uil,cr,laPropExpression(0,"our.canvas.ref_mode"));{
@@ -656,7 +657,61 @@ void our_CanvasDrawTiles(){
     if(any) tnsFlush();
 }
 void our_CanvasDrawCropping(OurCanvasDraw* ocd){
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    if(Our->BorderFadeWidth > 1e-6){
+        real _H=Our->H,_W=Our->W,_X=Our->X,_Y=Our->Y-Our->H;
+        real color[72]={0}; for(int i=1;i<18;i++){ color[i*4+3]=Our->BorderAlpha; }
+        real r=TNS_MIN2(Our->W,Our->H)/2.0f * Our->BorderFadeWidth;
+        real pos[36];
+        pos[0]=_X+_W-r;pos[1]=_Y+_H-r;
+        tnsMakeArc2d(&pos[2],16,pos[0],pos[1],2*r,0,rad(90));
+        tnsVertexArray2d(pos,18); tnsColorArray4d(color,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=1e6;pos[1]=1e6; tnsColor4d(0,0,0,Our->BorderAlpha); tnsVertexArray2d(pos,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=_X+r;pos[1]=_Y+_H-r;
+        tnsMakeArc2d(&pos[2],16,pos[0],pos[1],2*r,rad(90),rad(180));
+        tnsVertexArray2d(pos,18); tnsColorArray4d(color,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=-1e6;pos[1]=1e6; tnsColor4d(0,0,0,Our->BorderAlpha); tnsVertexArray2d(pos,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=_X+r;pos[1]=_Y+r;
+        tnsMakeArc2d(&pos[2],16,pos[0],pos[1],2*r,rad(180),rad(270));
+        tnsVertexArray2d(pos,18); tnsColorArray4d(color,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=-1e6;pos[1]=-1e6; tnsColor4d(0,0,0,Our->BorderAlpha); tnsVertexArray2d(pos,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=_X+_W-r;pos[1]=_Y+r;
+        tnsMakeArc2d(&pos[2],16,pos[0],pos[1],2*r,rad(270),rad(360));
+        tnsVertexArray2d(pos,18); tnsColorArray4d(color,18); tnsPackAs(GL_TRIANGLE_FAN);
+        pos[0]=1e6;pos[1]=-1e6; tnsColor4d(0,0,0,Our->BorderAlpha); tnsVertexArray2d(pos,18); tnsPackAs(GL_TRIANGLE_FAN);
+        
+        real color1[16]={0}; color1[7]=color1[11]=Our->BorderAlpha;
+        tnsVertex2d(_X+_W-r,_Y+_H-r); tnsVertex2d(_X+_W-r,_Y+_H+r);
+        tnsVertex2d(_X+r,_Y+_H+r); tnsVertex2d(_X+r,_Y+_H-r);
+        tnsColorArray4d(color1,4); tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X+r,_Y+_H-r); tnsVertex2d(_X-r,_Y+_H-r);
+        tnsVertex2d(_X-r,_Y+r); tnsVertex2d(_X+r,_Y+r);
+        tnsColorArray4d(color1,4); tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X+r,_Y+r); tnsVertex2d(_X+r,_Y-r);
+        tnsVertex2d(_X+_W-r,_Y-r); tnsVertex2d(_X+_W-r,_Y+r);
+        tnsColorArray4d(color1,4); tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X+_W-r,_Y+r); tnsVertex2d(_X+_W+r,_Y+r);
+        tnsVertex2d(_X+_W+r,_Y+_H-r); tnsVertex2d(_X+_W-r,_Y+_H-r);
+        tnsColorArray4d(color1,4); tnsPackAs(GL_TRIANGLE_FAN);
+
+        tnsColor4d(0,0,0,Our->BorderAlpha);
+        tnsVertex2d(_X+_W-r,_Y+_H+r);tnsVertex2d(1e6,1e6);
+        tnsVertex2d(-1e6,1e6);tnsVertex2d(_X+r,_Y+_H+r);
+        tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X-r,_Y+_H-r);tnsVertex2d(-1e6,1e6);
+        tnsVertex2d(-1e6,-1e6); tnsVertex2d(_X-r,_Y+r);
+        tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X+r,_Y-r);tnsVertex2d(-1e6,-1e6);
+        tnsVertex2d(1e6,-1e6); tnsVertex2d(_X+_W-r,_Y-r);
+        tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(_X+_W+r,_Y+r);tnsVertex2d(1e6,-1e6);
+        tnsVertex2d(1e6,1e6); tnsVertex2d(_X+_W+r,_Y+_H-r);
+        tnsPackAs(GL_TRIANGLE_FAN);
+
+        tnsFlush();
+        return;
+    }
+
     tnsColor4d(0,0,0,Our->BorderAlpha);
     tnsVertex2d(-1e6,Our->Y); tnsVertex2d(1e6,Our->Y); tnsVertex2d(-1e6,1e6); tnsVertex2d(1e6,1e6); tnsPackAs(GL_TRIANGLE_FAN);
     tnsVertex2d(-1e6,Our->Y); tnsVertex2d(Our->X,Our->Y); tnsVertex2d(Our->X,Our->Y-Our->H); tnsVertex2d(-1e6,Our->Y-Our->H); tnsPackAs(GL_TRIANGLE_FAN);
@@ -2722,6 +2777,9 @@ void ourset_BorderAlpha(void* unused, real a){
 void ourset_Tool(void* unused, int a){
     Our->Tool=a; laNotifyUsers("our.canvas");
 }
+void ourset_BorderFadeWidth(void* unused, real a){
+    Our->BorderFadeWidth=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
 void ourset_ShowBorder(void* unused, int a){
     Our->ShowBorder=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
@@ -3266,6 +3324,7 @@ void ourRegisterEverything(){
     laAddIntProperty(pc,"background_random","Random","Background random pattern value",0,0,0,0,0,0,0,0,offsetof(OurPaint,BackgroundRandom),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
+    laAddFloatProperty(pc,"border_fade_width","Fade Width","Fading of the border",0,0,0,1,0,0.01,0,0,offsetof(OurPaint,BorderFadeWidth),0,ourset_BorderFadeWidth,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show border on the canvas",1,0);
