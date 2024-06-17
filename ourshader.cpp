@@ -22,11 +22,11 @@ const char OUR_SHADER_VERSION_430[]="#version 430\n#define WORKGROUP_SIZE 32";
 const char OUR_SHADER_VERSION_320ES[]="#version 320 es\n#define OUR_GLES\n#define WORKGROUP_SIZE 16";
 
 const char OUR_CANVAS_SHADER[]=R"(
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#ifdef OUR_GLES
 precision highp uimage2D;
 precision highp float;
 precision highp int;
-layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-#ifdef OUR_GLES
 layout(r32ui, binding = 0) uniform uimage2D img;
 layout(r32ui, binding = 1) coherent uniform uimage2D smudge_buckets;
 #else
@@ -379,11 +379,11 @@ void main() {
 )";
 
 const char OUR_COMPOSITION_SHADER[] = R"(
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#ifdef OUR_GLES
 precision highp uimage2D;
 precision highp float;
 precision highp int;
-layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-#ifdef OUR_GLES
 layout(r32ui, binding = 0) uniform uimage2D top;
 layout(r32ui, binding = 1) uniform uimage2D bottom;
 #else
