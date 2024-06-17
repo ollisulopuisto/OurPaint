@@ -743,7 +743,7 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
         tnsUseNoTexture();
     }
     if(Our->ShowBrushNumber){
-        char buf[32]; if(Our->BrushNumber){ sprintf(buf,"#%d",Our->BrushNumber); }else{ sprintf(buf,"[%.1lf]",OUR_BRUSH_ACTUAL_SIZE(Our->CurrentBrush)); }
+        char buf[32]; if(Our->BrushNumber){ sprintf(buf,"#%d",Our->BrushNumber-1); }else{ sprintf(buf,"[%.1lf]",OUR_BRUSH_ACTUAL_SIZE(Our->CurrentBrush)); }
         tnsDrawStringAuto(buf,colork,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH,ocd->Base.OnY,LA_TEXT_ALIGN_RIGHT);
         tnsDrawStringAuto(buf,colorw,ocd->Base.OnX-10000,ocd->Base.OnX-LA_RH-2,ocd->Base.OnY-2,LA_TEXT_ALIGN_RIGHT);
         tnsUseNoTexture();
