@@ -354,8 +354,10 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_CROP)));{
         laShowItemFull(uil,cl,0,"our.canvas.show_border",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
         laUiItem* b=laOnConditionThat(uil,cl,laPropExpression(0,"our.canvas.show_border"));{
-            laShowItem(uil,cl,0,"our.canvas.border_alpha");
-            laShowItem(uil,cl,0,"our.canvas.border_fade_width");
+            laUiItem* row=laBeginRow(uil,cl,0,0);
+            laShowItem(uil,cl,0,"our.canvas.border_alpha")->Expand=1;
+            laShowItem(uil,cl,0,"our.canvas.border_fade_width")->Flags|=LA_UI_FLAGS_KNOB;
+            laEndRow(uil,row);
             laShowLabel(uil,cl,"Position:",0,0); laShowItem(uil,cl,0,"our.canvas.position")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cl,"Size:",0,0); laShowItem(uil,cl,0,"our.canvas.size")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laUiItem* b2=laOnConditionThat(uil,cr,laPropExpression(0,"our.canvas.ref_mode"));{
