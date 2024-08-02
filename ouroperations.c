@@ -3505,7 +3505,7 @@ int ourInit(){
 
     our_InitColorProfiles();
 
-    char error[1024]; int status;
+    char error[1024]=""; int status;
 
     Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,256,1,0);
 
@@ -3522,6 +3522,8 @@ int ourInit(){
     glGetShaderiv(Our->CanvasShader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE){
         glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); logPrintNew("Canvas shader error:\n%s", error); glDeleteShader(Our->CanvasShader); return 0;
+    } else {
+        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); if(error[0]) logPrintNew("Canvas shader info:\n%s", error);
     }
     if(UseContent){ free(UseContent); }
 
@@ -3530,6 +3532,8 @@ int ourInit(){
     glGetProgramiv(Our->CanvasProgram, GL_LINK_STATUS, &status);
     if (status == GL_FALSE){
         glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); logPrintNew("Canvas program Linking error:\n%s", error); return 0;
+    } else {
+        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); if (error[0]) logPrintNew("Canvas program Linking info:\n%s", error);
     }
 
     Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
@@ -3539,6 +3543,8 @@ int ourInit(){
     glGetShaderiv(Our->CompositionShader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE){
         glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); logPrintNew("Composition shader error:\n%s", error); glDeleteShader(Our->CompositionShader); return 0;
+    } else {
+        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); if(error[0]) logPrintNew("Composition shader info:\n%s", error);
     }
 
     Our->CompositionProgram = glCreateProgram();
@@ -3546,6 +3552,8 @@ int ourInit(){
     glGetProgramiv(Our->CompositionProgram, GL_LINK_STATUS, &status);
     if (status == GL_FALSE){
         glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); logPrintNew("Composition program Linking error:\n%s", error); return 0;
+    } else {
+        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); if(error[0]) logPrintNew("Composition shader info:\n%s", error);
     }
 
     Our->uCanvasType=glGetUniformLocation(Our->CanvasProgram,"uCanvasType");
