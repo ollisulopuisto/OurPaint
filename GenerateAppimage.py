@@ -7,7 +7,7 @@ AppDir:
     id: chengdu.littlea.ourpaint
     name: OurPaint
     icon: application-x-executable
-    version: v0.2a
+    version: v0.3b
     exec: OurPaint
     exec_args: $@
   apt:

@@ -58,7 +58,7 @@ extern const char OUR_DESKTOP[];
 #define OUR_VERSION_MINOR 3
 #define OUR_VERSION_SUB 0
 
-#define OUR_PAINT_NAME_STRING "Our Paint v0.3"
+#define OUR_PAINT_NAME_STRING "Our Paint v0.3b"
 
 #define OUR_SIGNAL_PICK 1
 #define OUR_SIGNAL_MOVE 2
