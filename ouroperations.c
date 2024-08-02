@@ -1734,8 +1734,8 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(Our->uBrushGunkyness,d->Gunkyness);
     glUniform1f(Our->uBrushRecentness,d->Recentness);
     glUniform4fv(Our->uBrushColor,1,d->Color);
-    int divfac=512/OUR_WORKGROUP_SIZE;
-    glDispatchCompute((GLuint)ceil(d->Size/divfac), (GLuint)ceil(d->Size/divfac), 1);
+    GLuint compute_dimension = ceil((d->Size+2)*2/OUR_WORKGROUP_SIZE);
+    glDispatchCompute(compute_dimension, compute_dimension, 1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int End){
@@ -2349,7 +2349,8 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    laHideCursor(); Our->ShowBrushName=0; Our->ShowBrushNumber=0;
+    //laHideCursor();
+    Our->ShowBrushName=0; Our->ShowBrushNumber=0;
     return LA_RUNNING;
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
