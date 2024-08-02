@@ -283,7 +283,7 @@ STRUCTURE(OurColorPallette){
 STRUCTURE(OurUndoTile){
     laListItem Item;
     int col,row;
-    uint16_t* CopyData;
+    OUR_PIX_COMPACT* CopyData;
     int l,r,u,b;
 };
 STRUCTURE(OurUndo){
@@ -474,7 +474,7 @@ STRUCTURE(OurPaint){
     int SaveFailed;
     int FileRegistered;
 
-    OUR_PIX_COMPACT *ImageBuffer;
+    uint16_t *ImageBuffer;
     int ImageW,ImageH,ImageX,ImageY,LoadX,LoadY,TempLoadX,TempLoadY;
 
     uint8_t* ThumbnailBuffer;

@@ -35,31 +35,33 @@ extern tnsMain* T;
 #define OUR_CANVAS_DATA_FORMAT GL_UNSIGNED_INT
 #define OUR_CANVAS_PIXEL_SIZE (sizeof(uint32_t))
 #define OUR_WORKGROUP_SIZE 16
+#define OUR_PIX_MAX 255
 #else
 #define OUR_CANVAS_GL_PIX GL_RGBA16UI
 #define OUR_CANVAS_GL_FORMAT GL_RGBA_INTEGER
 #define OUR_CANVAS_DATA_FORMAT GL_UNSIGNED_SHORT
 #define OUR_CANVAS_PIXEL_SIZE (sizeof(uint16_t)*4)
 #define OUR_WORKGROUP_SIZE 32
+#define OUR_PIX_MAX 65535
 #endif
 
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb);
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
 
-void our_CanvasAlphaMix(uint16_t* target, uint16_t* source, real alpha){
-    real a_1=(real)(65535-source[3]*alpha)/65535;
-    int a=(int)source[3]*alpha+(int)target[3]*a_1; TNS_CLAMP(a,0,65535);
-    int r=(int)source[0]*alpha+(int)target[0]*a_1; TNS_CLAMP(r,0,65535);
-    int g=(int)source[1]*alpha+(int)target[1]*a_1; TNS_CLAMP(g,0,65535);
-    int b=(int)source[2]*alpha+(int)target[2]*a_1; TNS_CLAMP(b,0,65535);
+void our_CanvasAlphaMix(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
+    real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
+    int a=(int)source[3]*alpha+(int)target[3]*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
+    int r=(int)source[0]*alpha+(int)target[0]*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
+    int g=(int)source[1]*alpha+(int)target[1]*a_1; TNS_CLAMP(g,0,OUR_PIX_MAX);
+    int b=(int)source[2]*alpha+(int)target[2]*a_1; TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
-void our_CanvasAdd(uint16_t* target, uint16_t* source, real alpha){
-    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,65535);
-    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,65535);
-    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,65535);
-    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,65535);
+void our_CanvasAdd(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
+    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
+    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
+    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
+    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 
@@ -982,7 +984,7 @@ void our_DuplicateLayerContent(OurLayer* to, OurLayer* from){
             tt->FullData=malloc(bufsize);
 
             ft->Data=malloc(bufsize); int width=OUR_TILE_W;
-            tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+            tnsBindTexture(ft->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
             tnsGet2DTextureSubImage(ft->Texture, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ft->Data);
             tnsBindTexture(tt->Texture);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, ft->Data);
@@ -1070,9 +1072,9 @@ OurBrush* our_DuplicateBrush(OurBrush* b){
     return nb;
 }
 
-int our_BufferAnythingVisible(uint16_t* buf, int elemcount){
+int our_BufferAnythingVisible(OUR_PIX_COMPACT* buf, int elemcount){
     for(int i=0;i<elemcount;i++){
-        uint16_t* rgba=&buf[i*4]; if(rgba[3]) return 1;
+        OUR_PIX_COMPACT* rgba=&buf[i*4]; if(rgba[3]) return 1;
     }
     return 0;
 }
@@ -1096,7 +1098,7 @@ void our_TileEnsureUndoBuffer(OurTexTile* t, real xmin,real xmax, real ymin,real
     tnsBindTexture(t->Texture);
     tnsGet2DTextureSubImage(t->Texture, t->cl, t->cb, cols,rows, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, temp);
     for(int row=0;row<rows;row++){
-        memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(uint16_t)*4*cols);
+        memcpy(&t->FullData[((+row+t->cb)*OUR_TILE_W+t->cl)*4],&temp[row*cols*4],sizeof(OUR_PIX_COMPACT)*4*cols);
     }
     free(temp);
 }
@@ -1188,9 +1190,7 @@ void our_LayerEnsureTileDirect(OurLayer* ol, int row, int col){
     int sx=((real)col-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE,sy=((real)row-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
     t->l=sx-OUR_TILE_SEAM,t->b=sy-OUR_TILE_SEAM; t->r=t->l+OUR_TILE_W; t->u=t->b+OUR_TILE_W;
     uint16_t initColor[]={0,0,0,0};
-#ifndef LA_USE_GLES
-    glClearTexImage(t->Texture->GLTexHandle, 0, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, 0);
-#endif
+    tnsClearTextureImage(t->Texture,OUR_CANVAS_GL_FORMAT,OUR_CANVAS_DATA_FORMAT);
     t->FullData=calloc(OUR_TILE_W,OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE);
 }
 void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax, int Aligned, int *tl, int *tr, int* tu, int* tb){
@@ -1207,21 +1207,22 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
     if(!ot->Texture) return;
     int bufsize=OUR_TILE_W_USE*OUR_TILE_W_USE*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
-    tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+    tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
     tnsGet2DTextureSubImage(ot->Texture, seam, seam, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ot->Data);
+    OUR_PIX_COMPACT* image_buffer=Our->ImageBuffer;
     if(composite){
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
                 if(BlendMode==OUR_BLEND_NORMAL){
-                    our_CanvasAlphaMix(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    our_CanvasAlphaMix(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
                 }elif(BlendMode==OUR_BLEND_ADD){
-                    our_CanvasAdd(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    our_CanvasAdd(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
                 }
             }
         }
     }else{
         for(int row=0;row<OUR_TILE_W_USE;row++){
-            memcpy(&Our->ImageBuffer[((int64_t)(SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],OUR_CANVAS_PIXEL_SIZE*OUR_TILE_W_USE);
+            memcpy(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX)*4],&ot->Data[(row*OUR_TILE_W_USE)*4],OUR_CANVAS_PIXEL_SIZE*OUR_TILE_W_USE);
         }
     }
     free(ot->Data); ot->Data=0;
@@ -1232,8 +1233,9 @@ void our_TileImageToTexture(OurTexTile* ot, int SX, int SY){
     int pu=(SY!=0)?OUR_TILE_SEAM:0, pb=((SY+OUR_TILE_W_USE)!=Our->ImageH)?OUR_TILE_SEAM:0;
     int bufsize=(OUR_TILE_W+pl+pr)*(OUR_TILE_W+pu+pb)*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W_USE+pl+pr, height=OUR_TILE_W_USE+pu+pb;
+    OUR_PIX_COMPACT* image_buffer = Our->ImageBuffer;
     for(int row=0;row<height;row++){
-        memcpy(&ot->Data[((row)*width)*4],&Our->ImageBuffer[((int64_t)(SY+row-pu)*Our->ImageW+SX-pl)*4],OUR_CANVAS_PIXEL_SIZE*width);
+        memcpy(&ot->Data[((row)*width)*4],&image_buffer[((int64_t)(SY+row-pu)*Our->ImageW+SX-pl)*4],OUR_CANVAS_PIXEL_SIZE*width);
     }
     if(!our_BufferAnythingVisible(ot->Data, bufsize/OUR_CANVAS_PIXEL_SIZE)){ tnsDeleteTexture(ot->Texture); ot->Texture=0; }
     else{
@@ -1282,9 +1284,43 @@ void our_CanvasFillImageBufferBackground(int transparent){
     real bk[4]; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
     Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
     Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255;
+    OUR_PIX_COMPACT* image_buffer = Our->ImageBuffer;
     for(int64_t i=0;i<count;i++){
-        uint16_t* p=&Our->ImageBuffer[(int64_t)i*4]; tnsVectorSet4v(p,Our->BColorU16);
+        OUR_PIX_COMPACT* p=&image_buffer[(int64_t)i*4];
+#ifdef LA_USE_GLES
+        tnsVectorSet4v(p,Our->BColorU8);
+#else
+        tnsVectorSet4v(p,Our->BColorU16);
+#endif
     }
+}
+void our_ImageBufferFromNative(){
+#ifdef LA_USE_GLES
+    int pixcount = Our->ImageH*Our->ImageW;
+    uint16_t* converted_buffer = malloc(pixcount * sizeof(uint16_t)*4);
+    uint8_t* image_buffer = Our->ImageBuffer;
+    for(int i=0;i<pixcount;i++){
+        converted_buffer[i*4] = ((uint16_t)image_buffer[i*4]) << 8;
+        converted_buffer[i*4 + 1] = ((uint16_t)image_buffer[i*4 + 1]) << 8;
+        converted_buffer[i*4 + 2] = ((uint16_t)image_buffer[i*4 + 2]) << 8;
+        converted_buffer[i*4 + 3] = ((uint16_t)image_buffer[i*4 + 3]) << 8;
+    }
+    free(Our->ImageBuffer); Our->ImageBuffer = converted_buffer;
+#endif
+}
+void our_ImageBufferToNative(){
+#ifdef LA_USE_GLES
+    int pixcount = Our->ImageH*Our->ImageW;
+    uint8_t* converted_buffer = malloc(pixcount * sizeof(uint8_t)*4);
+    uint16_t* image_buffer = Our->ImageBuffer;
+    for(int i=0;i<pixcount;i++){
+        converted_buffer[i*4] = image_buffer[i*4] >> 8;
+        converted_buffer[i*4 + 1] = image_buffer[i*4 + 1] >> 8;
+        converted_buffer[i*4 + 2] = image_buffer[i*4 + 2] >> 8;
+        converted_buffer[i*4 + 3] = image_buffer[i*4 + 3] >> 8;
+    }
+    free(Our->ImageBuffer); Our->ImageBuffer = converted_buffer;
+#endif
 }
 void our_LayerToImageBuffer(OurLayer* ol, int composite){
     if(composite && (ol->Hide || ol->Transparency==1 || (Our->SketchMode==2 && ol->AsSketch))) return;
@@ -1337,8 +1373,9 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     cmsHPROFILE output_buffer_profile=NULL;
 
     /* unpremultiply */
+    uint16_t* image_buffer=Our->ImageBuffer;
     for(int row=0;row<Our->ImageH;row++){
-        for(int col=0;col<Our->ImageW;col++){ uint16_t* p=&Our->ImageBuffer[((int64_t)row*Our->ImageW+col)*4];
+        for(int col=0;col<Our->ImageW;col++){ uint16_t* p=&image_buffer[((int64_t)row*Our->ImageW+col)*4];
             real a=(real)p[3]/65535.0f;
             if(a>0){ p[0]=(real)p[0]/a; p[1]=(real)p[1]/a; p[2]=(real)p[2]/a; }
         }
@@ -1611,7 +1648,10 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
         }
     }
 
-    if(!NoEnsure){ our_LayerToTexture(l); }
+    if(!NoEnsure){
+        our_ImageBufferToNative();
+        our_LayerToTexture(l);
+    }
 
     result=1;
 
@@ -1872,13 +1912,19 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     if(Our->ImageBuffer){ free(Our->ImageBuffer); }
     int bufsize=use_w*use_h*OUR_CANVAS_PIXEL_SIZE;
     Our->ImageBuffer=malloc(bufsize);
-    tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 2);
-    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, GL_UNSIGNED_SHORT, bufsize, Our->ImageBuffer);
+    tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+#ifdef LA_USE_GLES
+    int readtype=GL_UNSIGNED_BYTE;
+#else
+    int readtype=GL_UNSIGNED_SHORT;
+#endif
+    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, GL_UNSIGNED_BYTE, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
 
     Our->ImageW = use_w; Our->ImageH = use_h;
+    our_ImageBufferFromNative();
     our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY);
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
@@ -2094,6 +2140,7 @@ int ourmod_ExportLayer(laOperator* a, laEvent* e){
             laShowProgress(0,-1);
             our_LayerToImageBuffer(ol, 0);
             laShowProgress(0.5,-1);
+            our_ImageBufferFromNative();
             our_ImageExportPNG(fp, 0, 0, 0, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT,0,0);
             if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
             laHideProgress();
@@ -2214,6 +2261,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                     our_LayerToImageBuffer(l, 1);
                     CurrentLayer++; laShowProgress((real)CurrentLayer/LayerCount,-1);
                 }
+                our_ImageBufferFromNative();
                 our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile);
                 if(!Our->ImageBuffer){ our_ShowAllocationError(e); fclose(fp); return LA_FINISHED; }
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile,0,0);
@@ -2529,13 +2577,13 @@ int our_TileHasPixels(OurTexTile* ot){
     if(!ot || !ot->Texture) return 0;
     int bufsize=OUR_TILE_W*OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int width=OUR_TILE_W;
-    tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 2);
+    tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
     tnsGet2DTextureSubImage(ot->Texture, 0, 0, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ot->Data);
     
     int has=0;
     int total_elems = width*width;
     for(int i=0;i<total_elems;i++){
-        if(ot->Data[i*4-1]!=0){ has=1; break; }
+        if(ot->Data[i*4+3]!=0){ has=1; break; }
     }
     free(ot->Data); ot->Data=0;
     return has;
@@ -2622,6 +2670,7 @@ void* ourget_LayerImage(OurLayer* l, uint32_t* r_size, int* r_is_copy){
     int ensure=our_LayerEnsureImageBuffer(l, 0);
     if(ensure<=0){ if(!ensure){ our_ShowAllocationError(0); } *r_is_copy=0; return 0; }
     our_LayerToImageBuffer(l, 0);
+    our_ImageBufferFromNative();
     if(our_ImageExportPNG(0,1,&buf,r_size, 0, OUR_EXPORT_BIT_DEPTH_16, OUR_EXPORT_COLOR_MODE_FLAT,0,0)){ *r_is_copy=1; return buf; }
     *r_is_copy=0; return buf;
 }
@@ -2678,6 +2727,7 @@ void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
         laSpinDestroy(&emain.lock);
         free(th); free(edata);
 
+        our_ImageBufferToNative();
         our_LayerToTexture(l); if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
         return;
     }
@@ -2701,6 +2751,7 @@ void ourget_LayerImageSegmented(OurLayer* l, int* r_chunks, uint32_t* r_sizes, v
     int ensure=our_LayerEnsureImageBuffer(l, 0);
     if(ensure<=0){ if(!ensure){ our_ShowAllocationError(0); } *r_chunks=0; return; }
     our_LayerToImageBuffer(l, 0);
+    our_ImageBufferFromNative();
 
     OurLayerImageSegmented* seg=calloc(1,sizeof(OurLayerImageSegmented));
     memcpy(seg, &l->ReadSegmented,sizeof(OurLayerImageSegmented));
@@ -3498,6 +3549,20 @@ void ourRegisterEverything(){
     ourMakeTranslations();
 }
 
+#ifdef LAGUI_ANDROID
+static void android_ensure_asset_to_public_dir(char* asset_file){
+    char dir_internal[2048],dir_external[2048];
+    sprintf(dir_external, "%s/%s", MAIN.InternalDataPath,asset_file);
+    sprintf(dir_internal, "%s",asset_file);
+    FILE* fo=fopen(dir_external,"rb"); if(fo){ fclose(fo); logPrint("Asset exists %s\n",dir_external); return; }
+    FILE* fi=fopen(dir_internal,"rb"); if(!fi){ logPrint("Unable to find asset %s\n",dir_internal); return; }
+    fseek(fi,0,SEEK_END); int filesize=ftell(fi); fseek(fi,0,SEEK_SET);
+    fo=fopen(dir_external,"wb");
+    void* data=malloc(filesize); fread(data,filesize,1,fi);
+    fwrite(data,filesize,1,fo); fclose(fi); fclose(fo); free(data);
+}
+#endif
+
 int ourInit(){
     Our=memAcquire(sizeof(OurPaint));
     MAIN.EnableLogStdOut=1;
@@ -3644,6 +3709,11 @@ int ourInit(){
     Our->SplashImageHigh=tnsNewImage(DATA_SPLASH_HIGHDPI);
 
     Our->FileRegistered = our_FileAssociationsRegistered();
+
+#ifdef LAGUI_ANDROID
+    android_ensure_asset_to_public_dir("default_brushes.udf");
+    android_ensure_asset_to_public_dir("default_pallettes.udf");
+#endif
 
     return 1;
 }
