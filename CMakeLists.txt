@@ -63,7 +63,9 @@ include_directories(
 )
 
 file(GLOB_RECURSE OurPaintFiles
-    ourpaint.c ouroperations.c ournodes.c ourtranslations.c ourshader.cpp ourstrings.cpp
+    ourpaint.c ouroperations.c ournodes.c ourshader.cpp ourstrings.cpp
+    ourtranslations_zh-hans.c
+    ourtranslations_es-ES.c
     BuildResources/data_splash.c
     BuildResources/data_splash_highdpi.c
 )

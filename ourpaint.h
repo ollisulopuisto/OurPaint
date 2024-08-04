@@ -492,6 +492,7 @@ int ourInit();
 void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();
-void ourMakeTranslations();
+void ourMakeTranslations_zh_hans();
+void ourMakeTranslations_es_ES();
 void our_EnableSplashPanel();
 

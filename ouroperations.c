@@ -3546,7 +3546,8 @@ void ourRegisterEverything(){
     laSetSaveCallback(ourPreSave, ourPostSave);
     laSetCleanupCallback(ourCleanUp);
 
-    ourMakeTranslations();
+    ourMakeTranslations_es_ES();
+    ourMakeTranslations_zh_hans();
 }
 
 #ifdef LAGUI_ANDROID

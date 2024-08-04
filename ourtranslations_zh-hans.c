@@ -186,8 +186,8 @@ static const char *entries[]={
 "Brush Settings","笔刷设置",
 0,0};
 
-void ourMakeTranslations(){
-    transSetLanguage("zh-CN");
+void ourMakeTranslations_zh_hans(){
+    transSetLanguage("zh-hans");
     for(int i=0;;i++){if(!entries[i*2])break;
         transNewEntry(entries[i*2],entries[i*2+1]);
     }
