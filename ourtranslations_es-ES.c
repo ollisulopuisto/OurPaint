@@ -16,6 +16,11 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*
+* ourtranslations_es-ES.c is contributed by ~peron <peron@texto-plano.xyz>
+* Thank you very much for the effort :D
+*/
+
 #include "ourpaint.h"
 
 extern LA MAIN;
