@@ -34,9 +34,11 @@ SET(OPS ../../)
 
 add_library(${PROJECT_NAME} SHARED
 
-${OPS}ourpaint.c ${OPS}ouroperations.c ${OPS}ournodes.c ${OPS}ourtranslations.c ${OPS}ourshader.cpp ${OPS}ourstrings.cpp
+${OPS}ourpaint.c ${OPS}ouroperations.c ${OPS}ournodes.c ${OPS}ourshader.cpp ${OPS}ourstrings.cpp
 ${OPS}BuildResources/data_splash.c
 ${OPS}BuildResources/data_splash_highdpi.c
+${OPS}ourtranslations_zh-hans.c 
+${OPS}ourtranslations_es-ES.c 
 
 ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
 
