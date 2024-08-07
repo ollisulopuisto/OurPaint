@@ -161,11 +161,13 @@ void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 }
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
+    laShowInvisibleItem(uil,c,0,"our.canvas_notify");
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
     laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
 }
 void ourui_ThumbnailPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
+    laShowInvisibleItem(uil,c,0,"our.canvas_notify");
     laUiItem* ui=laShowCanvas(uil,c,0,"our.canvas",0,-1);
     laCanvasExtra* ce=ui->Extra; ce->ZoomX=ce->ZoomY=1.0f/Our->DefaultScale;
     ce->SelectThrough = 1;
@@ -1122,14 +1124,14 @@ void ourundo_Tiles(OurUndo* undo){
         our_LayerEnsureTileDirect(undo->Layer,ut->row,ut->col);
         our_TileSwapBuffers(undo->Layer->TexTiles[ut->row][ut->col], ut->CopyData, 0, ut->l, ut->r, ut->u, ut->b);
     }
-    laNotifyUsers("our.canvas");
+    laNotifyUsers("our.canvas_notify");
 }
 void ourredo_Tiles(OurUndo* undo){
     for(OurUndoTile* ut=undo->Tiles.pFirst;ut;ut=ut->Item.pNext){
         our_LayerEnsureTileDirect(undo->Layer,ut->row,ut->col);
         our_TileSwapBuffers(undo->Layer->TexTiles[ut->row][ut->col], ut->CopyData, 0, ut->l, ut->r, ut->u, ut->b);
     }
-    laNotifyUsers("our.canvas");
+    laNotifyUsers("our.canvas_notify");
 }
 void ourundo_Free(OurUndo* undo,int FromLeft){
     OurUndoTile* ut;
@@ -2039,12 +2041,12 @@ int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
 void ourundo_Move(OurMoveUndo* undo){
     our_LayerClearEmptyTiles(undo->Layer);
     our_MoveLayer(undo->Layer, -undo->dx, -undo->dy,0,0);
-    laNotifyUsers("our.canvas");
+    laNotifyUsers("our.canvas_notify");
 }
 void ourredo_Move(OurMoveUndo* undo){
     our_LayerClearEmptyTiles(undo->Layer);
     our_MoveLayer(undo->Layer, undo->dx, undo->dy,0,0);
-    laNotifyUsers("our.canvas");
+    laNotifyUsers("our.canvas_notify");
 }
 void our_DoMoving(OurCanvasDraw* cd, real x, real y, int *movedx, int *movedy){
     OurLayer* ol=Our->CurrentLayer; if(!ol){ return; }
@@ -2052,7 +2054,7 @@ void our_DoMoving(OurCanvasDraw* cd, real x, real y, int *movedx, int *movedy){
     dx/=OUR_TILE_W_USE; dy/=OUR_TILE_W_USE;
     if(dx || dy){
         our_MoveLayer(ol, dx,dy,movedx,movedy);
-        laNotifyUsers("our.canvas");
+        laNotifyUsers("our.canvas_notify");
         cd->CanvasDownX+=dx*OUR_TILE_W_USE; cd->CanvasDownY+=dy*OUR_TILE_W_USE;
     }
 }
@@ -2426,7 +2428,7 @@ int ourmod_Paint(laOperator* a, laEvent* e){
                     Pressure,Orientation,Deviation,Twist,
                     &tl,&tr,&tu,&tb,&ex->CanvasLastX,&ex->CanvasLastY)){
                     our_PaintDoDabsWithSmudgeSegments(l,tl,tr,tu,tb);
-                    laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+                    laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
                 }
                 ex->LastPressure=Pressure;ex->LastTilt[0]=Orientation;ex->LastTilt[1]=Deviation; ex->LastTwist=Twist;
                 if(UseEvent==e){ break; }
@@ -2613,7 +2615,7 @@ int ourinv_ClearEmptyTiles(laOperator* a, laEvent* e){
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){
         our_LayerClearEmptyTiles(ol);
     }
-    laNotifyUsers("our.canvas");
+    laNotifyUsers("our.canvas_notify");
     return LA_FINISHED;
 }
 
@@ -2797,60 +2799,60 @@ void ourset_LayerImageSegmentedInfo(OurLayer* l, void* data, int size){
 }
 
 void ourset_LayerMove(OurLayer* l, int move){
-    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas"); }
-    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas"); }
+    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas_notify"); }
+    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas_notify"); }
 }
 void ourset_LayerAlpha(OurLayer* l, real a){
-    l->Transparency=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    l->Transparency=a; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_LayerHide(OurLayer* l, int hide){
-    l->Hide=hide; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    l->Hide=hide; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_LayerAsSketch(OurLayer* l, int sketch){
-    l->AsSketch=sketch; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    l->AsSketch=sketch; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_LayerBlendMode(OurLayer* l, int mode){
-    l->BlendMode=mode; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    l->BlendMode=mode; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_BrushMove(OurBrush* b, int move){
     if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
     elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
 }
 void ourset_BrushSize(void* unused, real v){
-    Our->BrushSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas");
+    Our->BrushSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas_notify");
 }
 void ourset_BrushBaseSize(void* unused, real v){
-    Our->BrushBaseSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas");
+    Our->BrushBaseSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas_notify");
 }
 void ourset_BackgroundColor(void* unused, real* arr){
-    memcpy(Our->BackgroundColor, arr, sizeof(real)*3); laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    memcpy(Our->BackgroundColor, arr, sizeof(real)*3); laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_BorderAlpha(void* unused, real a){
-    Our->BorderAlpha=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->BorderAlpha=a; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_Tool(void* unused, int a){
-    Our->Tool=a; laNotifyUsers("our.canvas");
+    Our->Tool=a; laNotifyUsers("our.canvas_notify");
 }
 void ourset_BorderFadeWidth(void* unused, real a){
-    Our->BorderFadeWidth=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->BorderFadeWidth=a; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_ShowBorder(void* unused, int a){
-    Our->ShowBorder=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->ShowBorder=a; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_ColorInterpretation(void* unused, int a){
-    Our->ColorInterpretation=a; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->ColorInterpretation=a; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
-void ourset_ShowTiles(void* unused, int a){ Our->ShowTiles=a; laNotifyUsers("our.canvas"); }
-void ourset_ShowStripes(void* unused, int a){ Our->ShowStripes=a; laNotifyUsers("our.canvas"); }
-void ourset_ShowGrid(void* unused, int a){ Our->ShowGrid=a; laNotifyUsers("our.canvas"); }
+void ourset_ShowTiles(void* unused, int a){ Our->ShowTiles=a; laNotifyUsers("our.canvas_notify"); }
+void ourset_ShowStripes(void* unused, int a){ Our->ShowStripes=a; laNotifyUsers("our.canvas_notify"); }
+void ourset_ShowGrid(void* unused, int a){ Our->ShowGrid=a; laNotifyUsers("our.canvas_notify"); }
 void ourset_CanvasSize(void* unused, int* wh){
-    Our->W=wh[0]; Our->H=wh[1]; if(Our->W<32) Our->W=32; if(Our->H<32) Our->H=32; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->W=wh[0]; Our->H=wh[1]; if(Our->W<32) Our->W=32; if(Our->H<32) Our->H=32; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_CanvasPosition(void* unused, int* xy){
-    Our->X=xy[0]; Our->Y=xy[1]; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->X=xy[0]; Our->Y=xy[1]; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_LayerPosition(OurLayer* l, int* xy){
-    l->OffsetX=xy[0]; l->OffsetY=xy[1]; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    l->OffsetX=xy[0]; l->OffsetY=xy[1]; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourreset_Canvas(OurPaint* op){
     while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst,1); }
@@ -2877,7 +2879,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
 void ourset_CurrentLayer(void* unused, OurLayer*l){
-    memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas");
+    memAssignRef(Our, &Our->CurrentLayer, l); laNotifyUsers("our.canvas_notify");
 }
 void ourset_CurrentPallette(void* unused, OurColorPallette* cp){
     memAssignRef(Our,&Our->CurrentPallette,cp);
@@ -2897,15 +2899,15 @@ void ourset_ColorBoost(void* unused, real boost){
     tnsVectorMultiSelf3d(Our->CurrentColor,fac);
     laNotifyUsers("our.color_boost");
 }
-void ourset_ShowRef(void* unused, int c){ Our->ShowRef=c; laNotifyUsers("our.canvas"); }
-void ourset_RefCategory(void* unused, int c){ Our->RefCategory=c; laNotifyUsers("our.canvas"); }
-void ourset_RefSize(void* unused, int c){ Our->RefSize=c; laNotifyUsers("our.canvas"); }
-void ourset_RefOrientation(void* unused, int c){ Our->RefOrientation=c; laNotifyUsers("our.canvas"); }
-void ourset_RefMargins(void* unused, real* v){ tnsVectorSet2v(Our->RefMargins,v);laNotifyUsers("our.canvas"); }
-void ourset_RefPaddings(void* unused, real* v){ tnsVectorSet2v(Our->RefPaddings,v); laNotifyUsers("our.canvas"); }
-void ourset_RefMiddleMargin(void* unused, real v){ Our->RefMargins[2]=v;laNotifyUsers("our.canvas"); }
+void ourset_ShowRef(void* unused, int c){ Our->ShowRef=c; laNotifyUsers("our.canvas_notify"); }
+void ourset_RefCategory(void* unused, int c){ Our->RefCategory=c; laNotifyUsers("our.canvas_notify"); }
+void ourset_RefSize(void* unused, int c){ Our->RefSize=c; laNotifyUsers("our.canvas_notify"); }
+void ourset_RefOrientation(void* unused, int c){ Our->RefOrientation=c; laNotifyUsers("our.canvas_notify"); }
+void ourset_RefMargins(void* unused, real* v){ tnsVectorSet2v(Our->RefMargins,v);laNotifyUsers("our.canvas_notify"); }
+void ourset_RefPaddings(void* unused, real* v){ tnsVectorSet2v(Our->RefPaddings,v); laNotifyUsers("our.canvas_notify"); }
+void ourset_RefMiddleMargin(void* unused, real v){ Our->RefMargins[2]=v;laNotifyUsers("our.canvas_notify"); }
 void ourset_RefAlpha(void* unused, real a){
-    Our->RefAlpha=a; laNotifyUsers("our.canvas");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    Our->RefAlpha=a; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourset_BrushPage(void* unused, int a){ Our->BrushPage=a; laNotifyUsers("our.tools.brushes"); }
 void ourset_BrushNumber(void* unused, int a){ TNS_CLAMP(a,0,10); Our->BrushNumber=a;
@@ -2931,7 +2933,7 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     if(Our->BrushPage==3 && (b->ShowInPages&(1<<2))) return 1;
     return 0;
 }
-void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas"); }
+void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas_notify"); }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -3207,6 +3209,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_paint","Our Paint","OurPaint main",0,0,sizeof(OurPaint),0,0,1);
     laAddRawProperty(pc,"thumbnail","Thumbnail","Thumbnail of this file",0,0,ourgetraw_FileThumbnail,oursetraw_FileThumbnail,LA_READ_ONLY);
+    laAddSubGroup(pc,"canvas_notify","Canvas Notify","Property used to notify canvas redraw","our_canvas",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL|LA_UDF_IGNORE);
     laAddSubGroup(pc,"canvas","Canvas","OurPaint canvas","our_canvas",0,0,0,0,0,0,0,0,ourgetstate_Canvas,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"tools","Tools","OurPaint tools","our_tools",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddSubGroup(pc,"preferences","Preferences","OurPaint preferences","our_preferences",0,0,0,0,0,0,0,0,0,0,0,LA_UDF_LOCAL);

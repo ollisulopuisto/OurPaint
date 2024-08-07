@@ -351,15 +351,15 @@ void DoSample(){
         vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*uBrushSize);
         ivec2 px=ivec2(sp)+uBrushCorner; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024){ DoSample=0; }
         if(DoSample!=0){
-            ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ OurImageStore(smudge_buckets,ivec2(128+32,0),OurImageLoad(img, b)); }
+            ivec2 b=uBrushCorner; if(b.x>=0&&b.y>=0&&b.x<1024&&b.y<1024){ OurImageStore(smudge_buckets,ivec2(128+WORKGROUP_SIZE,0),OurImageLoad(img, b)); }
             color=OurImageLoad(img, px);
             OurImageStore(smudge_buckets,ivec2(p.x+128,0),color);
         }
     }else{DoSample=0;}
     memoryBarrier();barrier(); if(DoSample==0) return;
     if(uBrushErasing==0 || p.x!=0) return;
-    color=vec4(0.,0.,0.,0.); for(int i=0;i<32;i++){ color=color+OurImageLoad(smudge_buckets, ivec2(i+128,0)); }
-    color=spectral_mix_unpre(color/32.,OurImageLoad(smudge_buckets, ivec2(128+32,0)),0.6*(1.0f-uBrushColor.a)); vec4 oldcolor=OurImageLoad(smudge_buckets, ivec2(0,0));
+    color=vec4(0.,0.,0.,0.); for(int i=0;i<WORKGROUP_SIZE;i++){ color=color+OurImageLoad(smudge_buckets, ivec2(i+128,0)); }
+    color=spectral_mix_unpre(color/vec4(WORKGROUP_SIZE),OurImageLoad(smudge_buckets, ivec2(128+WORKGROUP_SIZE,0)),0.6*(1.0f-uBrushColor.a)); vec4 oldcolor=OurImageLoad(smudge_buckets, ivec2(0,0));
     OurImageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);
     OurImageStore(smudge_buckets,ivec2(0,0),color);
 }
