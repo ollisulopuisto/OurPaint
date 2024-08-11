@@ -3004,8 +3004,14 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+#if 1
+    laUiList* mu;
+    mu = laMakeMenuPage(uil,c,"🖌"); ourui_BrushesPanel(mu,0,0,0,0);
+    mu = laMakeMenuPage(uil,c,"🎨"); ourui_ColorPanel(mu,0,0,0,0);
+    mu = laMakeMenuPage(uil,c,"🔧"); ourui_ToolsPanel(mu,0,0,0,0);
+    mu = laMakeMenuPage(uil,c,"☰"); ourui_LayersPanel(mu,0,0,0,0);
+#endif
     laShowSeparator(uil,c)->Expand=1;
-    //laShowLabel(uil, c, MAIN.MenuProgramName, 0, 0)->Expand=1;
 }
 
 int our_FileAssociationsRegistered(){
@@ -3239,7 +3245,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Preferences,0,0,0);
-    laAddFloatProperty(pc,"brush_size","Brush Size","Brush size for drawing",0,0,0,10,0,0.05,2,0,offsetof(OurPaint,BrushSize),0,0,0,0,0,0,0,ourset_BrushSize,0,0,0);
+    laAddFloatProperty(pc,"brush_size","Brush Size","Brush size for drawing",0,0,0,10,0,0.05,2,0,offsetof(OurPaint,BrushSize),0,ourset_BrushSize,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"enable_brush_circle","Brush Circle","Enable brush circle when hovering",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,EnableBrushCircle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show brush circle",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show brush circle on hover",1,0);
@@ -3364,7 +3370,7 @@ void ourRegisterEverything(){
 
     pc=laAddPropertyContainer("our_canvas","Our Canvas","OurPaint canvas",0,0,sizeof(OurPaint),ourpost_Canvas,0,1);
     laPropContainerExtraFunctions(pc,0,ourreset_Canvas,0,0,0);
-    laAddFloatProperty(pc,"brush_base_size","Brush Base Size","Brush base size for using numbered sizes",0,0,0,5,0,0.05,2,0,offsetof(OurPaint,BrushBaseSize),0,0,0,0,0,0,0,ourset_BrushBaseSize,0,0,0);
+    laAddFloatProperty(pc,"brush_base_size","Brush Base Size","Brush base size for using numbered sizes",0,0,0,5,0,0.05,2,0,offsetof(OurPaint,BrushBaseSize),0,ourset_BrushBaseSize,0,0,0,0,0,0,0,0,0);
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
     laAddStringProperty(pc,"notes","Notes","Notes of this painting",LA_WIDGET_STRING_MULTI,0,0,0,1,offsetof(OurPaint,Notes),0,0,0,0,0);
@@ -3380,7 +3386,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"PAPER","Paper","Background mimics paper texture",2,0);
     laAddIntProperty(pc,"background_random","Random","Background random pattern value",0,0,0,0,0,0,0,0,offsetof(OurPaint,BackgroundRandom),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,0,0,0,0,0,0,ourset_BorderAlpha,0,0,0);
+    laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,ourset_BorderAlpha,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_fade_width","Fade Width","Fading of the border",0,0,0,1,0,0.01,0,0,offsetof(OurPaint,BorderFadeWidth),0,ourset_BorderFadeWidth,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
@@ -3388,7 +3394,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"color_interpretation","Color Interpretation","Interpret the color values on this canvas as in which color space",0,0,0,0,0,offsetof(OurPaint,ColorInterpretation),0,ourset_ColorInterpretation,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Interpret the color values as if they are in Linear sRGB color space",OUR_CANVAS_INTERPRETATION_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Interpret the color values as if they are in Linear Clay color space (AdobeRGB 1998 compatible)",OUR_CANVAS_INTERPRETATION_CLAY,0);
-    laAddFloatProperty(pc,"ref_alpha","Ref Alpha","Alpha of the reference lines",0,0,0,1,0,0.05,0.75,0,offsetof(OurPaint,RefAlpha),0,0,0,0,0,0,0,ourset_RefAlpha,0,0,0);
+    laAddFloatProperty(pc,"ref_alpha","Ref Alpha","Alpha of the reference lines",0,0,0,1,0,0.05,0.75,0,offsetof(OurPaint,RefAlpha),0,ourset_RefAlpha,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"ref_mode","Show Reference Lines","Whether to show reference lines",0,0,0,0,0,offsetof(OurPaint,ShowRef),0,ourset_ShowRef,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Don't show reference lines",0,0);
     laAddEnumItemAs(p,"BORDER","Border","Show reference lines like paper boundaries",1,0);
@@ -3454,6 +3460,10 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_M_MOUSE_DOWN, 0, "mode=mouse;lock=true;");
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, LA_KEY_ALT, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_M_MOUSE_DOWN, 0, 0);
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, LA_PANNING_LEFT, "pan=left");
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, LA_PANNING_RIGHT, "pan=right");
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, LA_PANNING_UP, "pan=up");
+    laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_KEY_DOWN, LA_PANNING_DOWN, "pan=down");
     laAssignNewKey(km, 0, "OUR_action", LA_KM_SEL_UI_EXTRA, 0, LA_L_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_R_MOUSE_DOWN, 0, 0);
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, LA_KEY_CTRL, LA_L_MOUSE_DOWN, 0, 0);
