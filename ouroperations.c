@@ -3004,7 +3004,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
-#if 1
+#if LAGUI_ANDROID
     laUiList* mu;
     mu = laMakeMenuPage(uil,c,"🖌"); ourui_BrushesPanel(mu,0,0,0,0);
     mu = laMakeMenuPage(uil,c,"🎨"); ourui_ColorPanel(mu,0,0,0,0);
