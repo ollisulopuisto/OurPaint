@@ -180,14 +180,14 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         laShowLabel(uil,cl,"🖉",0,0);
     }laEndCondition(uil,b0);
     laShowItemFull(uil,cl,This,"name",LA_WIDGET_STRING_PLAIN,0,0,0)->Expand=1;
-    laShowItemFull(uil,cl,This,"lock",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
-    laShowItemFull(uil,cl,This,"hide",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
+    laShowItemFull(uil,cl,This,"lock",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_CONFIRM;
+    laShowItemFull(uil,cl,This,"hide",LA_WIDGET_ENUM_CYCLE_ICON,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_CONFIRM;
     laEndRow(uil,b);
     laUiItem* b1=laOnConditionToggle(uil,cr,0,0,0,0,0);{ strSafeSet(&b1->ExtraInstructions,"text=☰");
         b=laBeginRow(uil,c,0,0);
-        laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laShowSeparator(uil,c)->Expand=1;
-        laShowItem(uil,c,This,"as_sketch")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,This,"as_sketch")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laShowSeparator(uil,c);
         laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
         laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
@@ -200,43 +200,45 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.current_layer"));{
         laUiItem* b1=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,0,"our.canvas.current_layer.name")->Expand=1;
-        laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b1);
         laShowItem(uil,cl,0,"our.canvas.current_layer.transparency");
-        laShowItem(uil,cr,0,"our.canvas.current_layer.blend_mode");
+        laShowItem(uil,cr,0,"our.canvas.current_layer.blend_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     }laElse(uil,b);{
-        laShowItem(uil,c,0,"OUR_new_layer");
+        laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
 
     laUiItem* lui=laShowItemFull(uil,c,0,"our.canvas.layers",0,0,0,0);
+    lui->Flags|=LA_UI_FLAGS_NO_CONFIRM;
 
     b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.current_layer"));{
         laUiItem* b1=laBeginRow(uil,c,0,0);
-        laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON;
-        laShowItem(uil,c,&lui->PP,"merge");
+        laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+        laShowItem(uil,c,&lui->PP,"merge")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laShowSeparator(uil,c)->Expand=1;
-        laShowItem(uil,c,&lui->PP,"duplicate");
+        laShowItem(uil,c,&lui->PP,"duplicate")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b1);
     }laEndCondition(uil,b);
 
     laShowSeparator(uil,c);
 
     b=laBeginRow(uil,c,0,0);
-    laShowItem(uil,c,0,"OUR_cycle_sketch")->Expand=1;
-    laShowSeparator(uil,c); laShowItem(uil,c,0,"our.canvas.sketch_mode");
+    lui=laShowItem(uil,c,0,"OUR_cycle_sketch"); lui->Expand=1; lui->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+    laShowSeparator(uil,c); laShowItem(uil,c,0,"our.canvas.sketch_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laEndRow(uil,b);
 
     laShowSeparator(uil,c);
 
     b=laBeginRow(uil,c,0,0);
-    lui=laShowLabel(uil,c,"Color Space:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,c,0,"our.canvas.color_interpretation");
+    lui=laShowLabel(uil,c,"Color Space:",0,0);lui->Expand=1;lui->Flags|=LA_TEXT_ALIGN_RIGHT;
+    laShowItem(uil,c,0,"our.canvas.color_interpretation")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laEndRow(uil,b);
 
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Background:",0,0);
     laUiItem* b2=laOnConditionThat(uil,c,laPropExpression(0,"our.lock_background"));{
-        laShowItemFull(uil,c,0,"our.lock_background",LA_WIDGET_ENUM_CYCLE,0,0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+        laShowItemFull(uil,c,0,"our.lock_background",LA_WIDGET_ENUM_CYCLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
     }laElse(uil,b2);{
         b=laBeginRow(uil,c,1,0);
         laShowLabel(uil,c,"Color:",0,0);
@@ -244,7 +246,7 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laEndRow(uil,b);
         b=laBeginRow(uil,c,1,0);
         laShowLabel(uil,c,"Pattern:",0,0);
-        laShowItemFull(uil,c,0,"our.canvas.background_type",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
+        laShowItemFull(uil,c,0,"our.canvas.background_type",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b);
         b=laBeginRow(uil,c,1,0);
         laShowItemFull(uil,c,0,"our.canvas.background_random",0,0,0,0);
@@ -260,13 +262,13 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     laEndRow(uil,b);
     laUiItem* b1=laOnConditionToggle(uil,cr,0,0,0,0,0);{ strSafeSet(&b1->ExtraInstructions,"text=☰");
         b=laBeginRow(uil,c,0,0);
-        laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laShowItem(uil,c,This,"binding")->Expand=1;
         laShowItem(uil,c,This,"show_in_pages")
-            ->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_CYCLE|LA_UI_FLAGS_HIGHLIGHT|LA_UI_FLAGS_TRANSPOSE|LA_UI_FLAGS_ICON;
-        laShowItem(uil,c,This,"duplicate")->Flags|=LA_UI_FLAGS_ICON;
-        laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
-        laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
+            ->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_CYCLE|LA_UI_FLAGS_HIGHLIGHT|LA_UI_FLAGS_TRANSPOSE|LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+        laShowItem(uil,c,This,"duplicate")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+        laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+        laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b);
     }laEndCondition(uil,b1);
 }
@@ -297,27 +299,27 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 #define OUR_ER laEndRow(uil,b1);
 #define OUR_PRESSURE(a) \
     b2=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"use_nodes")));\
-    laShowItemFull(uil,c,&cb->PP, a,0,"text=P",0,0);\
+    laShowItemFull(uil,c,&cb->PP, a,0,"text=P",0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;\
     laEndCondition(uil,b2);
 #define OUR_TWIST(a) \
     b2=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"use_nodes")));\
-    laShowItemFull(uil,c,&cb->PP, a,0,"text=T",0,0);\
+    laShowItemFull(uil,c,&cb->PP, a,0,"text=T",0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;\
     laEndCondition(uil,b2);
 
-    laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(&cb->PP,0));{
             b1=laBeginRow(uil,c,1,0);
-            laShowItem(uil,c,0,"our.erasing"); 
+            laShowItem(uil,c,0,"our.erasing")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
             laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
-                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_DISABLED;
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
             }laElse(uil,b);{
-                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND;
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
             }laEndCondition(uil,b);
             laEndRow(uil,b1);
             laShowLabel(uil,c,"Brush Settings:",0,0);
-            laShowItem(uil,c,&cb->PP,"name");
-            laShowItem(uil,cl,&cb->PP,"use_nodes");
+            laShowItem(uil,c,&cb->PP,"name")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            laShowItem(uil,cl,&cb->PP,"use_nodes")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
 
             laUiItem* b3=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));{
                 laShowItemFull(uil,cr,0,"LA_panel_activator",0,"text=Edit;panel_id=panel_brush_nodes",0,0);
@@ -403,24 +405,24 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
         laShowItem(uil,c,0,"our.preferences.smoothness");
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
-            laUiItem* uib=laShowItemFull(uil,c,0,"our.preferences.brush_number",0,0,0,0); uib->Flags|=LA_UI_FLAGS_EXPAND;
+            laUiItem* uib=laShowItemFull(uil,c,0,"our.preferences.brush_number",0,0,0,0); uib->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
             laUiItem* bn=laOnConditionThat(uil,c,laPropExpression(&uib->PP,""));{
-                laShowItemFull(uil,c,0,"our.canvas.brush_base_size",0,0,0,0);
+                laShowItemFull(uil,c,0,"our.canvas.brush_base_size",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
             }laElse(uil,bn);{
-                laShowItemFull(uil,c,0,"our.preferences.brush_size",0,0,0,0);
+                laShowItemFull(uil,c,0,"our.preferences.brush_size",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
             }laEndCondition(uil,bn);
 
             laShowSeparator(uil,c);
 
-            OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+            OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
             laShowSeparator(uil,c)->Expand=1; OUR_ER
         }laEndCondition(uil,b);
         b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.brush_page"),laIntExpression(OUR_BRUSH_PAGE_LIST)));{
-            laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0);
-            laShowItem(uil,c,0,"OUR_new_brush");
+            laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            laShowItem(uil,c,0,"OUR_new_brush")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laElse(uil,b);{
             laUiItem* bui=laShowItemFull(uil,c,0,"our.tools.brushes",0,0,ourui_BrushSimple,0);
-            bui->SymbolID=2;
+            bui->SymbolID=2; bui->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b);
     }laElse(uil,bt);{
         laShowLabel(uil,c,"Brush tool not selected",0,0);
@@ -430,12 +432,12 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laColumn* c=laFirstColumn(uil);
 
     laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_SRGB)));{
-        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0);
+        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     }laElse(uil,b);{
-        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY;
+        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
     b=laBeginRow(uil,c,0,0);
-    laShowItem(uil,c,0,"our.preferences.spectral_mode");
+    laShowItem(uil,c,0,"our.preferences.spectral_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laShowItem(uil,c,0,"our.current_color")->Expand=1;
     laUiItem* b2=laOnConditionToggle(uil,c,0,0,0,0,0);
     laEndRow(uil,b);
@@ -471,9 +473,9 @@ void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintnodeshelp;text=Nodes Help", 0, 0);
     laEndRow(uil,row);
 
-    laShowItemFull(uil,cl,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
+    laShowItemFull(uil,cl,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
-        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
+        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
 }
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -2992,11 +2994,11 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     laColumn *c = laFirstColumn(uil);
     laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(0)));{
-        laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0);
+        laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laUiItem* b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
             laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED;
         }laElse(uil,b1);{
-            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b1);
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
             laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
