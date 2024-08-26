@@ -384,7 +384,7 @@ STRUCTURE(OurPaint){
 
     laSafeString* Notes;
 
-    real Smoothness;
+    real Smoothness,Hardness;
     real LastX, LastY;
 
     real CurrentScale;
@@ -406,10 +406,12 @@ STRUCTURE(OurPaint){
     int ColorInterpretation;
     int ShowBorder,UseBorder;
     int ShowTiles;
+    int BrushCircleTiltMode;
     int AllowNonPressure,PaintProcessedEvents;
     int BadEventsLimit,BadEventCount,BadEventsGiveUp;
 
-    int EnableBrushCircle,ShowBrushName,ShowBrushNumber; int EventHasTwist; real EventTwistAngle;
+    int EnableBrushCircle,ShowBrushName,ShowBrushNumber;
+    int EventHasTwist; real EventTwistAngle; real EventTiltOrientation;
     int DefaultBitDepth;
     int DefaultColorProfile;
     int PaintUndoLimit;

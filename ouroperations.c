@@ -525,16 +525,24 @@ void ourui_AboutContent(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
 }
 void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laUiItem* b,*uiitem;
 
     laShowLabel(uil,c,"Generic:",0,0);
-    laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
-    laShowItem(uil,cr,0,"our.preferences.show_stripes");
-    laShowItem(uil,cr,0,"our.preferences.smoothness");
-    laShowItem(uil,cl,0,"our.preferences.spectral_mode");
-    laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
-    laShowItem(uil,cl,0,"our.preferences.show_grid");
-    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
-    laShowItem(uil,cl,0,"our.preferences.multithread_write");
+    uiitem=laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
+    b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
+    laShowItem(uil,cr,0,"our.preferences.brush_circle_tilt_mode")->Flags|=LA_UI_FLAGS_EXPAND;
+    laEndCondition(uil,b);
+    laShowItem(uil,cl,0,"our.preferences.smoothness");
+    laShowItem(uil,cr,0,"our.preferences.hardness");
+
+    laShowSeparator(uil,c);
+
+    laShowItem(uil,cl,0,"our.preferences.show_stripes");
+    laShowItem(uil,cr,0,"our.preferences.spectral_mode");
+    laShowItem(uil,cl,0,"our.preferences.canvas_default_scale");
+    laShowItem(uil,cr,0,"our.preferences.show_grid");
+    laShowItem(uil,cl,0,"our.preferences.brush_numbers_on_header");
+    laShowItem(uil,cr,0,"our.preferences.multithread_write");
     laShowSeparator(uil,c);
     laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
@@ -552,11 +560,11 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     
     laShowSeparator(uil,c);
 
-#ifdef __linux__
+#ifdef LA_LINUX
 
     laShowLabel(uil,c,"System:",0,0);
     laShowItem(uil,cl,0,"OUR_register_file_associations");
-    laUiItem* b=laOnConditionThat(uil,cr,laPropExpression(0,"our.preferences.file_registered"));{
+    b=laOnConditionThat(uil,cr,laPropExpression(0,"our.preferences.file_registered"));{
         laShowLabel(uil,cr,"Registered",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
     }laElse(uil,b);{
         laShowLabel(uil,cr,"Not registered",0,0)->Flags|=LA_UI_FLAGS_HIGHLIGHT;
@@ -815,16 +823,23 @@ void our_CanvasDrawBrushCircle(OurCanvasDraw* ocd){
     tnsColor4d(1,1,1,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
     tnsMakeCircle2d(v,48,ocd->Base.OnX,ocd->Base.OnY,Radius-0.5,0);
     tnsColor4d(0,0,0,0.5); tnsVertexArray2d(v,48); tnsPackAs(GL_LINE_LOOP);
-    if(Our->EventHasTwist){
+    real brush_angle = 0;
+    switch(Our->BrushCircleTiltMode){
+    case 0: default: break;
+    case 1: brush_angle = -Our->EventTiltOrientation; break;
+    case 2: brush_angle = Our->EventTwistAngle; break;
+    case 3: brush_angle = Our->EventHasTwist?Our->EventTwistAngle:-Our->EventTiltOrientation; break;
+    }
+    if(Our->BrushCircleTiltMode){
         tnsColor4d(0,0,0,0.5);
-        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle+gap)*Radius);
-        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle-gap)*Radius);
-        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle-gap)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle-gap)*Radius);
-        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle+gap)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle+gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX+sin(brush_angle+gap)*Radius,ocd->Base.OnY+cos(brush_angle+gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(brush_angle-gap)*Radius,ocd->Base.OnY-cos(brush_angle-gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX+sin(brush_angle-gap)*Radius,ocd->Base.OnY+cos(brush_angle-gap)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(brush_angle+gap)*Radius,ocd->Base.OnY-cos(brush_angle+gap)*Radius);
         tnsPackAs(GL_LINES);
         tnsColor4d(1,1,1,0.5);
-        tnsVertex2d(ocd->Base.OnX+sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY+cos(Our->EventTwistAngle)*Radius);
-        tnsVertex2d(ocd->Base.OnX-sin(Our->EventTwistAngle)*Radius,ocd->Base.OnY-cos(Our->EventTwistAngle)*Radius);
+        tnsVertex2d(ocd->Base.OnX+sin(brush_angle)*Radius,ocd->Base.OnY+cos(brush_angle)*Radius);
+        tnsVertex2d(ocd->Base.OnX-sin(brush_angle)*Radius,ocd->Base.OnY-cos(brush_angle)*Radius);
         tnsPackAs(GL_LINES);
     }
     if(Our->CurrentBrush && Our->CurrentBrush->VisualOffset > 1e-4){
@@ -966,6 +981,7 @@ int ourextramod_Canvas(laOperator *a, laEvent *e){
         our_GetBrushOffset(0,Our->CurrentBrush,e->Orientation,&offx,&offy);
         ocd->Base.OnX=e->x-offx; ocd->Base.OnY=e->y-offy;
         laRedrawCurrentPanel(); Our->EventHasTwist=e->HasTwist; Our->EventTwistAngle=e->Twist;
+        Our->EventTiltOrientation=e->Orientation;
     }
     return LA_RUNNING_PASS;
 }
@@ -2421,6 +2437,7 @@ int ourmod_Paint(laOperator* a, laEvent* e){
             if(Our->BadEventCount>=Our->BadEventsLimit){ Our->BadEventsGiveUp=1; }
         }else{
             Our->PaintProcessedEvents=1; laEvent* UseEvent;real Pressure=e->Pressure,Orientation=-e->Orientation,Deviation=e->Deviation,Twist=e->Twist;
+            Pressure = pow(Pressure,Our->Hardness>=0?(Our->Hardness+1):(1+Our->Hardness/2));
             while(1){
                 UseEvent=lstPopItem(&Our->BadEvents); if(!UseEvent){ UseEvent=e; }
                 real ofx,ofy; our_GetBrushOffset(ex,Our->CurrentBrush,ex->DownTilt,&ofx,&ofy);
@@ -3281,6 +3298,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Hide brush numbers on header",0,0);
     laAddEnumItemAs(p,"SHOWN","Shown","Show brush numbers on header",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"hardness","Hardness","Pressure hardness of global brush input",0,0, 0,1,-1,0.05,0,0,offsetof(OurPaint,Hardness),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show visual reference stripes at the top and bottom of the canvas",1,0);
@@ -3305,6 +3323,11 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"file_registered","File Registered","Whether Our Paint is registered in the system",0,0,0,0,0,offsetof(OurPaint,FileRegistered),0,0,0,0,0,0,0,0,0,LA_READ_ONLY|LA_UDF_IGNORE);
     laAddEnumItemAs(p,"FALSE","Not registered","File association isn't registered",0,0);
     laAddEnumItemAs(p,"TRUE","Registered","File association is registered",1,0);
+    p=laAddEnumProperty(pc,"brush_circle_tilt_mode","Brush Circle Tilt Mode","Brush circle tilt display mode",0,0,0,0,0,offsetof(OurPaint,BrushCircleTiltMode),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Only show a circle",0,0);
+    laAddEnumItemAs(p,"TILT","Tilt","Brush direction line follows tilt direction",1,0);
+    laAddEnumItemAs(p,"TWIST","Twist","Brush direction line follows twist direction",2,0);
+    laAddEnumItemAs(p,"AUTO","Auto","Brush direction line determines automatically whether to show tilt or twist",3,0);
 
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
