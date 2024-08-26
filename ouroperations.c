@@ -2997,8 +2997,9 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
         laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laUiItem* b1;
 #ifdef LAGUI_ANDROID
-        laShowItem(uil, c, 0, "LA_undo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
-        laShowItem(uil, c, 0, "LA_redo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+        // undo seems not very responsive clicking from title bar.
+        //laShowItem(uil, c, 0, "LA_undo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+        //laShowItem(uil, c, 0, "LA_redo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
 #else
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
             laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
