@@ -29,9 +29,11 @@ precision highp float;
 precision highp int;
 layout(r32ui, binding = 0) uniform uimage2D img;
 layout(r32ui, binding = 1) coherent uniform uimage2D smudge_buckets;
+#define OUR_FLT_EPS (1.0/255.0f)
 #else
 layout(rgba16ui, binding = 0) uniform uimage2D img;
 layout(rgba16ui, binding = 1) coherent uniform uimage2D smudge_buckets;
+#define OUR_FLT_EPS (1e-4)
 #endif
 uniform int uCanvasType;
 uniform int uCanvasRandom;
@@ -251,7 +253,7 @@ float brightness(vec4 color) {
 vec4 mix_over(vec4 colora, vec4 colorb){
     vec4 a=(colora.a==0.0f)?colora:vec4(colora.rgb/colora.a,colora.a);
     vec4 b=(colorb.a==0.0f)?colorb:vec4(colorb.rgb/colorb.a,colorb.a);
-    vec4 m=vec4(0,0,0,0); float aa=colora.a/(colora.a+(1.0f-colora.a)*colorb.a+0.0001);
+    vec4 m=vec4(0,0,0,0); float aa=colora.a/(colora.a+(1.0f-colora.a)*colorb.a+OUR_FLT_EPS);
     m=spectral_mix(a,b,aa);
     m.a=colora.a+colorb.a*(1.0f-colora.a);
     m=vec4(m.rgb*m.a,m.a);
@@ -259,7 +261,7 @@ vec4 mix_over(vec4 colora, vec4 colorb){
 }
 int dab(float d, vec2 fpx, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){
     vec4 cc=color;
-    float fac=1.0f-pow(d/size,1.0f+1.0f/(1.0f-hardness+1e-4));
+    float fac=1.0f-pow(d/size,1.0f+1.0f/(1.0f-hardness+OUR_FLT_EPS));
     float canvas=SampleCanvas(fpx,uBrushDirection,fac,uBrushForce,uBrushGunkyness);
     cc.a=color.a*canvas*(1.0f-smudge); cc.rgb=cc.rgb*cc.a;
     float erasing=float(uBrushErasing);

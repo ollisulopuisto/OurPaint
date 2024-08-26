@@ -189,8 +189,8 @@ void ourui_Layer(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
         laShowSeparator(uil,c)->Expand=1;
         laShowItem(uil,c,This,"as_sketch")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laShowSeparator(uil,c);
-        laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON;
-        laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON;
+        laShowItemFull(uil,c,This,"move",0,"direction=up;icon=🡱;",0,0)->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+        laShowItemFull(uil,c,This,"move",0,"direction=down;icon=🡳;",0,0)->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b);
     }laEndCondition(uil,b1);
 }
@@ -379,12 +379,12 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
         }laEndCondition(uil,b);
         
         laShowLabel(uil,cr,"Reference:",0,0);
-        laShowItemFull(uil,cr,0,"our.canvas.ref_mode",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
+        laShowItemFull(uil,cr,0,"our.canvas.ref_mode",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
         b=laOnConditionThat(uil,cr,laPropExpression(0,"our.canvas.ref_mode"));{
             laShowItem(uil,cr,0,"our.canvas.ref_alpha");
-            laShowItem(uil,cr,0,"our.canvas.ref_category")->Flags|=LA_UI_FLAGS_EXPAND;
-            laShowItem(uil,cr,0,"our.canvas.ref_size")->Flags|=LA_UI_FLAGS_EXPAND;
-            laShowItem(uil,cr,0,"our.canvas.ref_orientation")->Flags|=LA_UI_FLAGS_EXPAND;
+            laShowItem(uil,cr,0,"our.canvas.ref_category")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
+            laShowItem(uil,cr,0,"our.canvas.ref_size")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
+            laShowItem(uil,cr,0,"our.canvas.ref_orientation")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
             laShowLabel(uil,cr,"Margins:",0,0); laShowItem(uil,cr,0,"our.canvas.ref_margins")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowLabel(uil,cr,"Paddings:",0,0); laShowItem(uil,cr,0,"our.canvas.ref_paddings")->Flags|=LA_UI_FLAGS_TRANSPOSE;
             laShowItem(uil,cr,0,"our.canvas.ref_middle_margin");
@@ -2995,18 +2995,24 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(0)));{
         laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
-        laUiItem* b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
-            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED;
+        laUiItem* b1;
+#ifdef LAGUI_ANDROID
+        laShowItem(uil, c, 0, "LA_undo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+        laShowItem(uil, c, 0, "LA_redo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+#else
+        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
+            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
         }laElse(uil,b1);{
             laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b1);
+#endif
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
             laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
         }laEndCondition(uil,b1);
     }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
-#if LAGUI_ANDROID
+#ifdef LAGUI_ANDROID
     laUiList* mu;
     mu = laMakeMenuPage(uil,c,"🖌"); ourui_BrushesPanel(mu,0,0,0,0);
     mu = laMakeMenuPage(uil,c,"🎨"); ourui_ColorPanel(mu,0,0,0,0);
