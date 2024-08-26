@@ -98,26 +98,30 @@ void our_InitColorProfiles(){
 
     cmsCIExyYTRIPLE srgb_primaries_pre_quantized = { {0.639998686, 0.330010138, 1.0}, {0.300003784, 0.600003357, 1.0}, {0.150002046, 0.059997204, 1.0} };
     cmsCIExyYTRIPLE adobe_primaries_prequantized = { {0.639996511, 0.329996864, 1.0}, {0.210005295, 0.710004866, 1.0}, {0.149997606, 0.060003644, 1.0} };
+    cmsCIExyYTRIPLE d65_p3_primaries_prequantized = { {0.680,0.320,1.0}, {0.265,0.690,1.0}, {0.150,0.060,1.0} }; /* https://www.russellcottrell.com/photo/matrixCalculator.htm */
     char* manu="sRGB chromaticities from A Standard Default Color Space for the Internet - sRGB, http://www.w3.org/Graphics/Color/sRGB; and http://www.color.org/specification/ICC1v43_2010-12.pdf";
     our_InitRGBProfile(1,&srgb_primaries_pre_quantized,&Our->icc_LinearsRGB,&Our->iccsize_LinearsRGB,"Copyright Yiming 2022.",manu,"Yiming's linear sRGB icc profile.");
     our_InitRGBProfile(0,&srgb_primaries_pre_quantized,&Our->icc_sRGB,&Our->iccsize_sRGB,"Copyright Yiming 2022.",manu,"Yiming's sRGB icc profile.");
     manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
     our_InitRGBProfile(1,&adobe_primaries_prequantized,&Our->icc_LinearClay,&Our->iccsize_LinearClay,"Copyright Yiming 2022.",manu,"Yiming's Linear ClayRGB icc profile.");
     our_InitRGBProfile(2,&adobe_primaries_prequantized,&Our->icc_Clay,&Our->iccsize_Clay,"Copyright Yiming 2022.",manu,"Yiming's ClayRGB icc profile.");
-
-    real data[12288];
-    real data_new[12288];
-    real cmyk8[16384];
-    for(int i=0;i<16;i++){
-        for(int j=0;j<16;j++){
-            for(int k=0;k<16;k++){
-                real* p=&data[(i*256+j*16+k)*3];
-                p[0]=(real)i/16; p[1]=(real)j/16; p[2]=(real)k/16;
-            }
-        }
-    }
+    manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
+    our_InitRGBProfile(1,&d65_p3_primaries_prequantized,&Our->icc_LinearD65P3,&Our->iccsize_LinearD65P3,"Copyright Yiming 2022.",manu,"Yiming's Linear D65 P3 icc profile.");
+    our_InitRGBProfile(0,&d65_p3_primaries_prequantized,&Our->icc_D65P3,&Our->iccsize_D65P3,"Copyright Yiming 2022.",manu,"Yiming's D65 P3 icc profile.");
 
     if(0){ // TRYING TO CREATE GLSL LUT FOR REAL TIME CMYK PROOFING
+        real data[12288];
+        real data_new[12288];
+        real cmyk8[16384];
+        for(int i=0;i<16;i++){
+            for(int j=0;j<16;j++){
+                for(int k=0;k<16;k++){
+                    real* p=&data[(i*256+j*16+k)*3];
+                    p[0]=(real)i/16; p[1]=(real)j/16; p[2]=(real)k/16;
+                }
+            }
+        }
+        
         char path[4096]; getcwd(path,4096); strcat(path,"/SWOP2006_Coated3v2.icc");
         printf("%s\n",path);
         cmsHPROFILE cmyk=cmsOpenProfileFromFile(path,"r");
@@ -403,7 +407,7 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laColumn* c=laFirstColumn(uil); laUiItem* b1, *b2;
     
     laUiItem* bt=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(OUR_TOOL_PAINT)));{
-        laShowItem(uil,c,0,"our.preferences.smoothness");
+        OUR_BR laShowItem(uil,c,0,"our.preferences.smoothness")->Expand=1; laShowItem(uil,c,0,"our.preferences.hardness")->Expand=1; OUR_ER
         laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
             laUiItem* uib=laShowItemFull(uil,c,0,"our.preferences.brush_number",0,0,0,0); uib->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
             laUiItem* bn=laOnConditionThat(uil,c,laPropExpression(&uib->PP,""));{
@@ -426,6 +430,7 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
         }laEndCondition(uil,b);
     }laElse(uil,bt);{
         laShowLabel(uil,c,"Brush tool not selected",0,0);
+        laShowItem(uil,c,0,"our.tool")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,bt);
 }
 void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -433,8 +438,12 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 
     laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_SRGB)));{
         laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
-    }laElse(uil,b);{
+    }laEndCondition(uil,b);
+    b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_CLAY)));{
         laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_CLAY|LA_UI_FLAGS_NO_CONFIRM;
+    }laEndCondition(uil,b);
+    b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_D65_P3)));{
+        laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_D65_P3|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
     b=laBeginRow(uil,c,0,0);
     laShowItem(uil,c,0,"our.preferences.spectral_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
@@ -532,21 +541,25 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
     laShowItem(uil,cr,0,"our.preferences.brush_circle_tilt_mode")->Flags|=LA_UI_FLAGS_EXPAND;
     laEndCondition(uil,b);
+    laShowItem(uil,cl,0,"our.preferences.spectral_mode");
+
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Pressure:",0,0);
+    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
+    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
     laShowItem(uil,cl,0,"our.preferences.smoothness");
     laShowItem(uil,cr,0,"our.preferences.hardness");
 
     laShowSeparator(uil,c);
 
+    laShowLabel(uil,c,"Canvas:",0,0);
     laShowItem(uil,cl,0,"our.preferences.show_stripes");
-    laShowItem(uil,cr,0,"our.preferences.spectral_mode");
-    laShowItem(uil,cl,0,"our.preferences.canvas_default_scale");
-    laShowItem(uil,cr,0,"our.preferences.show_grid");
-    laShowItem(uil,cl,0,"our.preferences.brush_numbers_on_header");
-    laShowItem(uil,cr,0,"our.preferences.multithread_write");
-    laShowSeparator(uil,c);
-    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
-    laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
-
+    laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
+    laShowItem(uil,cl,0,"our.preferences.show_grid");
+    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
+    laShowItem(uil,cl,0,"our.preferences.multithread_write");
+    
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Undo:",0,0);
@@ -1404,9 +1417,15 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
     input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
-        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB);
+        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
+        ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
+            cmsOpenProfileFromMem(Our->icc_LinearD65P3,Our->iccsize_LinearD65P3):
+            cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB));
     input_gamma_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
-        cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
+        cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):
+        ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
+            cmsOpenProfileFromMem(Our->icc_D65P3,Our->iccsize_D65P3):
+            cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB));
 
     NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(NewImage){
@@ -1466,9 +1485,11 @@ int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf,
     png_set_IHDR(png_ptr, info_ptr,W,H,UseBitDepth,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
     if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ png_set_sRGB(png_ptr,info_ptr,PNG_sRGB_INTENT_PERCEPTUAL);use_icc=Our->icc_sRGB;use_icc_size=Our->iccsize_sRGB;tns2LogsRGB(bk); }
     elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ use_icc=Our->icc_Clay;use_icc_size=Our->iccsize_Clay;tns2LogsRGB(bk);/* should be clay */ }
+    elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ use_icc=Our->icc_D65P3;use_icc_size=Our->iccsize_D65P3;tns2LogsRGB(bk);/* should be clay */ }
     elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ 
         if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){use_icc=Our->icc_LinearsRGB;use_icc_size=Our->iccsize_LinearsRGB;}
         elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){use_icc=Our->icc_LinearClay;use_icc_size=Our->iccsize_LinearClay;}
+        elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3){use_icc=Our->icc_LinearD65P3;use_icc_size=Our->iccsize_LinearD65P3;}
     }
     if(use_icc){ png_set_iCCP(png_ptr,info_ptr,"LA_PROFILE",PNG_COMPRESSION_TYPE_BASE,use_icc,use_icc_size); }
 
@@ -1654,13 +1675,16 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
         if(!input_buffer_profile){
             if(InputProfileMode==OUR_PNG_READ_INPUT_SRGB){ icc=Our->icc_sRGB; iccsize=Our->iccsize_sRGB; }
             elif(InputProfileMode==OUR_PNG_READ_INPUT_CLAY){ icc=Our->icc_Clay; iccsize=Our->iccsize_Clay; }
+            elif(InputProfileMode==OUR_PNG_READ_INPUT_D65_P3){ icc=Our->icc_D65P3; iccsize=Our->iccsize_D65P3; }
             elif(InputProfileMode==OUR_PNG_READ_INPUT_LINEAR_SRGB){ icc=Our->icc_LinearsRGB; iccsize=Our->iccsize_LinearsRGB; }
             elif(InputProfileMode==OUR_PNG_READ_INPUT_LINEAR_CLAY){ icc=Our->icc_LinearClay; iccsize=Our->iccsize_LinearClay; }
+            elif(InputProfileMode==OUR_PNG_READ_INPUT_LINEAR_D65_P3){ icc=Our->icc_LinearD65P3; iccsize=Our->iccsize_LinearD65P3; }
             input_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
         }
         icc=0; iccsize=0;
         if(OutputProfileMode==OUR_PNG_READ_OUTPUT_LINEAR_SRGB){ icc=Our->icc_LinearsRGB; iccsize=Our->iccsize_LinearsRGB; }
         elif(OutputProfileMode==OUR_PNG_READ_OUTPUT_LINEAR_CLAY){ icc=Our->icc_LinearClay; iccsize=Our->iccsize_LinearClay; }
+        elif(OutputProfileMode==OUR_PNG_READ_OUTPUT_LINEAR_D65_P3){ icc=Our->icc_LinearD65P3; iccsize=Our->iccsize_LinearD65P3; }
         output_buffer_profile=cmsOpenProfileFromMem(icc, iccsize);
         if(input_buffer_profile && output_buffer_profile){
             cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_16, INTENT_PERCEPTUAL, 0);
@@ -1710,7 +1734,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     if(len>1000){ *r_xto=xto; *r_yto=yto; b->BrushRemainingDist=0; return 0; /* Prevent crazy events causing GPU hang. */ }
     real alllen=len+rem; real uselen=dd,step=0; if(!len)return 0; if(dd>alllen){ b->BrushRemainingDist+=len; return 0; }
     real xmin=FLT_MAX,xmax=-FLT_MAX,ymin=FLT_MAX,ymax=-FLT_MAX;
-    real bsize=pow(2,Our->BrushSize+b->SizeOffset);
+    real bsize=OUR_BRUSH_ACTUAL_SIZE(b);
     b->EvalSize=bsize; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
     b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness;
@@ -3156,6 +3180,7 @@ void ourCleanUp(){
     while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst,1); }
     while(Our->Brushes.pFirst){ our_RemoveBrush(Our->Brushes.pFirst); }
     free(Our->icc_Clay);free(Our->icc_sRGB);free(Our->icc_LinearClay);free(Our->icc_LinearsRGB);
+    free(Our->icc_LinearD65P3);free(Our->icc_LinearD65P3);
     tnsDeleteTexture(Our->SmudgeTexture);
     glDeleteShader(Our->CanvasShader); glDeleteProgram(Our->CanvasProgram);
     glDeleteShader(Our->CompositionShader); glDeleteProgram(Our->CompositionProgram);
@@ -3184,10 +3209,13 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"LINEAR_SRGB","Force Linear sRGB","Interpret the image as Linear sRGB regardless the image metadata",OUR_PNG_READ_INPUT_LINEAR_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Force Clay","Interpret the image as Clay (AdobeRGB 1998 compatible) regardless the image metadata",OUR_PNG_READ_INPUT_CLAY,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Force Linear Clay","Interpret the image as Linear Clay (AdobeRGB 1998 compatible) regardless the image metadata",OUR_PNG_READ_INPUT_LINEAR_CLAY,0);
+    laAddEnumItemAs(p,"D65_P3","Force D65 P3","Interpret the image as D65 P3 regardless the image metadata",OUR_PNG_READ_INPUT_D65_P3,0);
+    laAddEnumItemAs(p,"LINEAR_D65_P3","Force Linear D65 P3","Interpret the image as Linear D65 P3 regardless the image metadata",OUR_PNG_READ_INPUT_LINEAR_D65_P3,0);
     p=laAddEnumProperty(pc, "output_mode","Output Mode","Transform the input pixels to one of the supported formats",0,0,0,0,0,offsetof(OurPNGReadExtra,OutputMode),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"CANVAS","Follow Canvas","Transform the pixels into current canvas interpretation",OUR_PNG_READ_OUTPUT_CANVAS,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Write sRGB pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
+    laAddEnumItemAs(p,"LINEAR_D65_P3","Linear D65 P3","Write D65 P3 pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_D65_P3,0);
     laAddIntProperty(pc,"offsets","Offsets","Offsets of the imported layer (0 for default)",0,"X,Y",0,0,0,0,0,0,offsetof(OurPNGReadExtra,Offsets),0,0,2,0,0,0,0,0,0,0,0);
 
     laCreateOperatorType("OUR_new_brush","New Brush","Create a new brush",0,0,0,ourinv_NewBrush,0,'+',0);
@@ -3208,6 +3236,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
+    laAddEnumItemAs(p,"D65_P3","D65 P3","Convert pixels into non-linear D65 P3",OUR_EXPORT_COLOR_MODE_D65_P3,0);
     p=laAddEnumProperty(pc, "transparent","Transparent","Transparent background",0,0,0,0,0,offsetof(OurPNGWriteExtra,Transparent),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"OPAQUE","Opaque","Opaque background",0,0);
     laAddEnumItemAs(p,"TRANSPARENT","Transparent","TransparentBackground",1,0);
@@ -3289,6 +3318,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"FLAT","Flat","Export pixels in current canvans linear color space",OUR_EXPORT_COLOR_MODE_FLAT,0);
     laAddEnumItemAs(p,"SRGB","sRGB","Convert pixels into non-linear sRGB (Most used)",OUR_EXPORT_COLOR_MODE_SRGB,0);
     laAddEnumItemAs(p,"CLAY","Clay","Convert pixels into non-linear Clay (AdobeRGB 1998 compatible)",OUR_EXPORT_COLOR_MODE_CLAY,0);
+    laAddEnumItemAs(p,"D65_P3","D65 P3","Convert pixels into non-linear D65 P3",OUR_EXPORT_COLOR_MODE_D65_P3,0);
     laAddIntProperty(pc,"paint_undo_limit","Paint Undo Limit","Undo step limit for painting actions.",0,0," Steps",256,5,1,100,0,offsetof(OurPaint,PaintUndoLimit),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"canvas_default_scale","Canvas Default Scale","Default scale of the canvas",0,0,0,4,0.25,0.1,0.5,0,offsetof(OurPaint,DefaultScale),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
@@ -3298,7 +3328,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"NONE","None","Hide brush numbers on header",0,0);
     laAddEnumItemAs(p,"SHOWN","Shown","Show brush numbers on header",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"hardness","Hardness","Pressure hardness of global brush input",0,0, 0,1,-1,0.05,0,0,offsetof(OurPaint,Hardness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"hardness","Strength","Pressure strength of global brush input",0,0, 0,1,-1,0.05,0,0,offsetof(OurPaint,Hardness),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show visual reference stripes at the top and bottom of the canvas",1,0);
@@ -3426,6 +3456,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"color_interpretation","Color Interpretation","Interpret the color values on this canvas as in which color space",0,0,0,0,0,offsetof(OurPaint,ColorInterpretation),0,ourset_ColorInterpretation,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"LINEAR_SRGB","Linear sRGB","Interpret the color values as if they are in Linear sRGB color space",OUR_CANVAS_INTERPRETATION_SRGB,0);
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Interpret the color values as if they are in Linear Clay color space (AdobeRGB 1998 compatible)",OUR_CANVAS_INTERPRETATION_CLAY,0);
+    laAddEnumItemAs(p,"LINEAR_D65_P3","Linear D65 P3","Interpret the color values as if they are in Linear D65 P3 color space",OUR_CANVAS_INTERPRETATION_D65_P3,0);
     laAddFloatProperty(pc,"ref_alpha","Ref Alpha","Alpha of the reference lines",0,0,0,1,0,0.05,0.75,0,offsetof(OurPaint,RefAlpha),0,ourset_RefAlpha,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"ref_mode","Show Reference Lines","Whether to show reference lines",0,0,0,0,0,offsetof(OurPaint,ShowRef),0,ourset_ShowRef,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Don't show reference lines",0,0);

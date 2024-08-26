@@ -23,6 +23,12 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Linear D65 P3","线性 D65 P3",
+"Auto","自动",
+"Twist","旋转",
+"Tilt","倾斜",
+"Pressure:","压力：",
+"Strength","力度",
 "Not registered","未注册",
 "Registered","已注册",
 "Register File Associations","注册文件关联",
