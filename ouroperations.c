@@ -2441,7 +2441,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
     if(l->Hide || l->Transparency==1 || l->Lock || (l->AsSketch && Our->SketchMode==2)){ ex->HideBrushCircle=0; return LA_FINISHED; }
     Our->LockBackground=1; laNotifyUsers("our.lock_background");
     our_EnsureEraser(e->IsEraser);
-    //laHideCursor();
+    laHideCursor();
     Our->ShowBrushName=0; Our->ShowBrushNumber=0;
     return LA_RUNNING;
 }
@@ -3180,7 +3180,7 @@ void ourCleanUp(){
     while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst,1); }
     while(Our->Brushes.pFirst){ our_RemoveBrush(Our->Brushes.pFirst); }
     free(Our->icc_Clay);free(Our->icc_sRGB);free(Our->icc_LinearClay);free(Our->icc_LinearsRGB);
-    free(Our->icc_LinearD65P3);free(Our->icc_LinearD65P3);
+    free(Our->icc_LinearD65P3);free(Our->icc_D65P3);
     tnsDeleteTexture(Our->SmudgeTexture);
     glDeleteShader(Our->CanvasShader); glDeleteProgram(Our->CanvasProgram);
     glDeleteShader(Our->CompositionShader); glDeleteProgram(Our->CompositionProgram);
