@@ -28,6 +28,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Show brush direction:","Mostrar la dirección del pincel:",
 "Not registered","No registrado",
 "Registered","Registrado",
 "Register File Associations","Registrar Asociación de Ficheros",

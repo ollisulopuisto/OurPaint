@@ -23,6 +23,7 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Show brush direction:","显示笔刷方向：",
 "Linear D65 P3","线性 D65 P3",
 "Auto","自动",
 "Twist","旋转",

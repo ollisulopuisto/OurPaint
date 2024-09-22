@@ -539,6 +539,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowLabel(uil,c,"Generic:",0,0);
     uiitem=laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
     b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
+    laShowLabel(uil,cr,"Show brush direction:",0,0);
     laShowItem(uil,cr,0,"our.preferences.brush_circle_tilt_mode")->Flags|=LA_UI_FLAGS_EXPAND;
     laEndCondition(uil,b);
     laShowItem(uil,cl,0,"our.preferences.spectral_mode");
@@ -1962,7 +1963,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
 #else
     int readtype=GL_UNSIGNED_SHORT;
 #endif
-    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, GL_UNSIGNED_BYTE, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, readtype, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off);
