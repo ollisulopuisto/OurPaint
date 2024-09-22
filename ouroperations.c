@@ -3058,7 +3058,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
 #ifdef LAGUI_ANDROID
     laUiList* mu;
     mu = laMakeMenuPage(uil,c,"🖌"); ourui_BrushesPanel(mu,0,0,0,0);
-    mu = laMakeMenuPage(uil,c,"🎨"); ourui_ColorPanel(mu,0,0,0,0);
+    mu = laMakeMenuPageEx(uil,c,"🎨",LA_UI_FLAGS_MENU_FLOAT16); ourui_ColorPanel(mu,0,0,0,0);
     mu = laMakeMenuPage(uil,c,"🔧"); ourui_ToolsPanel(mu,0,0,0,0);
     mu = laMakeMenuPage(uil,c,"☰"); ourui_LayersPanel(mu,0,0,0,0);
 #endif
