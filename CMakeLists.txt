@@ -58,6 +58,9 @@ file(MAKE_DIRECTORY "BuildResources")
 embed_resource("Resources/splash.png" "BuildResources/data_splash.c" "DATA_SPLASH")
 embed_resource("Resources/splash_highdpi.png" "BuildResources/data_splash_highdpi.c" "DATA_SPLASH_HIGHDPI")
 
+if(WIN32)
+endif()
+
 include_directories(
     ${LAGUI_INCLUDE_DIRS_ALL}
 )
@@ -68,6 +71,7 @@ file(GLOB_RECURSE OurPaintFiles
     ourtranslations_es-ES.c
     BuildResources/data_splash.c
     BuildResources/data_splash_highdpi.c
+    Resources/icon.rc
 )
 
 add_executable(OurPaint ${OurPaintFiles})
