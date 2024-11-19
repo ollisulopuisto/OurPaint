@@ -3788,6 +3788,8 @@ int ourInit(){
 
     Our->FileRegistered = our_FileAssociationsRegistered();
 
+    Our->SegmentedWrite = 1;
+
 #ifdef LAGUI_ANDROID
     android_ensure_asset_to_public_dir("default_brushes.udf");
     android_ensure_asset_to_public_dir("default_pallettes.udf");
