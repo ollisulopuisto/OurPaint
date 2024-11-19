@@ -64,6 +64,9 @@ int main(int argc, char *argv[]){
         laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
         laLayout* l = laDesignLayout(w, "Our Paint");
         laBlock* b = l->FirstBlock;
+#ifdef LAGUI_ANDROID
+        laCreatePanel(b, "panel_canvas");
+#else
         laSplitBlockHorizon(b,0.7);
         laCreatePanel(b->B1, "panel_canvas");
         laBlock* br=b->B2;
@@ -74,6 +77,7 @@ int main(int argc, char *argv[]){
         laCreatePanel(br->B2, "panel_notes");
         laCreatePanel(br->B2, "panel_layers");
         laStartWindow(w);
+#endif
     }
     our_EnableSplashPanel();
     laMainLoop();
