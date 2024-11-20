@@ -111,10 +111,9 @@ void our_InitProofLUT(void** lut, cmsHPROFILE cmyk_profile, cmsHPROFILE rgb_prof
     *lut=malloc(sizeof(char)*3*OUR_PROOF_PIXCOUNT);
     char* table = *lut;
     
-    cmsHTRANSFORM htransform=cmsCreateProofingTransform(rgb_profile,TYPE_RGB_DBL,cmyk_profile,TYPE_CMYK_DBL,cmyk_profile,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
-    cmsDoTransform(htransform,data,cmyk8,OUR_PROOF_PIXCOUNT);
-    htransform=cmsCreateProofingTransform(cmyk_profile,TYPE_CMYK_DBL,rgb_profile,TYPE_RGB_8,cmyk_profile,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
-    cmsDoTransform(htransform,cmyk8,table,OUR_PROOF_PIXCOUNT);
+    cmsHTRANSFORM htransform=cmsCreateProofingTransform(rgb_profile,TYPE_RGB_DBL,rgb_profile,TYPE_RGB_8,cmyk_profile,
+        INTENT_ABSOLUTE_COLORIMETRIC,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_HIGHRESPRECALC|cmsFLAGS_SOFTPROOFING);
+    cmsDoTransform(htransform,data,table,OUR_PROOF_PIXCOUNT);
 }
 void our_WriteProofingTable(const char* name,void* data){
     char buf[256]; sprintf(buf,"soft_proof_table_%s.lagui.lut",name);
