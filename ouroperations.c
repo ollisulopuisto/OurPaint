@@ -93,6 +93,35 @@ void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, voi
 void our_cmsErrorLogger(cmsContext ContextID,cmsUInt32Number ErrorCode,const char *Text){
     logPrintNew("[LCMS] %s\n",Text);
 }
+void our_InitProofLUT(void** lut, cmsHPROFILE cmyk_profile, cmsHPROFILE rgb_profile){
+    real data[OUR_PROOF_PIXCOUNT*3];
+    real cmyk8[OUR_PROOF_PIXCOUNT*4];
+    int prec=OUR_PROOF_PRECISION;
+    for(int i=0;i<prec;i++){
+        int counti=i*prec*prec;
+        for(int j=0;j<prec;j++){
+            int countj=j*prec;
+            for(int k=0;k<prec;k++){
+                real* p=&data[(counti+countj+k)*3];
+                p[0]=((real)i)/OUR_PROOF_VAL; p[1]=((real)j)/OUR_PROOF_VAL; p[2]=((real)k)/OUR_PROOF_VAL;
+            }
+        }
+    }
+
+    *lut=malloc(sizeof(char)*3*OUR_PROOF_PIXCOUNT);
+    char* table = *lut;
+    
+    cmsHTRANSFORM htransform=cmsCreateProofingTransform(rgb_profile,TYPE_RGB_DBL,cmyk_profile,TYPE_CMYK_DBL,cmyk_profile,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
+    cmsDoTransform(htransform,data,cmyk8,OUR_PROOF_PIXCOUNT);
+    htransform=cmsCreateProofingTransform(cmyk_profile,TYPE_CMYK_DBL,rgb_profile,TYPE_RGB_8,cmyk_profile,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
+    cmsDoTransform(htransform,cmyk8,table,OUR_PROOF_PIXCOUNT);
+}
+void our_WriteProofingTable(const char* name,void* data){
+    char buf[256]; sprintf(buf,"soft_proof_table_%s.lagui.lut",name);
+    FILE* fp=fopen(buf,"wb");
+    fwrite(data,sizeof(char)*3*OUR_PROOF_PIXCOUNT,1,fp);
+    fclose(fp);
+}
 void our_InitColorProfiles(){
     cmsSetLogErrorHandler(our_cmsErrorLogger);
 
@@ -109,53 +138,24 @@ void our_InitColorProfiles(){
     our_InitRGBProfile(1,&d65_p3_primaries_prequantized,&Our->icc_LinearD65P3,&Our->iccsize_LinearD65P3,"Copyright Yiming 2022.",manu,"Yiming's Linear D65 P3 icc profile.");
     our_InitRGBProfile(0,&d65_p3_primaries_prequantized,&Our->icc_D65P3,&Our->iccsize_D65P3,"Copyright Yiming 2022.",manu,"Yiming's D65 P3 icc profile.");
 
-    if(0){ // TRYING TO CREATE GLSL LUT FOR REAL TIME CMYK PROOFING
-        real data[12288];
-        real data_new[12288];
-        real cmyk8[16384];
-        for(int i=0;i<16;i++){
-            for(int j=0;j<16;j++){
-                for(int k=0;k<16;k++){
-                    real* p=&data[(i*256+j*16+k)*3];
-                    p[0]=(real)i/16; p[1]=(real)j/16; p[2]=(real)k/16;
-                }
-            }
-        }
-        
-        char path[4096]; getcwd(path,4096); strcat(path,"/SWOP2006_Coated3v2.icc");
-        printf("%s\n",path);
-        cmsHPROFILE cmyk=cmsOpenProfileFromFile(path,"r");
-        cmsHPROFILE srgb=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
-        cmsHPROFILE argb=cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay);
-        cmsHTRANSFORM htransform=cmsCreateProofingTransform(srgb,TYPE_RGB_DBL,cmyk,TYPE_CMYK_DBL,cmyk,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
-        cmsDoTransform(htransform,data,cmyk8,4096);
-        htransform=cmsCreateProofingTransform(cmyk,TYPE_CMYK_DBL,srgb,TYPE_RGB_DBL,cmyk,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_SOFTPROOFING|cmsFLAGS_GAMUTCHECK,cmsFLAGS_HIGHRESPRECALC);
-        cmsDoTransform(htransform,cmyk8,data_new,4096);
+#if 0 // Use this to generate soft proof lut
 
-        FILE* fp=fopen("transform_out_table","w");
-        for(int i=0;i<16;i++){
-            for(int j=0;j<16;j++){
-                for(int k=0;k<16;k++){
-                    real* p=&data_new[(i*256+j*16+k)*3];
-                    fprintf(fp,"{%.2lf,%.2lf,%.2lf},",p[0],p[1],p[2]);
-                }
-                fprintf(fp,"  ");
-            }
-            fprintf(fp,"\n");
-        }
-        fprintf(fp,"\n");
-        for(int i=0;i<16;i++){
-            for(int j=0;j<16;j++){
-                for(int k=0;k<16;k++){
-                    real* p=&data[(i*256+j*16+k)*3];
-                    fprintf(fp,"{%.2lf,%.2lf,%.2lf},",p[0],p[1],p[2]);
-                }
-                fprintf(fp,"  ");
-            }
-            fprintf(fp,"\n");
-        }
-        fflush(fp);fclose(fp);
-    }
+    char path[4096]; getcwd(path,4096); strcat(path,"/SWOP2006_Coated3v2.icc");
+    cmsHPROFILE cmyk = cmsOpenProfileFromFile(path,"r");
+    cmsHPROFILE srgb = cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
+    cmsHPROFILE clay = cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay);
+    cmsHPROFILE d65p3 = cmsOpenProfileFromMem(Our->icc_D65P3,Our->iccsize_D65P3);
+    our_InitProofLUT(&Our->ProofTablesRGB,cmyk,srgb);
+    our_InitProofLUT(&Our->ProofTableClay,cmyk,clay);
+    our_InitProofLUT(&Our->ProofTableD65,cmyk,d65p3);
+    our_WriteProofingTable("sRGB",Our->ProofTablesRGB);
+    our_WriteProofingTable("Clay",Our->ProofTableClay);
+    our_WriteProofingTable("D65P3",Our->ProofTableD65);
+    laSetProofingLut(Our->ProofTablesRGB, 0);
+    laSetProofingLut(Our->ProofTableClay, 1);
+    laSetProofingLut(Our->ProofTableD65, 2);
+
+#endif //soft proof
 }
 
 void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){

@@ -110,6 +110,10 @@ STRUCTURE(OurCanvasDraw){
 #define OUR_PIX_COMPACT uint16_t
 #endif
 
+#define OUR_PROOF_PRECISION LA_LUT_PRECISION
+#define OUR_PROOF_VAL (OUR_PROOF_PRECISION-1)
+#define OUR_PROOF_PIXCOUNT LA_LUT_PIXCOUNT
+
 STRUCTURE(OurTexTile){
     tnsTexture* Texture;
     OUR_PIX_COMPACT* Data;
@@ -492,6 +496,7 @@ STRUCTURE(OurPaint){
     void* icc_sRGB; int iccsize_sRGB;
     void* icc_Clay; int iccsize_Clay;
     void* icc_D65P3; int iccsize_D65P3;
+    void* ProofTablesRGB, *ProofTableClay, *ProofTableD65;
 };
 
 
