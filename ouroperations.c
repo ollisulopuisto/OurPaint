@@ -2759,9 +2759,13 @@ void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
         OurThreadImportPNGDataMain emain={0};
         emain.data=edata;emain.max=taskcount;emain.next=0; laSpinInit(&emain.lock);
 
+        LA_ACQUIRE_GLES_CONTEXT;
+
         int StartY=Our->TempLoadY; uint64_t offset=0;
         our_EnsureImageBufferOnRead(l,seg->Width,seg->Height,1,Our->TempLoadX,Our->TempLoadY);
         int LoadY=Our->ImageH;
+
+        LA_LEAVE_GLES_CONTEXT;
 
         for(int i=0;i<taskcount;i++){
             LoadY-=l->ReadSegmented.H[i];
@@ -2774,11 +2778,17 @@ void ourset_LayerImage(OurLayer* l, void* pdata, uint32_t size){
         laSpinDestroy(&emain.lock);
         free(th); free(edata);
 
+        LA_ACQUIRE_GLES_CONTEXT;
+
         our_ImageBufferToNative();
         our_LayerToTexture(l); if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
+
+        LA_LEAVE_GLES_CONTEXT;
         return;
     }
+    LA_ACQUIRE_GLES_CONTEXT;
     our_LayerImportPNG(l, 0, data, 0, 0, 1, Our->TempLoadX, Our->TempLoadY,0);
+    LA_LEAVE_GLES_CONTEXT;
 }
 int ourget_LayerImageShouldSegment(OurLayer* unused){
     return Our->SegmentedWrite;
@@ -2807,6 +2817,8 @@ void ourget_LayerImageSegmented(OurLayer* l, int* r_chunks, uint32_t* r_sizes, v
 
     logPrintNew("\n    Writing segmented layer...");
 
+    LA_LEAVE_GLES_CONTEXT;
+
     int segy=0;  int anyfailed=0;
     thrd_t* th=calloc(threads,sizeof(thrd_t));
     OurThreadExportPNGData* edata=calloc(threads,sizeof(OurThreadExportPNGData));
@@ -2818,6 +2830,8 @@ void ourget_LayerImageSegmented(OurLayer* l, int* r_chunks, uint32_t* r_sizes, v
     for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
     for(int i=0;i<threads;i++){ seg->Sizes[i]=r_sizes[i+1]; anyfailed+=edata[i].fail; }
     free(th); free(edata);
+
+    LA_ACQUIRE_GLES_CONTEXT;
 
     if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
     if(anyfailed){ *r_chunks=0;
@@ -2985,6 +2999,7 @@ int ourget_CanvasVersion(void* unused){
 }
 void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
+    LA_ACQUIRE_GLES_CONTEXT;
 }
 
 #define OUR_ADD_PRESSURE_SWITCH(p) \
@@ -3746,10 +3761,10 @@ int ourInit(){
     Our->BorderAlpha=0.6;
 
 #ifdef LA_USE_GLES
-    Our->DefaultScale=0.5;
+    Our->DefaultScale=1.0;
     Our->SpectralMode=0;
 #else
-    Our->DefaultScale=1.0;
+    Our->DefaultScale=0.5;
     Our->SpectralMode=1;
 #endif
 

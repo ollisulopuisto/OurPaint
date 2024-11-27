@@ -32,7 +32,7 @@ int main(int argc, char *argv[]){
     laInitArguments ia={0}; laSetDefaultInitArguments(&ia);
     ia.GLMajor=4; ia.GLMinor=5;
     ia.UseColorManagement=1;
-    ia.HasTextureInspector=1;
+    //ia.HasTextureInspector=1;
     ia.HasTerminal=1;
     ia.HasHistories=1;
     //MAIN.EnableGLDebug=1;
