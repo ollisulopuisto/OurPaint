@@ -65,9 +65,11 @@ int main(int argc, char *argv[]){
         laLayout* l = laDesignLayout(w, "Our Paint");
         laBlock* b = l->FirstBlock;
 #ifdef LAGUI_ANDROID
+        b->Folded = 1;
         laCreatePanel(b, "panel_canvas");
 #else
         laSplitBlockHorizon(b,0.7);
+        b->B1->Folded = 1;
         laCreatePanel(b->B1, "panel_canvas");
         laBlock* br=b->B2;
         laSplitBlockVertical(br,0.6);

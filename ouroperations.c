@@ -418,7 +418,9 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
             laShowSeparator(uil,c);
 
             OUR_BR laShowItemFull(uil,c,0,"our.brush_page",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
-            laShowSeparator(uil,c)->Expand=1; OUR_ER
+            laShowSeparator(uil,c)->Expand=1;
+            laShowItem(uil,c,0,"OUR_new_brush")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            OUR_ER
         }laEndCondition(uil,b);
         b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.brush_page"),laIntExpression(OUR_BRUSH_PAGE_LIST)));{
             laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
@@ -3738,13 +3740,18 @@ int ourInit(){
     Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
     Our->uAlphaBottom=glGetUniformLocation(Our->CompositionProgram,"uAlphaBottom");
 
-    Our->DefaultScale=0.5;
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
     Our->BorderAlpha=0.6;
 
+#ifdef LA_USE_GLES
+    Our->DefaultScale=0.5;
+    Our->SpectralMode=0;
+#else
+    Our->DefaultScale=1.0;
     Our->SpectralMode=1;
+#endif
 
     Our->BackgroundType=2;
     Our->BackgroundFactor=1;
