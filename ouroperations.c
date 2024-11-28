@@ -1695,6 +1695,7 @@ int our_LayerImportPNG(OurLayer* l, FILE* fp, void* buf, int InputProfileMode, i
     }
 
     if(!NoEnsure){
+        LA_ACQUIRE_GLES_CONTEXT;
         our_ImageBufferToNative();
         our_LayerToTexture(l);
     }
@@ -3782,18 +3783,13 @@ int ourInit(){
 
     Our->PenID=-1;
     Our->EraserID=-1;
+    Our->BrushNumber=3;
 
     Our->RefAlpha=0.75;
     Our->RefCategory=0;
     Our->RefSize=4;
     tnsVectorSet3(Our->RefMargins,1.5,1.5,1.0);
     tnsVectorSet2(Our->RefPaddings,1.5,1.5);
-
-    Our->BrushNumberedThicknesses[0]=4.0f;
-    real sqrt2=sqrt(2.0f);
-    for(int i=1;i<10;i++){
-        Our->BrushNumberedThicknesses[i] = Our->BrushNumberedThicknesses[i-1] * sqrt2;
-    }
 
     tnsEnableShaderv(T->immShader);
 

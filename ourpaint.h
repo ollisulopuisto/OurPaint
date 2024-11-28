@@ -400,7 +400,6 @@ STRUCTURE(OurPaint){
     real DefaultScale;
 
     int BrushNumber;
-    real BrushNumberedThicknesses[10];
     real BrushBaseSize;
     real BrushSize;
     int BrushPage;
