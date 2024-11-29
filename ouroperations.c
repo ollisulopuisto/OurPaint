@@ -2450,7 +2450,7 @@ int ourinv_Action(laOperator* a, laEvent* e){
 }
 int ourmod_Paint(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){
         if(Our->PaintProcessedEvents) our_RecordUndo(l,Our->xmin,Our->xmax,Our->ymin,Our->ymax,0,1);
         ex->HideBrushCircle=0; laShowCursor();
         laEvent* ue; while(ue=lstPopItem(&Our->BadEvents)){ memFree(ue); }
@@ -2487,7 +2487,7 @@ int ourmod_Paint(laOperator* a, laEvent* e){
 }
 int ourmod_Crop(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED; }
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){  ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED; }
 
     if(e->type==LA_MOUSEMOVE||e->type==LA_L_MOUSE_DOWN){
         real x,y; our_UiToCanvas(&ex->Base,e,&x,&y);
@@ -2499,7 +2499,7 @@ int ourmod_Crop(laOperator* a, laEvent* e){
 }
 int ourmod_Move(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
-    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || e->type==LA_ESCAPE_DOWN){
+    if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){
         OurMoveUndo* undo = memAcquire(sizeof(OurMoveUndo));
         undo->dx = ex->MovedX; undo->dy = ex->MovedY; undo->Layer = Our->CurrentLayer;
         laFreeNewerDifferences();
@@ -2541,7 +2541,7 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     laUiItem* ui=ex->Base.ParentUi;
 
-    if(e->type==LA_R_MOUSE_UP || e->type==LA_L_MOUSE_UP || e->type==LA_ESCAPE_DOWN){  ex->HideBrushCircle=0; return LA_FINISHED; }
+    if(e->type==LA_R_MOUSE_UP || e->type==LA_L_MOUSE_UP || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){  ex->HideBrushCircle=0; return LA_FINISHED; }
 
     if(e->type==LA_MOUSEMOVE||e->type==LA_R_MOUSE_DOWN){
         our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color");
