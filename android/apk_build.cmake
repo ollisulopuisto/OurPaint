@@ -139,6 +139,7 @@ set(RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/android/res")
 set(KEYSTORE "${CMAKE_CURRENT_SOURCE_DIR}/android/keystore.jks")
 
 set(VALUES_STRING "${CMAKE_CURRENT_BINARY_DIR}/values_strings.arsc.flat")
+set(VALUES_ICON "${CMAKE_CURRENT_BINARY_DIR}/drawable_icon.png.flat")
 
 include(CMakePrintHelpers)
 cmake_print_variables(CMAKE_CURRENT_SOURCE_DIR)
@@ -157,9 +158,14 @@ add_custom_command(
   DEPENDS ${RESOURCES}/values/strings.xml
   )
 add_custom_command(
+  OUTPUT ${VALUES_ICON}
+  COMMAND ${AAPT2} compile ${RESOURCES}/drawable/icon.png -o ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS ${RESOURCES}/drawable/icon.png
+  )
+add_custom_command(
   OUTPUT ${RESOURCES_APK}
-  COMMAND ${AAPT2} link ${VALUES_STRING} -o ${RESOURCES_APK} --manifest ${MANIFEST} -I ${ANDROID_JAR}
-  DEPENDS ${MANIFEST} ${VALUES_STRING}
+  COMMAND ${AAPT2} link ${VALUES_STRING} ${VALUES_ICON} -o ${RESOURCES_APK} --manifest ${MANIFEST} -I ${ANDROID_JAR}
+  DEPENDS ${MANIFEST} ${VALUES_STRING} ${VALUES_ICON}
   )
 add_custom_command(
   OUTPUT ${UNALIGNED_APK}
