@@ -2931,6 +2931,9 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
     for(OurBrush* b=p->Brushes.pFirst;b;b=b->Item.pNext){
         if(force || !laget_InstanceActiveUDF(b)){ laset_InstanceUDF(b, udf); }
     }
+    for(OurColorPallette* cp=p->Pallettes.pFirst;cp;cp=cp->Item.pNext){
+        if(force || !laget_InstanceActiveUDF(cp)){ laset_InstanceUDF(cp, udf); }
+    }
 }
 void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r;
