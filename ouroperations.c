@@ -914,6 +914,8 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
 
     //our_CANVAS_TEST(bt,ui);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,0);
+    tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
 
     tnsDrawToOffscreen(e->OffScr,1,0);
     tnsViewportWithScissor(0, 0, W, H);
@@ -930,14 +932,18 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
 
     tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,2);
-    tnsUniformOutputColorSpace(T->immShader, 0);
+    tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
     if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){ tnsUniformInputColorSpace(T->immShader, 0); }
     elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){ tnsUniformInputColorSpace(T->immShader, 1); }
+    elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3){ tnsUniformInputColorSpace(T->immShader, 2); }
 
     tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
     tnsFlush();
 
-    tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0); tnsUniformOutputColorSpace(T->immShader, MAIN.CurrentWindow->OutputColorSpace);
+    tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0);
+    laWindow* w=MAIN.CurrentWindow;
+    tnsUniformOutputColorSpace(T->immShader, w->OutputColorSpace);
+    tnsUniformColorComposing(T->immShader,w->UseComposing,w->ComposingGamma,w->ComposingBlackpoint,w->OutputProofing);
     if(Our->EnableBrushCircle && (!ocd->HideBrushCircle)){ our_CanvasDrawBrushCircle(ocd); }
 
     if(!(ui->Flags&LA_UI_FLAGS_NO_OVERLAY)){
@@ -2224,7 +2230,8 @@ int ourmod_ImportLayer(laOperator* a, laEvent* e){
             if (a->ConfirmData->Mode==LA_CONFIRM_OK){
                 FILE* fp=fopen(ex->FilePath->Ptr,"rb"); if(!fp) return LA_FINISHED;
                 if(!ol) ol=our_NewLayer("Imported");
-                int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:OUR_PNG_READ_OUTPUT_LINEAR_CLAY);
+                int OutMode=ex->OutputMode?ex->OutputMode:((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)?OUR_PNG_READ_OUTPUT_LINEAR_SRGB:
+                                                           (Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3?OUR_PNG_READ_INPUT_D65_P3:OUR_PNG_READ_OUTPUT_LINEAR_CLAY));
                 int UseOffsets = ex->Offsets[0] && ex->Offsets[1];
                 our_LayerImportPNG(ol, fp, 0, ex->InputMode, OutMode, UseOffsets, ex->Offsets[0], ex->Offsets[1],0);
                 laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
