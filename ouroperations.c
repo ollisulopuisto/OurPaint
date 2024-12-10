@@ -976,8 +976,8 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
             for(int i=ui->U+delta*2;i<ui->B;i+=delta*2){ tnsVertex2d(ui->L,i); tnsVertex2d(ui->R,i); } tnsColor4d(1,1,1,0.5); tnsPackAs(GL_LINES);
         }
         char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
-        tnsDrawStringAuto(buf,colork,ui->L+bt->LM+1,ui->R-bt->RM,ui->B-LA_RH-bt->BM+1,0);
-        tnsDrawStringAuto(buf,colorw,ui->L+bt->LM,ui->R-bt->RM,ui->B-LA_RH-bt->BM,0);
+        tnsDrawStringAuto(buf,colork,ui->L+LA_M+1,ui->R-LA_M,ui->B-LA_RH-LA_M+1,0);
+        tnsDrawStringAuto(buf,colorw,ui->L+LA_M,ui->R-LA_M,ui->B-LA_RH-LA_M,0);
     }
     
     la_CanvasDefaultOverlay(ui, h);
