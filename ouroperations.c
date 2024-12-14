@@ -266,7 +266,9 @@ void ourui_Brush(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laC
     laUiItem* b1=laOnConditionToggle(uil,cr,0,0,0,0,0);{ strSafeSet(&b1->ExtraInstructions,"text=☰");
         b=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,This,"remove")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
-        laShowItem(uil,c,This,"binding")->Expand=1;
+        laShowItem(uil,c,This,"binding")->Flags|=LA_UI_FLAGS_KNOB;
+        laUiItem* ui=laShowItem(uil,c,This,"binding");
+        ui->Flags|=LA_UI_FLAGS_PLAIN|LA_UI_FLAGS_NO_LABEL|LA_TEXT_ALIGN_LEFT;ui->Expand=1;
         laShowItem(uil,c,This,"show_in_pages")
             ->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_CYCLE|LA_UI_FLAGS_HIGHLIGHT|LA_UI_FLAGS_TRANSPOSE|LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
         laShowItem(uil,c,This,"duplicate")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
@@ -559,9 +561,16 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cl,0,"our.preferences.show_stripes");
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
     laShowItem(uil,cl,0,"our.preferences.show_grid");
-    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
-    laShowItem(uil,cl,0,"our.preferences.multithread_write");
+    laShowItem(uil,cr,0,"our.preferences.multithread_write");
     
+    laShowSeparator(uil,c);
+
+    laShowLabel(uil,c,"Shortcut Buttons:",0,0);
+    laShowItem(uil,cl,0,"our.preferences.undo_on_header");
+    laShowItem(uil,cr,0,"our.preferences.tools_on_header");
+    laShowItem(uil,cl,0,"our.preferences.mix_mode_on_header");
+    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
+
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Undo:",0,0);
@@ -3061,21 +3070,25 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
 }
 void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
     laColumn *c = laFirstColumn(uil);
-    laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+    laUiItem* b1,*b2;
+    b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.undo_on_header"));{
+        laShowItem(uil, c, 0, "LA_undo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+        laShowItem(uil, c, 0, "LA_redo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
+    }laEndCondition(uil,b1);
+    b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.tools_on_header"));{
+        laShowItemFull(uil,c,0,"our.tool",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
+    }laEndCondition(uil,b1);
+
     laUiItem* b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(0)));{
-        laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
-        laUiItem* b1;
-#ifdef LAGUI_ANDROID
-        // undo seems not very responsive clicking from title bar.
-        //laShowItem(uil, c, 0, "LA_undo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
-        //laShowItem(uil, c, 0, "LA_redo")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_ICON;
-#else
-        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
-            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
-        }laElse(uil,b1);{
-            laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.mix_mode_on_header"));{
+            laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            b2=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
+            }laElse(uil,b2);{
+                laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+            }laEndCondition(uil,b2);
         }laEndCondition(uil,b1);
-#endif
+
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
             laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
         }laEndCondition(uil,b1);
@@ -3321,9 +3334,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"ADD","Accumulate","Accumulate values",3,U'🔦');
     p=laAddEnumProperty(pc, "brush_page","Brush Page","Show brushes in pages",0,0,0,0,0,offsetof(OurPaint,BrushPage),0,ourset_BrushPage,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"ALL","~","Show all brushes",0,'~');
-    laAddEnumItemAs(p,"P1","1","Show brush page 1",1,'1');
-    laAddEnumItemAs(p,"P2","2","Show brush page 2",2,'2');
-    laAddEnumItemAs(p,"P3","3","Show brush page 3",3,'3');
+    laAddEnumItemAs(p,"P1","A","Show brush page A",1,'A');
+    laAddEnumItemAs(p,"P2","B","Show brush page B",2,'B');
+    laAddEnumItemAs(p,"P3","C","Show brush page C",3,'C');
     laAddEnumItemAs(p,"LIST","=","Show brushes as a list",OUR_BRUSH_PAGE_LIST,L'☰');
 
     pc=laAddPropertyContainer("our_preferences","Our Preferences","OurPaint preferences",0,0,sizeof(OurPaint),0,0,1);
@@ -3352,9 +3365,18 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"spectral_mode","Spectral Brush","Use spectral mixing in brush strokes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,SpectralMode),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Use regular RGB mixing for brushes",0,0);
     laAddEnumItemAs(p,"SPECTRAL","Spectral","Use spectral mixing for brushes",1,0);
-    p=laAddEnumProperty(pc,"brush_numbers_on_header","Brush Numbers On Header","Show brush numbers on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,BrushNumbersOnHeader),0,0,0,0,0,0,0,0,0,0);
+    p=laAddEnumProperty(pc,"brush_numbers_on_header","Brush Numbers","Show brush numbers on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,BrushNumbersOnHeader),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Hide brush numbers on header",0,0);
     laAddEnumItemAs(p,"SHOWN","Shown","Show brush numbers on header",1,0);
+    p=laAddEnumProperty(pc,"mix_mode_on_header","Mix Modes","Show mix modes on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,MixModeOnHeader),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Hide mix modes on header",0,0);
+    laAddEnumItemAs(p,"SHOWN","Shown","Show mix modes on header",1,0);
+    p=laAddEnumProperty(pc,"tools_on_header","Tools","Show tool selector on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ToolsOnHeader),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Hide tool selector on header",0,0);
+    laAddEnumItemAs(p,"SHOWN","Shown","Show tool selector on header",1,0);
+    p=laAddEnumProperty(pc,"undo_on_header","Undo","Show undo buttons on header",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,UndoOnHeader),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"NONE","None","Hide undo buttons on header",0,0);
+    laAddEnumItemAs(p,"SHOWN","Shown","Show undo buttons on header",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"hardness","Strength","Pressure strength of global brush input",0,0, 0,1,-1,0.05,0,0,offsetof(OurPaint,Hardness),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);

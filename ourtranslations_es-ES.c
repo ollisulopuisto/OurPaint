@@ -28,6 +28,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Shortcut Buttons:","Botones de acceso directo:",
+"Mix Modes","Modos de mezcla",
 "Show brush direction:","Mostrar la dirección del pincel:",
 "Not registered","No registrado",
 "Registered","Registrado",
@@ -37,7 +39,7 @@ static const char *entries[]={
 "Brush Size","Tamaño de Pincel",
 "Brush Base Size","Tamaño de Base de Pincel",
 "Size Offset","Desviación de Tamaño",
-"Brush Numbers On Header","Números de Pincel en Encabezado",
+"Brush Numbers","Números de Pincel",
 "Nodes Help","Ayuda de Nodos",
 "Full","Completo",
 "Ref Grids","Malla de Referencia",

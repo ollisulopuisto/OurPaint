@@ -425,6 +425,9 @@ STRUCTURE(OurPaint){
     int PaintUndoLimit;
     int SpectralMode;
     int BrushNumbersOnHeader;
+    int MixModeOnHeader;
+    int ToolsOnHeader;
+    int UndoOnHeader;
     int SketchMode;
     int SegmentedWrite;
 

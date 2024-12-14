@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Shortcut Buttons:","快捷按钮：",
+"Mix Modes","混合模式",
 "Show brush direction:","显示笔刷方向：",
 "Linear D65 P3","线性 D65 P3",
 "Auto","自动",
@@ -38,7 +40,7 @@ static const char *entries[]={
 "Brush Size","笔刷尺寸",
 "Brush Base Size","笔刷基础尺寸",
 "Size Offset","尺寸偏移",
-"Brush Numbers On Header","在菜单显示笔刷编号",
+"Brush Numbers","笔刷号数",
 "Nodes Help","节点帮助",
 "Full","全",
 "Ref Grids","参考网格",
