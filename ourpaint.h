@@ -80,6 +80,7 @@ extern const char OUR_DESKTOP[];
 #define OUR_SIGNAL_SELECT_BRUSH_NUMBER_8 18
 #define OUR_SIGNAL_SELECT_BRUSH_NUMBER_9 19
 #define OUR_SIGNAL_SELECT_BRUSH_FREE 20
+#define OUR_SIGNAL_ADJUST 21
 
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
@@ -91,6 +92,8 @@ STRUCTURE(OurCanvasDraw){
     real LastPressure;
     real LastTilt[2];
     real LastTwist;
+    real LastSize;
+    int LastNumber;
     int MovedX,MovedY;
 };
 

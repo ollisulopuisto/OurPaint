@@ -2438,6 +2438,31 @@ int ourinv_CycleSketch(laOperator* a, laEvent* e){
     laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 
+int ourinv_AdjustBrush(laOperator* a, laEvent* e){
+    OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_FINISHED;
+    ex->CanvasDownX = e->x; ex->CanvasDownY=e->y; ex->LastSize=Our->BrushSize; ex->LastNumber=Our->BrushNumber;
+    return LA_RUNNING;
+}
+int ourmod_AdjustBrushSize(laOperator* a, laEvent* e){
+    OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_FINISHED;
+    if((e->type&LA_MOUSE_EVENT)&&(e->type&LA_STATE_DOWN)){ return LA_FINISHED; }
+    if(e->key == LA_KEY_ESCAPE || e->key==LA_KEY_ENTER){ return LA_FINISHED; }
+    if(Our->BrushNumber!=0){
+        real dist = e->x-ex->CanvasDownX+ex->CanvasDownY-e->y;
+        int number = dist/LA_RH + ex->LastNumber;
+        TNS_CLAMP(number,1,10);
+        ourset_BrushNumber(0,number);
+        laNotifyUsers("our.canvas_notify");
+    }else{
+        real dist = e->x-ex->CanvasDownX+ex->CanvasDownY-e->y;
+        real newsize = dist/LA_RH + ex->LastSize;
+        TNS_CLAMP(newsize,0.001,10);
+        ourset_BrushSize(0,newsize);
+        laNotifyUsers("our.canvas_notify");
+    }
+    return LA_RUNNING;
+}
+
 void our_SmoothGlobalInput(real *x, real *y, int reset){
     if(reset){ Our->LastX=*x; Our->LastY=*y; return; }
     else{
@@ -3268,6 +3293,7 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_set_brush_number","Set Brush Number","Choose a numbered brush",0,0,0,ourinv_BrushSetNumber,0,0,0);
     laCreateOperatorType("OUR_action","Action","Doing action on a layer",0,0,0,ourinv_Action,ourmod_Action,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_pick","Pick color","Pick color on the widget",0,0,0,ourinv_PickColor,ourmod_PickColor,0,LA_EXTRA_TO_PANEL);
+    laCreateOperatorType("OUR_adjust_brush","Adjust brush","Adjust brush",0,0,0,ourinv_AdjustBrush,ourmod_AdjustBrushSize,0,LA_EXTRA_TO_PANEL);
     at=laCreateOperatorType("OUR_export_image","Export Image","Export the image",ourchk_ExportImage,0,ourexit_ExportImage,ourinv_ExportImage,ourmod_ExportImage,U'🖼',0);
     at->UiDefine=ourui_ExportImage; pc=laDefineOperatorProps(at, 1);
     p=laAddEnumProperty(pc, "bit_depth","Bit Depth","How many bits per channel should be used",0,0,0,0,0,offsetof(OurPNGWriteExtra,BitDepth),0,0,0,0,0,0,0,0,0,0);
@@ -3585,6 +3611,7 @@ void ourRegisterEverything(){
     laAssignNewKey(km, 0, "LA_2d_view_zoom", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_ZOOM_IN, "direction=in");
     laAssignNewKey(km, 0, "OUR_pick", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_PICK, 0);
     laAssignNewKey(km, 0, "LA_2d_view_move", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_MOVE, 0);
+    laAssignNewKey(km, 0, "OUR_adjust_brush", LA_KM_SEL_UI_EXTRA, 0, LA_SIGNAL_EVENT, OUR_SIGNAL_ADJUST, 0);
 
     km=&MAIN.KeyMap; char buf[128];
     for(int i=0;i<=9;i++){
@@ -3625,6 +3652,7 @@ void ourRegisterEverything(){
     laNewCustomSignal("our.brush_number_8",OUR_SIGNAL_SELECT_BRUSH_NUMBER_8);
     laNewCustomSignal("our.brush_number_9",OUR_SIGNAL_SELECT_BRUSH_NUMBER_9);
     laNewCustomSignal("our.brush_free",OUR_SIGNAL_SELECT_BRUSH_FREE);
+    laNewCustomSignal("our.adjust",OUR_SIGNAL_ADJUST);
 
     laInputMapping* im=MAIN.InputMapping->CurrentInputMapping;
     if(!im) im=laNewInputMapping("Our Paint Default");
@@ -3646,6 +3674,7 @@ void ourRegisterEverything(){
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num8",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_8);
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"Num9",0,OUR_SIGNAL_SELECT_BRUSH_NUMBER_9);
     laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"NumDot",0,OUR_SIGNAL_SELECT_BRUSH_FREE);
+    laNewInputMappingEntryP(im,LA_INPUT_DEVICE_KEYBOARD,0,"f",0,OUR_SIGNAL_ADJUST);
 
     laAssignNewKey(km, 0, "LA_undo", 0, LA_KEY_CTRL, LA_KEY_DOWN, ']', 0);
     laAssignNewKey(km, 0, "LA_redo", 0, LA_KEY_CTRL, LA_KEY_DOWN, '[', 0);
