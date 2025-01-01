@@ -51,10 +51,10 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
 
 void our_CanvasAlphaMix(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
     real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
-    int a=(int)source[3]*alpha+(int)target[3]*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
-    int r=(int)source[0]*alpha+(int)target[0]*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
-    int g=(int)source[1]*alpha+(int)target[1]*a_1; TNS_CLAMP(g,0,OUR_PIX_MAX);
-    int b=(int)source[2]*alpha+(int)target[2]*a_1; TNS_CLAMP(b,0,OUR_PIX_MAX);
+    int a=(int)(source[3])*alpha+(int)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
+    int r=(int)(source[0])*alpha+(int)(target[0])*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
+    int g=(int)(source[1])*alpha+(int)(target[1])*a_1; TNS_CLAMP(g,0,OUR_PIX_MAX);
+    int b=(int)(source[2])*alpha+(int)(target[2])*a_1; TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAdd(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
@@ -1426,8 +1426,12 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile){
     uint16_t* image_buffer=Our->ImageBuffer;
     for(int row=0;row<Our->ImageH;row++){
         for(int col=0;col<Our->ImageW;col++){ uint16_t* p=&image_buffer[((int64_t)row*Our->ImageW+col)*4];
-            real a=(real)p[3]/65535.0f;
-            if(a>0){ p[0]=(real)p[0]/a; p[1]=(real)p[1]/a; p[2]=(real)p[2]/a; }
+            uint16_t a=(real)p[3]/65535.0f;
+            if(a>0){
+                p[0]=(p[0]<p[3])?p[0]:((real)p[0]/a);
+                p[1]=(p[1]<p[3])?p[1]:((real)p[1]/a);
+                p[2]=(p[2]<p[3])?p[2]:((real)p[2]/a);
+            }
         }
     }
 
@@ -2438,6 +2442,9 @@ int ourinv_CycleSketch(laOperator* a, laEvent* e){
     laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 
+void ourset_BrushNumber(void* unused, int a);
+void ourset_BrushSize(void* unused, real v);
+
 int ourinv_AdjustBrush(laOperator* a, laEvent* e){
     OurCanvasDraw *ex = a->This?a->This->EndInstance:0; if(!ex) return LA_FINISHED;
     ex->CanvasDownX = e->x; ex->CanvasDownY=e->y; ex->LastSize=Our->BrushSize; ex->LastNumber=Our->BrushNumber;
@@ -2708,7 +2715,7 @@ int ourinv_ClearEmptyTiles(laOperator* a, laEvent* e){
 
 int ourgetstate_Canvas(void* unused_canvas){
     int level; laMemNodeHyper* m=memGetHead(Our->CanvasSaverDummyList.pFirst,&level); if(!m || level!=2) return -1;
-    if(m->Modified || !m->FromFile) return LA_BT_WARNING;
+    if(m->Modified) return LA_BT_WARNING;
     return -1;
 }
 int ourgetstate_Brush(OurBrush* brush){
@@ -3045,6 +3052,7 @@ int ourget_CanvasVersion(void* unused){
 void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
     LA_ACQUIRE_GLES_CONTEXT;
+    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
 
 #define OUR_ADD_PRESSURE_SWITCH(p) \
@@ -3525,7 +3533,7 @@ void ourRegisterEverything(){
     laAddIntProperty(pc,"background_random","Random","Background random pattern value",0,0,0,0,0,0,0,0,offsetof(OurPaint,BackgroundRandom),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,ourset_BorderAlpha,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"border_fade_width","Fade Width","Fading of the border",0,0,0,1,0,0.01,0,0,offsetof(OurPaint,BorderFadeWidth),0,ourset_BorderFadeWidth,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"border_fade_width","Fade Width","Fading of the border",0,0,0,1,0,0.05,0,0,offsetof(OurPaint,BorderFadeWidth),0,ourset_BorderFadeWidth,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Dont' show border on the canvas",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show border on the canvas",1,0);

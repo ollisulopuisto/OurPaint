@@ -59,6 +59,8 @@ int main(int argc, char *argv[]){
     }
     if(anyload){ laRecordEverythingAndPush(); }
 
+    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
+
     //laAddRootDBInst("our.tools");
     if(!MAIN.Windows.pFirst){
         laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
