@@ -417,7 +417,7 @@ uvec4 cpack(vec4 c){
     (vec4(imageLoad(img,p))/65535.)
 #define OurImageStore(img, p, color) \
     imageStore(img,p,uvec4(vec4(color)*65535.))
-    
+
 #endif
 
 vec4 mix_over(vec4 colora, vec4 colorb){

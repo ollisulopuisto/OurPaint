@@ -1076,7 +1076,7 @@ int our_MergeLayer(OurLayer* l){
             if((!ot) || (!ot->Texture)) our_LayerEnsureTileDirect(ol,row,col);
             glBindImageTexture(0, t->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
             glBindImageTexture(1, ot->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
-            glDispatchCompute(OUR_WORKGROUP_SIZE,OUR_WORKGROUP_SIZE,1);
+            glDispatchCompute(OUR_TILE_W/OUR_WORKGROUP_SIZE,OUR_TILE_W/OUR_WORKGROUP_SIZE,1);
             xmin=TNS_MIN2(xmin,t->l+seam);xmax=TNS_MAX2(xmax,t->r-seam); ymin=TNS_MIN2(ymin,t->b+seam);ymax=TNS_MAX2(ymax,t->u-seam);
         }
     }

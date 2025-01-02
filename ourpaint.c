@@ -31,6 +31,7 @@ int main(int argc, char *argv[]){
     if(ourProcessInitArgs(argc,argv) < 0){ return 0; }
     laInitArguments ia={0}; laSetDefaultInitArguments(&ia);
     ia.GLMajor=4; ia.GLMinor=5;
+    ia.GLESMajor=3; ia.GLESMinor=2;
     ia.UseColorManagement=1;
     //ia.HasTextureInspector=1;
     ia.HasTerminal=1;

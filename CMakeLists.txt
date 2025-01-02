@@ -23,10 +23,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-no-pie")
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-no-pie")
 
-if(${LAGUI_USE_GLES})
-    add_definitions(-DLA_USE_GLES)
-endif()
-
 find_package(lagui REQUIRED)
 find_package(PNG REQUIRED)
 find_package(LCMS2 REQUIRED)
