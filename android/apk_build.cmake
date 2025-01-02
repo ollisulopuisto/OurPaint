@@ -126,6 +126,7 @@ macro(setup_variant VARIANT)
     -DANDROID_NATIVE_API_LEVEL=${ANDROID_NATIVE_API_LEVEL}
     -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
     BUILD_ALWAYS True
+    DEPENDS lagui-${VARIANT} freetype-${VARIANT} png-${VARIANT} lcms2-${VARIANT}
     )
 
 endmacro()
@@ -174,16 +175,8 @@ add_custom_command(
   WORKING_DIRECTORY ${APK_CONTENTS_ROOT}
   DEPENDS
     ${RESOURCES_APK}
-    #${EXECUTABLE_NAME}-armeabi-v7a
     ${EXECUTABLE_NAME}-arm64-v8a
-    #${EXECUTABLE_NAME}-x86
     ${EXECUTABLE_NAME}-x86_64
-    freetype-x86_64
-    #freetype-x86
-    freetype-arm64-v8a
-    #freetype-armeabi-v7a
-    png-x86_64
-    png-arm64-v8a
   )
 add_custom_command(
   OUTPUT ${FINAL_APK}

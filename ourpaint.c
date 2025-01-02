@@ -61,14 +61,29 @@ int main(int argc, char *argv[]){
 
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
+    if(!MAIN.InputMapping->Toolboxes.pFirst){
+        laInputMapping* im=laNewToolbox("Default Toolbox"); laInputMappingEntry* ime;
+        ime=laNewInputMappingEntry(im,0,0,0,0,"la.undo"); strSafeSet(&ime->Key,"Undo");
+        ime=laNewInputMappingEntry(im,0,0,0,0,"la.redo"); strSafeSet(&ime->Key,"Redo");
+        ime=laNewInputMappingEntry(im,0,0,0,0,"la.save"); strSafeSet(&ime->Key,"Save");
+        ime=laNewInputMappingEntry(im,0,0,0,0,"our.brush_smaller"); strSafeSet(&ime->Key,"Smaller");
+        ime=laNewInputMappingEntry(im,0,0,0,0,"our.brush_bigger"); strSafeSet(&ime->Key,"Bigger");
+    }
+
     //laAddRootDBInst("our.tools");
     if(!MAIN.Windows.pFirst){
         laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
         laLayout* l = laDesignLayout(w, "Our Paint");
         laBlock* b = l->FirstBlock;
 #ifdef LAGUI_ANDROID
-        b->Folded = 1;
-        laCreatePanel(b, "panel_canvas");
+        laSplitBlockVertical(b,0.3);
+        laSplitBlockHorizon(b->B1, 0.5);
+        laCreatePanel(b->B1->B1, "panel_color");
+        laCreatePanel(b->B1->B2, "panel_brushes");
+        b->B2->Folded = 1; laCreatePanel(b->B2, "panel_canvas");
+        l = laDesignLayout(w, "Our Paint");
+        b = l->FirstBlock;
+        b->Folded=1; laCreatePanel(b, "panel_canvas");
 #else
         laSplitBlockHorizon(b,0.7);
         b->B1->Folded = 1;
@@ -83,6 +98,7 @@ int main(int argc, char *argv[]){
         laStartWindow(w);
 #endif
     }
+
     our_EnableSplashPanel();
     laMainLoop();
 }

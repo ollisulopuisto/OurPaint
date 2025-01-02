@@ -3099,6 +3099,17 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         
         laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_about;text=About;", 0, 0);
+
+#ifdef _WIN32
+        laShowSeparator(muil,mc);
+        laShowItem(muil,mc,0,"LA_toggle_system_console");
+#endif
+        if(MAIN.InitArgs.HasTerminal){
+#ifndef _WIN32
+            laShowSeparator(muil,mc);
+#endif
+            laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_terminal;", 0, 0);
+        }
     }
 }
 void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
@@ -3647,7 +3658,7 @@ void ourRegisterEverything(){
     laNewCustomSignal("our.toggle_sketch",OUR_SIGNAL_TOGGLE_SKETCH);
     laNewCustomSignal("our.zoom_in",OUR_SIGNAL_ZOOM_IN);
     laNewCustomSignal("our.zoom_out",OUR_SIGNAL_ZOOM_OUT);
-    laNewCustomSignal("our.bursh_bigger",OUR_SIGNAL_BRUSH_BIGGER);
+    laNewCustomSignal("our.brush_bigger",OUR_SIGNAL_BRUSH_BIGGER);
     laNewCustomSignal("our.brush_smaller",OUR_SIGNAL_BRUSH_SMALLER);
     laNewCustomSignal("our.brush_number_0",OUR_SIGNAL_SELECT_BRUSH_NUMBER_0);
     laNewCustomSignal("our.brush_number_1",OUR_SIGNAL_SELECT_BRUSH_NUMBER_1);
