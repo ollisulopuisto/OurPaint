@@ -2782,6 +2782,7 @@ int ourthread_ImportPNG(OurThreadImportPNGDataMain* main){
     while(data=ourthread_ImportPNGGetTask(main)){
         our_LayerImportPNG(data->l, 0, data->data, 0, 0, 1, Our->TempLoadX, data->starty,1);
     }
+    return 0;
 }
 static int our_ProcessorCount() {
 #ifdef __linux__
