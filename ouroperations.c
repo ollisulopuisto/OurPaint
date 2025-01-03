@@ -618,33 +618,33 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     laShowLabel(uil, cl, OURPAINT_GIT_HASH,0,0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
 #endif
     laEndRow(uil,b);
-    laShowLabel(uil,cl," ",0,0);
     
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🗩;link=http://www.ChengduLittleA.com/ourpaint;text=Our Paint blog", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "link=http://www.ChengduLittleA.com/ourpaintlog;text=Development logs", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
     laShowLabel(uil,cr," ",0,0);
-    laShowLabel(uil,cr,"Support the development:",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
-    b=laBeginRow(uil,cr,1,0);
-    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
-    laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
-    laEndRow(uil,b);
 
     laShowLabel(uil,cl,"Cover artist:",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
     b=laBeginRow(uil,cl,0,0);
     laShowLabel(uil,cl,"吴奕茗 Wu Yiming",0,0);
     laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "text=Website;link=http://www.ChengduLittleA.com", 0, 0);
     laEndRow(uil,b);
+    
+    laShowSeparator(uil, c);
 
-    laShowLabel(uil,cl," ",0,0);
     b=laBeginRow(uil,cl,0,0);
     laShowLabel(uil, cl, "语言/Language",0,0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
     laShowItemFull(uil, cl, 0, "la.user_preferences.enable_translation",LA_WIDGET_ENUM_HIGHLIGHT,"text=翻译/Translate",0,0);
     laEndRow(uil,b);
     laUiItem* b1=laOnConditionThat(uil, cl, laPropExpression(0, "la.user_preferences.enable_translation"));
-    laShowItemFull(uil, cl, 0, "la.user_preferences.languages",LA_WIDGET_COLLECTION_SELECTOR,0,0,0);
+    laShowItemFull(uil, cl, 0, "la.user_preferences.languages",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laEndCondition(uil,b1);
+
+    b = laBeginRow(uil, cr, 0, 0);
+    laShowSeparator(uil, cr)->Expand=1;
+    laShowItem(uil, cr, This, "close");
+    laEndRow(uil, b);
 }
 void our_EnableSplashPanel(){
     laEnableSplashPanel(ourui_SplashPanel,0,100,0,2000,1500,0);
@@ -3111,6 +3111,10 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
 #endif
             laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_terminal;", 0, 0);
         }
+
+        laShowLabel(muil, mc, "Support", 0, 0)->Flags |= LA_TEXT_MONO | LA_UI_FLAGS_DISABLED;
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=$;link=https://www.patreon.com/chengdulittlea;text=Donate", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=￥;link=http://www.ChengduLittleA.com/donate;text=Donate (China)", 0, 0);
     }
 }
 void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColumn *extracol, int context){
