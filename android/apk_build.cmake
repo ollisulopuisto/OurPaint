@@ -139,8 +139,7 @@ set(MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/android/src/AndroidManifest.xml")
 set(RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/android/res")
 set(KEYSTORE "${CMAKE_CURRENT_SOURCE_DIR}/android/keystore.jks")
 
-set(VALUES_STRING "${CMAKE_CURRENT_BINARY_DIR}/values_strings.arsc.flat")
-set(VALUES_ICON "${CMAKE_CURRENT_BINARY_DIR}/drawable_icon.png.flat")
+set(VALUES_STUFF "${CMAKE_CURRENT_BINARY_DIR}/values.zip")
 
 include(CMakePrintHelpers)
 cmake_print_variables(CMAKE_CURRENT_SOURCE_DIR)
@@ -154,19 +153,16 @@ set(UNALIGNED_APK "${CMAKE_CURRENT_BINARY_DIR}/app.unaligned.apk")
 # keytool -genkeypair -keystore keystore.jks -alias androidkey -validity 10000 -keyalg RSA -keysize 2048 -storepass android -keypass android
 
 add_custom_command(
-  OUTPUT ${VALUES_STRING}
-  COMMAND ${AAPT2} compile ${RESOURCES}/values/strings.xml -o ${CMAKE_CURRENT_BINARY_DIR}
+  OUTPUT ${VALUES_STUFF}
+  COMMAND ${AAPT2} compile --dir ${RESOURCES} -o ${VALUES_STUFF}
   DEPENDS ${RESOURCES}/values/strings.xml
-  )
-add_custom_command(
-  OUTPUT ${VALUES_ICON}
-  COMMAND ${AAPT2} compile ${RESOURCES}/drawable/icon.png -o ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS ${RESOURCES}/drawable/icon.png
+          ${RESOURCES}/values-zh/strings.xml
+          ${RESOURCES}/drawable/icon.png
   )
 add_custom_command(
   OUTPUT ${RESOURCES_APK}
-  COMMAND ${AAPT2} link ${VALUES_STRING} ${VALUES_ICON} -o ${RESOURCES_APK} --manifest ${MANIFEST} -I ${ANDROID_JAR}
-  DEPENDS ${MANIFEST} ${VALUES_STRING} ${VALUES_ICON}
+  COMMAND ${AAPT2} link ${VALUES_STUFF} -o ${RESOURCES_APK} --manifest ${MANIFEST} -I ${ANDROID_JAR}
+  DEPENDS ${MANIFEST} ${VALUES_STUFF} ${VALUES_ICON}
   )
 add_custom_command(
   OUTPUT ${UNALIGNED_APK}
