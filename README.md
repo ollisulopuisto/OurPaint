@@ -2,7 +2,7 @@
 
 好得涂是一款绘画软件。
 
-版权所有 (C) 2022-2024 吴奕茗
+版权所有 (C) 2022-2025 吴奕茗
 
 了解更多: https://ChengduLittleA.com/ourpaint
 
@@ -35,7 +35,7 @@ default_brushes.udf 的作者是 吴奕茗。
 
 Our Paint is a painting application.
 
-Copyright (C) 2022-2024 Wu Yiming
+Copyright (C) 2022-2025 Wu Yiming
 
 Learn more about LaGUI: https://ChengduLittleA.com/lagui
 
