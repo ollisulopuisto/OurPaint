@@ -2065,7 +2065,7 @@ void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* 
     }
 }
 int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
-    if(!ol || (!dx && !dy)){ *movedx=0; *movedy=0; return 0; }
+    if(!ol || (!dx && !dy)){ if(movedx) *movedx=0; if(movedy) *movedy=0; return 0; }
     int rowmin,rowmax,colmin,colmax; our_LayerGetRange(ol,&rowmin,&rowmax,&colmin,&colmax);
 
     if(dx+colmax >= OUR_TILES_PER_ROW){ dx = OUR_TILES_PER_ROW - colmax - 1; }
@@ -2073,10 +2073,9 @@ int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
     if(colmin + dx < 0){ dx = -colmin; }
     if(rowmin + dy < 0){ dy = -rowmin; }
 
-    if(!dx && !dy){ *movedx=0; *movedy=0; return 0; }
+    if(!dx && !dy){ if(movedx) *movedx=0; if(movedy) *movedy=0; return 0; }
 
-    if(movedx){ *movedx=dx; }
-    if(movedy){ *movedy=dy; }
+    if(movedx){ *movedx=dx; } if(movedy){ *movedy=dy; }
 
     OurTexTile*** copy = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW);
     for(int i=0;i<OUR_TILES_PER_ROW;i++){ copy[i] = memAcquire(sizeof(void*)*OUR_TILES_PER_ROW); }
@@ -2548,10 +2547,12 @@ int ourmod_Crop(laOperator* a, laEvent* e){
 int ourmod_Move(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){
-        OurMoveUndo* undo = memAcquire(sizeof(OurMoveUndo));
-        undo->dx = ex->MovedX; undo->dy = ex->MovedY; undo->Layer = Our->CurrentLayer;
-        laFreeNewerDifferences();
-        laRecordCustomDifferences(undo,ourundo_Move,ourredo_Move,memFree); laPushDifferences("Move layer",0);
+        if(ex->MovedX!=0 || ex->MovedY!=0){
+            OurMoveUndo* undo = memAcquire(sizeof(OurMoveUndo));
+            undo->dx = ex->MovedX; undo->dy = ex->MovedY; undo->Layer = Our->CurrentLayer;
+            laFreeNewerDifferences();
+            laRecordCustomDifferences(undo,ourundo_Move,ourredo_Move,memFree); laPushDifferences("Move layer",0);
+        }
         ex->HideBrushCircle=0; laShowCursor(); return LA_FINISHED;
     }
 
