@@ -82,6 +82,9 @@ extern const char OUR_DESKTOP[];
 #define OUR_SIGNAL_SELECT_BRUSH_FREE 20
 #define OUR_SIGNAL_ADJUST 21
 
+extern laWidget* OUR_WIDGET_PIGMENT;
+extern laUiType* _OUR_UI_PIGMENT;
+
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
     int HideBrushCircle;
@@ -274,6 +277,26 @@ STRUCTURE(OurDab){
     float Gunkyness;
     float Recentness;
 };
+STRUCTURE(OurPigmentData){
+    real Reflectance[16];
+    real Absorption[16];
+    real PreviewColor[4][4];
+};
+STRUCTURE(OurPigment){
+    laListItem Item;
+    laSafeString* Name;
+    OurPigmentData Pigment;
+};
+STRUCTURE(OurLight){
+    laListItem Item;
+    laSafeString* Name;
+    OurPigmentData Emission;
+};
+STRUCTURE(OurCanvasSurface){
+    laListItem Item;
+    laSafeString* Name;
+    OurPigmentData Reflectance;
+};
 
 NEED_STRUCTURE(OurColorPallette);
 STRUCTURE(OurColorItem){
@@ -389,6 +412,10 @@ STRUCTURE(OurPaint){
     OurLayer*    CurrentLayer;
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
+    laListHandle Pigments;
+    OurBrush*    CurrentPigment;
+    laListHandle Lights;
+    laListHandle CanvasSurfaces;
     real SaveBrushSize,SaveEraserSize;
     OurDab* Dabs; int NextDab,MaxDab;
     float LastBrushCenter[2];
@@ -427,6 +454,7 @@ STRUCTURE(OurPaint){
     int DefaultColorProfile;
     int PaintUndoLimit;
     int SpectralMode;
+    int PigmentMode;
     int BrushNumbersOnHeader;
     int MixModeOnHeader;
     int ToolsOnHeader;
@@ -466,6 +494,11 @@ STRUCTURE(OurPaint){
     GLint uBlendMode;
     GLint uAlphaTop;
     GLint uAlphaBottom;
+
+    OurCanvasSurface CanvasSurface;
+    OurLight         CanvasLight;
+    OurPigmentData PickedPigment;
+    OurPigmentData MixedPigment;
 
     real CurrentColor[3];
     real BackgroundColor[3];

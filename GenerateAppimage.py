@@ -78,6 +78,7 @@ additional="""
     - libxfixes3
     - libxcursor1
     - libxrandr2
+    - libglew2.2
 """
 template=template.replace("---includes---",additional)
 
