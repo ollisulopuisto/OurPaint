@@ -37,6 +37,7 @@ extern const char OUR_SHADER_VERSION_430[];
 extern const char OUR_SHADER_VERSION_320ES[];
 extern const char OUR_CANVAS_SHADER[];
 extern const char OUR_COMPOSITION_SHADER[];
+extern const char OUR_SHADER_COMMON[];
 extern const char OUR_MIME[];
 extern const char OUR_THUMBNAILER[];
 extern const char OUR_DESKTOP[];
@@ -87,6 +88,7 @@ extern laUiType* _OUR_UI_PIGMENT;
 
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
+    tnsOffscreen *OffScrSave;
     int HideBrushCircle;
     int AtCrop;
     real CanvasLastX,CanvasLastY;
@@ -465,6 +467,8 @@ STRUCTURE(OurPaint){
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;      GLuint CanvasProgram;
     GLuint CompositionShader; GLuint CompositionProgram;
+    GLuint LayerShader;       GLuint LayerProgram;
+    GLuint DisplayShader;     GLuint DisplayProgram;
     GLint uCanvasType;
     GLint uCanvasRandom;
     GLint uCanvasFactor;

@@ -768,17 +768,30 @@ void our_PigmentPreviewDraw(laUiItem* ui, int h){
     la_DrawBoxAuto(ui->L,ui->R,ui->U,ui->B,bt,LA_UI_NORMAL,0);
 }
 
-void our_CanvasDrawTextures(){
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); real MultiplyColor[4];
+
+void our_CanvasSaveOffscreen(tnsOffscreen* off1,tnsOffscreen* off2){
+    int w=off1->pColor[0]->Width, h=off1->pColor[0]->Height;
+    tnsReadFromOffscreen(off1);
+    tnsDrawToOffscreenOnlyBind(off2);
+    glBlitFramebuffer(0,0,w,h,0,0,w,h,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+    tnsReadFromOffscreen(0);
+    tnsDrawToOffscreenOnlyBind(off1);
+}
+void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); real MultiplyColor[4];
+    glDisable(GL_BLEND);
+
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
         if(Our->SketchMode && l->AsSketch){
             if(Our->SketchMode == 1){ a=1.0f; }
             elif(Our->SketchMode == 2){ a=0.0f; }
         }
-        tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0; 
-        if(l->BlendMode==OUR_BLEND_NORMAL){ glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA); }
-        if(l->BlendMode==OUR_BLEND_ADD){ glBlendFunc(GL_ONE,GL_ONE); }
+        tnsVectorSet4(MultiplyColor,a,a,a,a); int any=0;
+        int mixmode=TNS_MIX_NORMAL;
+        if(l->BlendMode==OUR_BLEND_ADD){ mixmode=TNS_MIX_ADD; }
+        our_CanvasSaveOffscreen(off1,off2);
+        tnsUseTexture2(off2->pColor[0],mixmode);
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
             for(int col=0;col<OUR_TILES_PER_ROW;col++){
@@ -791,11 +804,12 @@ void our_CanvasDrawTextures(){
         }
         if(any) tnsFlush();
     }
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+    tnsUseTexture2(0,0);
+    glEnable(GL_BLEND);
 }
 void our_CanvasDrawTiles(){
     OurLayer* l=Our->CurrentLayer; if(!l) return;
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
     int any=0;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){
         if(!l->TexTiles[row]) continue;
@@ -815,7 +829,7 @@ void our_CanvasDrawTiles(){
     if(any) tnsFlush();
 }
 void our_CanvasDrawCropping(OurCanvasDraw* ocd){
-    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
     if(Our->BorderFadeWidth > 1e-6){
         real _H=Our->H,_W=Our->W,_X=Our->X,_Y=Our->Y-Our->H;
         real color[72]={0}; for(int i=1;i<18;i++){ color[i*4+3]=Our->BorderAlpha; }
@@ -903,7 +917,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     real LP=Our->RefPaddings[0]*dpc,RP=LP,TP=Our->RefPaddings[1]*dpc,BP=TP;
     real MM=Our->RefMargins[2]*dpc;
 
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0); tnsUseNoTexture();
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
     tnsColor4d(0,0,0,Our->RefAlpha); tnsLineWidth(3.0);
     tnsVertex2d(-W2,H2); tnsVertex2d(W2,H2); tnsVertex2d(W2,-H2); tnsVertex2d(-W2,-H2); tnsPackAs(GL_LINE_LOOP);
     if(Our->ShowRef==2){
@@ -1038,6 +1052,10 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
         if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
         e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
     }
+    if (!ocd->OffScrSave || ocd->OffScrSave->pColor[0]->Height != H || ocd->OffScrSave->pColor[0]->Width != W){
+        if (ocd->OffScrSave) tnsDelete2DOffscreen(ocd->OffScrSave);
+        ocd->OffScrSave = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
+    }
 
     //our_CANVAS_TEST(bt,ui);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
@@ -1050,7 +1068,9 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     tnsOrtho(e->PanX - W * e->ZoomX / 2, e->PanX + W * e->ZoomX / 2, e->PanY - e->ZoomY * H / 2, e->PanY + e->ZoomY * H / 2, 100, -100);
     tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
-    our_CanvasDrawTextures();
+    tnsDrawToOffscreen(e->OffScr,1,0);
+    our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
+
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
     if(Our->ShowRef){ our_CanvasDrawReferenceBlock(ocd); }
 }
@@ -2140,27 +2160,29 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     real r = (real)(TNS_MAX2(w,h))/400.0f;
     int use_w=w/r, use_h=h/r;
 
-    tnsOffscreen* off = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
-    tnsDrawToOffscreen(off,1,0);
+    tnsOffscreen* off1 = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
+    tnsOffscreen* off2 = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
+    tnsDrawToOffscreen(off1,1,0);
     tnsViewportWithScissor(0, 0, use_w, use_h);
     tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
     tnsOrtho(x,x+w,y+h,y,-100,100);
     tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
-    our_CanvasDrawTextures();
+    our_CanvasDrawTextures(off1, off2);
 
     if(Our->ImageBuffer){ free(Our->ImageBuffer); }
     int bufsize=use_w*use_h*OUR_CANVAS_PIXEL_SIZE;
     Our->ImageBuffer=malloc(bufsize);
-    tnsBindTexture(off->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    tnsBindTexture(off2->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 1);
 #ifdef LA_USE_GLES
     int readtype=GL_UNSIGNED_BYTE;
 #else
     int readtype=GL_UNSIGNED_SHORT;
 #endif
-    tnsGet2DTextureSubImage(off->pColor[0], 0, 0, use_w, use_h, GL_RGBA, readtype, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(off2->pColor[0], 0, 0, use_w, use_h, GL_RGBA, readtype, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
-    tnsDelete2DOffscreen(off);
+    tnsDelete2DOffscreen(off1);
+    tnsDelete2DOffscreen(off2);
 
     Our->ImageW = use_w; Our->ImageH = use_h;
     our_ImageBufferFromNative();
@@ -3807,7 +3829,7 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_pigment_data","Our Pigment Data","OurPaint pigment data",0,0,sizeof(OurPigmentData),0,0,0);
     laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,16,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,16,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"display_color","Display Color","Color to display on the interface",0,0,0,1,0,0.05,0.8,0,offsetof(OurPigmentData,DisplayColor),0,0,3,0,0,0,0,0,0,0,LA_READ_ONLY);
+    //laAddFloatProperty(pc,"display_color","Display Color","Color to display on the interface",0,0,0,1,0,0.05,0.8,0,offsetof(OurPigmentData,DisplayColor),0,0,3,0,0,0,0,0,0,0,LA_READ_ONLY);
 
     pc=laAddPropertyContainer("our_pigment","Our Pigment","OurPaint pigment",0,0,sizeof(OurPigment),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the pigment",0,0,0,0,1,offsetof(OurPigment,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -4125,8 +4147,8 @@ int ourInit(){
     Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,256,1,0);
 
     Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
-    const GLchar* source1 = OUR_CANVAS_SHADER;
-    char* UseContent=tnsEnsureShaderCommoms(source1,0,0);
+    const GLchar* source1 = strSub(OUR_CANVAS_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
+    char* UseContent=tnsEnsureShaderCommoms(source1,0,0); if(source1){free(source1);}
 #ifdef LA_USE_GLES
     const GLchar* versionstr=OUR_SHADER_VERSION_320ES;
 #else
@@ -4152,7 +4174,7 @@ int ourInit(){
     }
 
     Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
-    const GLchar* source2 = OUR_COMPOSITION_SHADER;
+    const GLchar* source2 = strSub(OUR_COMPOSITION_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
     const GLchar* sources2[]={versionstr, source2};
     glShaderSource(Our->CompositionShader, 2, sources2, NULL); glCompileShader(Our->CompositionShader);
     glGetShaderiv(Our->CompositionShader, GL_COMPILE_STATUS, &status);
@@ -4161,6 +4183,7 @@ int ourInit(){
     } else {
         glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); if(error[0]) logPrintNew("Composition shader info:\n%s", error);
     }
+    if(source2) free(source2);
 
     Our->CompositionProgram = glCreateProgram();
     glAttachShader(Our->CompositionProgram, Our->CompositionShader); glLinkProgram(Our->CompositionProgram);
