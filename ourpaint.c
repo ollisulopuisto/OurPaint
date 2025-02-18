@@ -50,6 +50,7 @@ int main(int argc, char *argv[]){
     laLoadHyperResources("OURPALLETTE");
     laLoadHyperResources("OURLIGHT");
     laLoadHyperResources("OURSURF");
+    laLoadHyperResources("OURPIGM");
 
     int anyload=0;
     for(int i=1;i<argc;i++){

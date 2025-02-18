@@ -33,6 +33,31 @@ laWidget _OUR_WIDGET_PIGMENT={0};
 laWidget* OUR_WIDGET_PIGMENT=&_OUR_WIDGET_PIGMENT;
 laUiType* _OUR_UI_PIGMENT;
 
+// See lin2012xyz2e_1_7_sf_calc.ods
+// Normalized to 16. 
+real PigmentCMF[3][16]={
+{0.0256137852631579,0.176998549473684,0.324992573684211,0.278209710526316,0.131263202631579,0.014745683,0.037739453368421,0.208473868421053,0.469442405263158,0.793365010526316,1.08417487894737,1.09022132105263,0.760274115789474,0.370996610526316,0.132563511052632,0.0379143815789474},
+{0.00273202863157895,0.0180098264736842,0.0448669426315789,0.0778269289473684,0.154425073684211,0.284083294736842,0.581026268421053,0.873226015789474,0.989738668421053,0.964781294736842,0.815827405263158,0.5850558,0.336884215789474,0.150147182631579,0.0515898715789474,0.0145470502631579},
+{0.127527536315789,0.914883057894737,1.77482205263158,1.653703,1.00137200526316,0.346880121052632,0.102993546315789,0.0227326414210526,0.00393168242105263,0.000625332878947368,0.000105245846315789,1.92985747368421E-05,0,0,0,0},
+};
+
+void our_Spectral2XYZ(real spec[16],real XYZ[3]){
+    real xyz[3]={0},n=0;
+    for(int i=0;i<16;i++){
+        xyz[0]+=spec[i]*PigmentCMF[0][i];
+        xyz[1]+=spec[i]*PigmentCMF[1][i];
+        xyz[2]+=spec[i]*PigmentCMF[2][i];
+        n+=PigmentCMF[1][i];
+    }
+    tnsVectorMultiSelf3d(xyz,1.0);
+    XYZ[0]=xyz[0]/n;
+    XYZ[1]=xyz[1]/n;
+    XYZ[2]=xyz[2]/n;
+    //printf("%f %f %f\n",XYZ[0],XYZ[1],XYZ[2]);
+    //tnsVectorSet3v(XYZ,xyz);
+}
+
+
 #ifdef LA_USE_GLES
 #define OUR_CANVAS_GL_PIX GL_R32UI
 #define OUR_CANVAS_GL_FORMAT GL_RED_INTEGER
@@ -164,7 +189,7 @@ void our_InitColorProfiles(){
 void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
     laUiItem* ui=laShowItemFull(uil,c,0,"our.canvas.notes",LA_WIDGET_STRING_MULTI,0,0,0);
-    laGeneralUiExtraData* ce=ui->Extra; ce->HeightCoeff = -1;
+    ui->Extent=-1;
 }
 void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -341,7 +366,7 @@ void ourui_LightItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
     laEndRow(uil,b);
     laShowItemFull(uil,crr,This,"name",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laUiItem* b1=laOnConditionToggle(uil,crl,0,0,0,0,0);{
-        laShowItemFull(uil,cr,This,"emission.reflectance",0,0,0,0);
+        laUiItem* ui=laShowItemFull(uil,cr,This,"emission.reflectance",0,0,0,0);ui->Extent=5;ui->Flags|=LA_UI_FLAGS_VERTICAL_SLIDER;
         laShowSeparator(uil,cr);
         laUiItem* b2=laBeginRow(uil,cr,0,0);
         laShowItem(uil,cr,This,"duplicate");
@@ -359,7 +384,7 @@ void ourui_CanvasSurfaceItem(laUiList *uil, laPropPack *This, laPropPack *Detach
     laEndRow(uil,b);
     laShowItemFull(uil,crr,This,"name",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laUiItem* b1=laOnConditionToggle(uil,crl,0,0,0,0,0);{
-        laShowItemFull(uil,cr,This,"reflectance.reflectance",0,0,0,0);
+        laUiItem* ui=laShowItemFull(uil,cr,This,"reflectance.reflectance",0,0,0,0);ui->Extent=5;ui->Flags|=LA_UI_FLAGS_VERTICAL_SLIDER;
         laShowSeparator(uil,cr);
         laUiItem* b2=laBeginRow(uil,cr,0,0);
         laShowItem(uil,cr,This,"duplicate");
@@ -374,7 +399,7 @@ void ourui_ColorItemSimple(laUiList *uil, laPropPack *This, laPropPack *Detached
 }
 void ourui_Pallette(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
-    laUiItem* ui=laShowItemFull(uil,c,This,"colors",0,0,ourui_ColorItemSimple,0);ui->SymbolID=7;
+    laUiItem* ui=laShowItemFull(uil,c,This,"colors",0,0,ourui_ColorItemSimple,0);ui->Extent=7;
     ui->Flags|=LA_UI_FLAGS_NO_DECAL;
 }
 void ourui_BrushSimple(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -520,7 +545,7 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
             laShowItem(uil,c,0,"OUR_new_brush")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laElse(uil,b);{
             laUiItem* bui=laShowItemFull(uil,c,0,"our.tools.brushes",0,0,ourui_BrushSimple,0);
-            bui->SymbolID=2; bui->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            bui->Extent=2; bui->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b);
     }laElse(uil,bt);{
         laShowLabel(uil,c,"Brush tool not selected",0,0);
@@ -762,10 +787,23 @@ void our_EnableSplashPanel(){
     laEnableSplashPanel(ourui_SplashPanel,0,100,0,2000,1500,0);
 }
 
+
 void our_PigmentPreviewDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
+    OurPigmentData* pd=ui->PP.EndInstance;
     tnsUseNoTexture();
-    la_DrawBoxAuto(ui->L,ui->R,ui->U,ui->B,bt,LA_UI_NORMAL,0);
+    if(pd){
+        real xyz[3],rgb[3];
+        our_Spectral2XYZ(pd->Reflectance,xyz);
+        tnsXYZ2sRGB(xyz,rgb);
+        tns2LogsRGB(rgb);
+        tnsColor4d(LA_COLOR3(rgb),1);
+        la_DrawBox(ui->L,ui->R,ui->U,ui->B); tnsFlush();
+        char buf[128]; sprintf(buf,"%.3f,%.3f,%.3f",LA_COLOR3(rgb));
+        tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L,ui->R,ui->U,LA_TEXT_SHADOW);
+    }
+    tnsUseNoTexture();
+    la_DrawBoxAutoBorder(ui->L,ui->R,ui->U,ui->B,bt,LA_UI_NORMAL);
 }
 
 
@@ -774,6 +812,7 @@ void our_CanvasSaveOffscreen(tnsOffscreen* off1,tnsOffscreen* off2){
     tnsReadFromOffscreen(off1);
     tnsDrawToOffscreenOnlyBind(off2);
     glBlitFramebuffer(0,0,w,h,0,0,w,h,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+    glFlush();
     tnsReadFromOffscreen(0);
     tnsDrawToOffscreenOnlyBind(off1);
 }
@@ -791,13 +830,13 @@ void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
         int mixmode=TNS_MIX_NORMAL;
         if(l->BlendMode==OUR_BLEND_ADD){ mixmode=TNS_MIX_ADD; }
         our_CanvasSaveOffscreen(off1,off2);
-        tnsUseTexture2(off2->pColor[0],mixmode);
         for(int row=0;row<OUR_TILES_PER_ROW;row++){
             if(!l->TexTiles[row]) continue;
             for(int col=0;col<OUR_TILES_PER_ROW;col++){
                 if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
                 int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
                 real pad=(real)OUR_TILE_SEAM/OUR_TILE_W; int seam=OUR_TILE_SEAM;
+                tnsUseTexture2(off2->pColor[0],mixmode);    
                 tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TILE_W-seam,OUR_TILE_W-seam*2,-OUR_TILE_W+seam*2,MultiplyColor,pad,pad,pad,pad);
                 any=1;
             }
@@ -1068,7 +1107,6 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     tnsOrtho(e->PanX - W * e->ZoomX / 2, e->PanX + W * e->ZoomX / 2, e->PanY - e->ZoomY * H / 2, e->PanY + e->ZoomY * H / 2, 100, -100);
     tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
-    tnsDrawToOffscreen(e->OffScr,1,0);
     our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
 
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
