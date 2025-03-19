@@ -1486,7 +1486,6 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 }
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int BlendMode, real alpha){
     if(!ot->Texture) return;
-    printf("-------%d %d\n", SX,SY);
     int bufsize=OUR_TILE_W_USE*OUR_TILE_W_USE*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -2232,7 +2231,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
 
     OurLayerWrite LayerWrite={0};
     arrEnsureLength(&LayerWrite.data,0,&LayerWrite.MaxData,sizeof(unsigned char));
-    png_set_write_fn(png_ptr,&LayerWrite,_our_png_write,0);
+    png_set_write_fn(png_ptr,&LayerWrite,_our_png_write,0);OUR_TILE_W
 
     png_set_IHDR(png_ptr, info_ptr,use_w,use_h,8,PNG_COLOR_TYPE_RGBA,PNG_INTERLACE_NONE,PNG_COMPRESSION_TYPE_BASE,PNG_FILTER_TYPE_BASE);
     png_write_info(png_ptr, info_ptr);
