@@ -1486,6 +1486,7 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 }
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int BlendMode, real alpha){
     if(!ot->Texture) return;
+    printf("-------%d %d\n", SX,SY);
     int bufsize=OUR_TILE_W_USE*OUR_TILE_W_USE*OUR_CANVAS_PIXEL_SIZE;
     ot->Data=malloc(bufsize); int seam=OUR_TILE_SEAM; int width=OUR_TILE_W_USE;
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -2321,8 +2322,8 @@ int our_MoveLayer(OurLayer* ol, int dx, int dy, int* movedx, int* movedy){
     for(int row=rowmin;row<=rowmax;row++){ if(!ol->TexTiles[row]) continue;
         for(int col=colmin;col<=colmax;col++){
             OurTexTile* t0=copy[row][col]; if(!t0){continue; }
-            t0->l+=dx*OUR_TILE_W; t0->r+=dx*OUR_TILE_W;
-            t0->u+=dy*OUR_TILE_W; t0->b+=dy*OUR_TILE_W;
+            t0->l+=dx*OUR_TILE_W_USE; t0->r+=dx*OUR_TILE_W_USE;
+            t0->u+=dy*OUR_TILE_W_USE; t0->b+=dy*OUR_TILE_W_USE;
             if(!ol->TexTiles[row+dy]){
                 ol->TexTiles[row+dy] = memAcquire(sizeof(OurTexTile*)*OUR_TILES_PER_ROW);
             }
