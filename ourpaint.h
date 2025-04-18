@@ -104,6 +104,8 @@ STRUCTURE(OurCanvasDraw){
 
 #define OUR_DPC (600*0.3937007874)
 
+#define OUR_SPECTRAL_SLICES 15
+
 #define OUR_TILE_W 1024
 #define OUR_TILES_PER_ROW 100
 #define OUR_TILE_CTR (OUR_TILES_PER_ROW/2)
@@ -396,6 +398,11 @@ STRUCTURE(OurThreadImportPNGDataMain){
     SYSLOCK lock;
 };
 
+STRUCTURE(OurUsePigment){
+    laListItem Item;
+    OurPigment* pigment;
+};
+
 STRUCTURE(OurPaint){
     real pad;
 
@@ -501,8 +508,9 @@ STRUCTURE(OurPaint){
 
     OurCanvasSurface CanvasSurface;
     OurLight         CanvasLight;
-    OurPigmentData PickedPigment;
-    OurPigmentData MixedPigment;
+    OurPigmentData   PickedPigment;
+    OurPigmentData   MixedPigment;
+    laListHandle     UsePigments;
 
     real CurrentColor[3];
     real BackgroundColor[3];
