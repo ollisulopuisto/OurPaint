@@ -39,13 +39,13 @@ laUiType* _OUR_UI_PIGMENT_MIXER;
 laUiType* _OUR_UI_PIGMENT_PREVIEW;
 laUiType* _OUR_UI_COLOR_PAD;
 
-OurPigmentData _OUR_PIGMENT_D65={{0.574,0.703,0.916,1.000,0.974,0.923,0.877,0.832,0.877,0.794,0.737,0.716,0.730,0.718,1.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_D65={{0.574,0.703,0.916,1.000,0.974,0.923,0.923,0.877,0.832,0.877,0.794,0.737,0.716,0.730,0.718,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_D65=&_OUR_PIGMENT_D65;
-OurPigmentData _OUR_PIGMENT_GRAY={{0.287,0.352,0.458,0.500,0.487,0.462,0.439,0.416,0.439,0.397,0.369,0.358,0.365,0.359,1.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_GRAY={{0.105616,0.129352,0.168544,0.184,0.179216,0.169832,0.169832,0.161368,0.153088,0.161368,0.146096,0.135608,0.131744,0.13432,0.132112,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_GRAY=&_OUR_PIGMENT_GRAY;
-OurPigmentData _OUR_PIGMENT_BLACK={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,1.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_BLACK={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_BLACK=&_OUR_PIGMENT_BLACK;
-OurPigmentData _OUR_PIGMENT_WATER={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,0.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_WATER={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,0.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_WATER=&_OUR_PIGMENT_WATER;
 
 
@@ -1206,8 +1206,10 @@ static inline real safepow(real a, real b){
     real ae=TNS_MAX2(DBL_EPSILON,a); return pow(ae,b);
 }
 void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor){
-    real afac=factor*source->Absorption[15]/10, afac1=1.0f-afac;
-    real rfac=factor*source->Reflectance[15], rfac1=1.0f-rfac;
+    real afac=factor*pow(source->Absorption[15],0.5), afac1=(1.0f-afac)*target->Absorption[15];
+    real rfac=factor*pow(source->Reflectance[15],0.5), rfac1=(1.0f-rfac)*target->Reflectance[15];
+    real ascale=1.0f/(afac1+afac+DBL_EPSILON), rscale=1.0f/(rfac1+rfac+DBL_EPSILON); 
+    afac*=ascale; afac1*=ascale; rfac*=rscale;rfac1*=rscale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         target->Absorption[i]=safepow(target->Absorption[i],afac1)*safepow(source->Absorption[i],afac);
         target->Reflectance[i]=safepow(target->Reflectance[i],rfac1)*safepow(source->Reflectance[i],rfac);
@@ -1220,7 +1222,7 @@ void our_PigmentToPreview(OurPigmentData* pd, OurPigmentData* bkg, real* rgb){
     OurPigmentData temp={0}; memcpy(&temp,bkg,sizeof(OurPigmentData));
     our_PigmentMix(&temp, pd, 1.0f);
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        real absfac=1.0f-temp.Absorption[i]*temp.Absorption[15]; if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
+        real absfac=1.0f-temp.Absorption[i]*pow(temp.Absorption[15],2); if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
     }
     our_Spectral2XYZ(slices,xyz); tnsXYZ2sRGB(xyz,rgb); tns2LogsRGB(rgb);
 }
@@ -1228,13 +1230,14 @@ void our_PigmentOver(OurPigmentData* bottom, OurPigmentData* top, real factor){
     
 }
 
-void our_PigmentDrawPreview(int L,int R, int U, int B, OurPigmentData *pd){
+void our_PigmentDrawPreview(int L,int R, int U, int B, OurPigmentData *pd, laBoxedTheme* bt){
     OurPigmentData* bkgs[3]={OUR_PIGMENT_D65,OUR_PIGMENT_GRAY,OUR_PIGMENT_BLACK}; int W=R-L;
     for(int i=0;i<3;i++){
         int _L=(real)i/3.0f*W+L, _R=(real)(i+1)/3.0f*W+L; real rgb[3];
         our_PigmentToPreview(pd,bkgs[i],rgb);
         tnsColor4d(LA_COLOR3(rgb),1.0f); la_DrawBox(_L,_R,U,B);
     }
+    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(L,R,U,B);
 }
 
 int ourmod_ColorPad(laOperator* a, laEvent* e){
@@ -1266,7 +1269,7 @@ int ourmod_ColorPad(laOperator* a, laEvent* e){
     if(up->pigment){
         if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_BT_ACTIVE; }
         if(ui->State==LA_BT_ACTIVE){
-            our_PigmentMix(&Our->MixedPigment,&up->pigment->Pigment,0.1*e->Pressure);
+            our_PigmentMix(&Our->MixedPigment,&up->pigment->Pigment,OUR_MIXING_SPEED*e->Pressure);
             laNotifyUsers("our.mixed_pigment");
         }
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->State=LA_BT_NORMAL; }
@@ -1294,7 +1297,7 @@ void our_ColorPadDraw(laUiItem *ui, int h){
         return;
     }
 
-    our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,&up->pigment->Pigment);
+    our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,&up->pigment->Pigment,bt);
 }
 
 int our_PigmentMixerDetectPosition(laUiItem* ui, int x, int y){
@@ -1317,12 +1320,12 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
     if(!es->On){
         if(e->type==LA_L_MOUSE_DOWN){
             es->On=our_PigmentMixerDetectPosition(ui,e->x,e->y);
-            if(es->On==2){ our_PigmentClear(pd); }
+            if(es->On==2){ our_PigmentClear(pd); laNotifyUsers("our.mixed_pigment"); return LA_RUNNING;  }
         }
     }
     if(es->On){
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; return LA_RUNNING; }
-        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,0.01*e->Pressure); laNotifyUsers("our.mixed_pigment"); }
+        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure); laNotifyUsers("our.mixed_pigment"); }
     }
 
     return LA_RUNNING;
@@ -1332,14 +1335,14 @@ void our_PigmentMixerDraw(laUiItem* ui, int h){
     OurPigmentData* pd=ui->PP.EndInstance;
     tnsUseNoTexture();
 
-    our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd);
+    our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
 }
 void our_PigmentPreviewDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
     OurPigmentData* pd=ui->PP.EndInstance;
     tnsUseNoTexture();
     if(pd){
-        our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd);
+        our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
         real rgb[3]; our_PigmentToPreview(pd,OUR_PIGMENT_BLACK,rgb);
         char buf[128]; sprintf(buf,"%.3f,%.3f,%.3f",LA_COLOR3(rgb));
         tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L,ui->R,ui->U,LA_TEXT_SHADOW);
@@ -3604,6 +3607,10 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
 void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas_notify"); }
 void ourset_PigmentMode(void* unused, int a){ Our->PigmentMode=a; laNotifyUsers("our"); }
 void ourset_UsePigmentPigment(OurUsePigment* up, OurPigment* p){ memAssignRef(up,&up->pigment,p); laNotifyInstanceUsers(up); }
+void ourget_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=log(pd->Reflectance[i]); } }
+void ourset_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Reflectance[i]=exp(data[i]); } }
+void ourget_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=log(pd->Absorption[i]); } }
+void ourset_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Absorption[i]=exp(data[i]); } }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -4054,7 +4061,7 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"reflectance_density","Density","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance[15]),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,10,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,0,0,0,0,0,0,0,0,0,0);
     //laAddFloatProperty(pc,"display_color","Display Color","Color to display on the interface",0,0,0,1,0,0.05,0.8,0,offsetof(OurPigmentData,DisplayColor),0,0,3,0,0,0,0,0,0,0,LA_READ_ONLY);
 
     pc=laAddPropertyContainer("our_pigment","Our Pigment","OurPaint pigment",0,0,sizeof(OurPigment),0,0,2);
