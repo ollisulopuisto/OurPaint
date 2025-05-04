@@ -41,12 +41,17 @@ laUiType* _OUR_UI_COLOR_PAD;
 
 OurPigmentData _OUR_PIGMENT_D65={{0.574,0.703,0.916,1.000,0.974,0.923,0.923,0.877,0.832,0.877,0.794,0.737,0.716,0.730,0.718,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_D65=&_OUR_PIGMENT_D65;
-OurPigmentData _OUR_PIGMENT_GRAY={{0.105616,0.129352,0.168544,0.184,0.179216,0.169832,0.169832,0.161368,0.153088,0.161368,0.146096,0.135608,0.131744,0.13432,0.132112,1.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_WHITE={{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1.000},{0},{0}};
+OurPigmentData* OUR_PIGMENT_WHITE=&_OUR_PIGMENT_WHITE;
+OurPigmentData _OUR_PIGMENT_GRAY={{0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,0.17,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_GRAY=&_OUR_PIGMENT_GRAY;
-OurPigmentData _OUR_PIGMENT_BLACK={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,1.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_BLACK={{0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,0.001,1.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_BLACK=&_OUR_PIGMENT_BLACK;
-OurPigmentData _OUR_PIGMENT_WATER={{0.000574,0.000703,0.000916,0.0010,0.000974,0.000923,0.000923,0.000877,0.000832,0.000877,0.000794,0.000737,0.000716,0.000730,0.000718,0.000},{0},{0}};
+OurPigmentData _OUR_PIGMENT_WATER={{0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_WATER=&_OUR_PIGMENT_WATER;
+
+#define OUR_UI_FLAGS_EMISSION LA_UI_FLAGS_ICON
+#define OUR_UI_FLAGS_CANVAS LA_UI_FLAGS_CYCLE
 
 
 // See lin2012xyz2e_1_7_sf_calc.ods
@@ -361,6 +366,7 @@ void ourUI_PIGMENT_PREVIEWsPanel(laUiList *uil, laPropPack *This, laPropPack *De
     laUiItem* gu; laUiList* guil; laColumn* gc;
     laShowColumnAdjuster(uil,c);
     gu=laMakeGroup(uil,cl,"Pigments",0); guil=gu->Page; gc=laFirstColumn(guil);{
+        guil->HeightCoeff = -1;
         laSplitColumn(guil,gc,0.5); laLeftColumn(gc,1);
         laShowItemFull(guil,gc,0,"our.tools.pigments",0,0,ourui_PigmentItem,1)->Flags|=LA_UI_FLAGS_NO_DECAL;
         laShowSeparator(guil,gc);
@@ -376,11 +382,13 @@ void ourUI_PIGMENT_PREVIEWsPanel(laUiList *uil, laPropPack *This, laPropPack *De
 }
 void ourui_LightItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *ExtraColumns, int context){
     laColumn* c=context?ExtraColumns:laFirstColumn(uil); laColumn* cl,*cr, *crl,*crr;
-    laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,3);cr=laRightColumn(c,0);
+    laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,5);cr=laRightColumn(c,0);
     laSplitColumn(uil,cr,0.5); crl=laLeftColumn(cr,1);crr=laRightColumn(cr,0);
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowHeightAdjuster(uil,cl,This,"__move",0);
-    laShowItemFull(uil,cl,This,"emission",OUR_WIDGET_PIGMENT_PREVIEW,0,0,0)->Expand=1;
+    laUiItem* preview=laShowItemFull(uil,cl,This,"emission",OUR_WIDGET_PIGMENT_PREVIEW,0,0,0);
+    preview->Expand=1; preview->Flags|=OUR_UI_FLAGS_EMISSION;
+    laShowItem(uil,cl,This,"use")->Flags|=LA_UI_FLAGS_ICON;
     laEndRow(uil,b);
     laShowItemFull(uil,crr,This,"name",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laUiItem* b1=laOnConditionToggle(uil,crl,0,0,0,0,0);{
@@ -394,11 +402,13 @@ void ourui_LightItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps,
     }laEndCondition(uil,b1);
 }
 void ourui_CanvasSurfaceItem(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *ExtraColumns, int context){    laColumn* c=context?ExtraColumns:laFirstColumn(uil); laColumn* cl,*cr, *crl,*crr;
-    laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,3);cr=laRightColumn(c,0);
+    laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,5);cr=laRightColumn(c,0);
     laSplitColumn(uil,cr,0.5); crl=laLeftColumn(cr,1);crr=laRightColumn(cr,0);
     laUiItem* b=laBeginRow(uil,cl,0,0);
     laShowHeightAdjuster(uil,cl,This,"__move",0);
-    laShowItemFull(uil,cl,This,"reflectance",OUR_WIDGET_PIGMENT_PREVIEW,0,0,0)->Expand=1;
+    laUiItem* preview=laShowItemFull(uil,cl,This,"reflectance",OUR_WIDGET_PIGMENT_PREVIEW,0,0,0);
+    preview->Expand=1; preview->Flags|=OUR_UI_FLAGS_CANVAS;
+    laShowItem(uil,cl,This,"use")->Flags|=LA_UI_FLAGS_ICON;
     laEndRow(uil,b);
     laShowItemFull(uil,crr,This,"name",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
     laUiItem* b1=laOnConditionToggle(uil,crl,0,0,0,0,0);{
@@ -1201,8 +1211,10 @@ int ourextramod_Canvas(laOperator *a, laEvent *e){
     return LA_RUNNING_PASS;
 }
 
+void our_PigmentToPreviewSelf(OurPigmentData* pd);
+
 void our_PigmentClear(OurPigmentData* pd){
-    memset(pd,0,sizeof(OurPigmentData));
+    memset(pd,0,sizeof(OurPigmentData)); our_PigmentToPreviewSelf(pd);
 }
 static inline real safepow(real a, real b){
     real ae=TNS_MAX2(DBL_EPSILON,a); return pow(ae,b);
@@ -1225,20 +1237,57 @@ void our_PigmentToPreview(OurPigmentData* pd, OurPigmentData* bkg, real* rgb){
     our_PigmentMix(&temp, pd, 1.0f);
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         real absfac=1.0f-temp.Absorption[i]*pow(temp.Absorption[15],2); if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
+        slices[i]*= Our->CanvasLight.Emission.Reflectance[i];
     }
     our_Spectral2XYZ(slices,xyz); tnsXYZ2sRGB(xyz,rgb); tns2LogsRGB(rgb);
 }
 void our_PigmentOver(OurPigmentData* bottom, OurPigmentData* top, real factor){
     
 }
+void our_LightToPreview(OurPigmentData* pd, real* rgb){
+    real xyz[3]; our_Spectral2XYZ(pd->Reflectance,xyz); tnsXYZ2sRGB(xyz,rgb); tns2LogsRGB(rgb);
+}
+void our_CanvasToPreview(OurPigmentData* pd, real* rgb){
+    real xyz[3]; real slices[OUR_SPECTRAL_SLICES];
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        slices[i]=Our->CanvasLight.Emission.Reflectance[i]*pd->Reflectance[i];
+    }
+    our_Spectral2XYZ(slices,xyz); tnsXYZ2sRGB(xyz,rgb); tns2LogsRGB(rgb);
+}
+
+void our_PigmentToPreviewSelf(OurPigmentData* pd){
+    OurPigmentData* bkgs[3]={OUR_PIGMENT_WHITE,OUR_PIGMENT_GRAY,OUR_PIGMENT_BLACK};
+    for(int i=0;i<3;i++){
+        our_PigmentToPreview(pd,bkgs[i],pd->PreviewColor[i]);
+    }
+}
+void our_RefreshAllPigmentPreviews(){
+    OurPigmentData* bkgs[3]={OUR_PIGMENT_WHITE,OUR_PIGMENT_GRAY,OUR_PIGMENT_BLACK};
+    for(OurPigment* p=Our->Pigments.pFirst;p;p=p->Item.pNext){
+        for(int i=0;i<3;i++){
+            our_PigmentToPreview(&p->Pigment,bkgs[i],p->Pigment.PreviewColor[i]);
+        }
+    }
+    for(OurLight* p=Our->Lights.pFirst;p;p=p->Item.pNext){
+        our_LightToPreview(&p->Emission,p->Emission.PreviewColor[0]);
+    }
+    for(OurCanvasSurface* p=Our->CanvasSurfaces.pFirst;p;p=p->Item.pNext){
+        our_CanvasToPreview(&p->Reflectance,p->Reflectance.PreviewColor[0]);
+    }
+    our_PigmentToPreviewSelf(&Our->MixedPigment);
+}
 
 void our_PigmentDrawPreview(int L,int R, int U, int B, OurPigmentData *pd, laBoxedTheme* bt){
-    OurPigmentData* bkgs[3]={OUR_PIGMENT_D65,OUR_PIGMENT_GRAY,OUR_PIGMENT_BLACK}; int W=R-L;
-    for(int i=0;i<3;i++){
-        int _L=(real)i/3.0f*W+L, _R=(real)(i+1)/3.0f*W+L; real rgb[3];
-        our_PigmentToPreview(pd,bkgs[i],rgb);
-        tnsColor4d(LA_COLOR3(rgb),1.0f); la_DrawBox(_L,_R,U,B);
+    int W=R-L; for(int i=0;i<3;i++){
+        int _L=(real)i/3.0f*W+L, _R=(real)(i+1)/3.0f*W+L;
+        tnsColor4d(LA_COLOR3(pd->PreviewColor[i]),1.0f); la_DrawBox(_L,_R,U,B);
     }
+}
+void our_LightDrawPreview(int L,int R, int U, int B, OurPigmentData *pd, laBoxedTheme* bt){
+    real rgb[3]; our_LightToPreview(pd,rgb); tnsColor4d(LA_COLOR3(rgb),1.0f); la_DrawBox(L,R,U,B);
+}
+void our_CanvasDrawPreview(int L,int R, int U, int B, OurPigmentData *pd, laBoxedTheme* bt){
+    real rgb[3]; our_CanvasToPreview(pd,rgb); tnsColor4d(LA_COLOR3(rgb),1.0f); la_DrawBox(L,R,U,B);
 }
 
 int ourmod_ColorPad(laOperator* a, laEvent* e){
@@ -1271,6 +1320,7 @@ int ourmod_ColorPad(laOperator* a, laEvent* e){
         if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_BT_ACTIVE; }
         if(ui->State==LA_BT_ACTIVE){
             our_PigmentMix(&Our->MixedPigment,&up->pigment->Pigment,OUR_MIXING_SPEED*e->Pressure);
+            our_PigmentToPreviewSelf(&Our->MixedPigment);
             laNotifyUsers("our.mixed_pigment");
         }
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->State=LA_BT_NORMAL; }
@@ -1330,7 +1380,8 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
     }
     if(es->On){
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; es->Dragging=0; return LA_RUNNING; }
-        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure); laNotifyUsers("our.mixed_pigment"); }
+        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure);
+            our_PigmentToPreviewSelf(&Our->MixedPigment); laNotifyUsers("our.mixed_pigment"); }
         if(es->On==4){ int d=e->y-es->LastY; int h=es->TargetIndexVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
     }
 
@@ -1360,11 +1411,14 @@ void our_PigmentPreviewDraw(laUiItem* ui, int h){
     OurPigmentData* pd=ui->PP.EndInstance;
     tnsUseNoTexture();
     if(pd){
-        our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+        if(ui->Flags&OUR_UI_FLAGS_EMISSION){
+            our_LightDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+        }elif(ui->Flags&OUR_UI_FLAGS_CANVAS){
+            our_CanvasDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+        }else{
+            our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+        }
         tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
-        real rgb[3]; our_PigmentToPreview(pd,OUR_PIGMENT_BLACK,rgb);
-        char buf[128]; sprintf(buf,"%.3f,%.3f,%.3f",LA_COLOR3(rgb));
-        tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L,ui->R,ui->U,LA_TEXT_SHADOW);
     }
     tnsUseNoTexture();
     la_DrawBoxAutoBorder(ui->L,ui->R,ui->U,ui->B,bt,LA_UI_NORMAL);
@@ -1476,10 +1530,15 @@ void our_RemoveUsePigment(OurUsePigment* up){
     lstRemoveItem(&Our->UsePigments, up); memLeave(up);
 }
 
+void our_SetActiveLight(OurLight* l){
+    memcpy(&Our->CanvasLight.Emission,&l->Emission,sizeof(OurPigmentData));
+    strSafeSet(&Our->CanvasLight.Name,SSTR(l->Name));
+    our_RefreshAllPigmentPreviews(); laRedrawAllWindows();
+}
 OurLight* our_NewLight(char* name){
     OurLight* l=memAcquireHyper(sizeof(OurLight)); strSafeSet(&l->Name,name); lstAppendItem(&Our->Lights, l);
     for(int i=0;i<16;i++){ l->Emission.Reflectance[i]=1.0f; }
-    memcpy(&Our->CanvasLight,l,sizeof(OurLight));
+    our_SetActiveLight(l);
     return l;
 }
 void our_RemoveLight(OurLight* l){
@@ -1489,14 +1548,19 @@ OurLight* our_DuplicateLight(OurLight* l){
     OurLight* nl=memAcquireHyper(sizeof(OurLight));
     nl->Name=0; strSafePrint(&nl->Name,"%s Copy",l->Name?l->Name->Ptr:"New Light");
     lstInsertItemAfter(&Our->Lights,nl,l);
-    memcpy(&Our->CanvasLight,nl,sizeof(OurLight));
+    memcpy(&nl->Emission,&l->Emission,sizeof(OurPigmentData));
+    our_SetActiveLight(nl);
     return nl;
 }
 
+void our_SetActiveCanvasSurface(OurCanvasSurface* cs){
+    memcpy(&Our->CanvasSurface.Reflectance,&cs->Reflectance,sizeof(OurPigmentData));
+    strSafeSet(&Our->CanvasSurface.Name,SSTR(cs->Name));
+}
 OurCanvasSurface* our_NewCanvasSurface(char* name){
     OurCanvasSurface* cs=memAcquireHyper(sizeof(OurCanvasSurface)); strSafeSet(&cs->Name,name); lstAppendItem(&Our->CanvasSurfaces, cs);
     for(int i=0;i<16;i++){ cs->Reflectance.Reflectance[i]=1.0f; }
-    memcpy(&Our->CanvasSurface,cs,sizeof(OurCanvasSurface));
+    our_SetActiveCanvasSurface(cs);
     return cs;
 }
 void our_RemoveCanvasSurface(OurCanvasSurface* cs){
@@ -1506,7 +1570,8 @@ OurCanvasSurface* our_DuplicateCanvasSurface(OurCanvasSurface* cs){
     OurCanvasSurface* ncs=memAcquireHyper(sizeof(OurCanvasSurface));
     ncs->Name=0; strSafePrint(&ncs->Name,"%s Copy",cs->Name?cs->Name->Ptr:"New Canvas Surface");
     lstInsertItemAfter(&Our->CanvasSurfaces,ncs,cs);
-    memcpy(&Our->CanvasSurface,ncs,sizeof(OurCanvasSurface));
+    memcpy(&ncs->Reflectance,&cs->Reflectance,sizeof(OurPigmentData));
+    our_SetActiveCanvasSurface(ncs);
     return ncs;
 }
 
@@ -2834,6 +2899,11 @@ int ourinv_RemoveUsePigment(laOperator* a, laEvent* e){
     return LA_RUNNING;
 }
 
+int ourinv_UseLight(laOperator* a, laEvent* e){
+    OurLight* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
+    our_SetActiveLight(l); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set light",0);
+    return LA_FINISHED;
+}
 int ourinv_NewLight(laOperator* a, laEvent* e){
     our_NewLight("Our Light"); laNotifyUsers("our.tools.lights"); laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add light",0);
     return LA_FINISHED;
@@ -2870,6 +2940,11 @@ int ourinv_MoveLight(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int ourinv_UseCanvasSurface(laOperator* a, laEvent* e){
+    OurCanvasSurface* cs=a->This?a->This->EndInstance:0; if(!cs) return LA_CANCELED;
+    our_SetActiveCanvasSurface(cs); laNotifyUsers("our.canvas.surface"); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set canvas surface",0);
+    return LA_FINISHED;
+}
 int ourinv_NewCanvasSurface(laOperator* a, laEvent* e){
     our_NewCanvasSurface("Our Canvas Surface"); laNotifyUsers("our.tools.canvas_surfaces");
     laRecordInstanceDifferences(Our,"our_tools"); laPushDifferences("Add canvas surface",0);
@@ -3626,10 +3701,10 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
 void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas_notify"); }
 void ourset_PigmentMode(void* unused, int a){ Our->PigmentMode=a; laNotifyUsers("our"); }
 void ourset_UsePigmentPigment(OurUsePigment* up, OurPigment* p){ memAssignRef(up,&up->pigment,p); laNotifyInstanceUsers(up); }
-void ourget_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=log(pd->Reflectance[i]); } }
-void ourset_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Reflectance[i]=exp(data[i]); } }
-void ourget_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=log(pd->Absorption[i]); } }
-void ourset_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Absorption[i]=exp(data[i]); } }
+void ourget_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=pd->Reflectance[i]; } }
+void ourset_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Reflectance[i]=data[i]; } our_PigmentToPreviewSelf(pd); }
+void ourget_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=pd->Absorption[i]; } }
+void ourset_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Absorption[i]=data[i]; } our_PigmentToPreviewSelf(pd); }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -3900,11 +3975,13 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_new_use_pigment","New Use Pigment","Reference a new pigment",0,0,0,ourinv_NewUsePigment,0,'+',0);
     laCreateOperatorType("OUR_remove_use_pigment","Remove Use Pigment","Remove this pigment reference",0,0,0,ourinv_RemoveUsePigment,0,U'🗴',0);
 
+    laCreateOperatorType("OUR_use_light","Use Light","Use this light",0,0,0,ourinv_UseLight,0,U'🡪',0);
     laCreateOperatorType("OUR_new_light","New Light","Create a new light",0,0,0,ourinv_NewLight,0,'+',0);
     laCreateOperatorType("OUR_remove_light","Remove Light","Remove this light",0,0,0,ourinv_RemoveLight,ourmod_RemoveLight,U'🗴',0);
     laCreateOperatorType("OUR_duplicate_light","Duplicate Light","Duplicate this light",0,0,0,ourinv_DuplicateLight,0,U'⎘',0);
     laCreateOperatorType("OUR_move_light","Move Light","Remove this light",0,0,0,ourinv_MoveLight,0,0,0);
 
+    laCreateOperatorType("OUR_use_canvas_surface","Use Canvas Surface","Use this canvas surface",0,0,0,ourinv_UseCanvasSurface,0,U'🡪',0);
     laCreateOperatorType("OUR_new_canvas_surface","New Canvas Surface","Create a new canvas surface",0,0,0,ourinv_NewCanvasSurface,0,'+',0);
     laCreateOperatorType("OUR_remove_canvas_surface","Remove Canvas Surface","Remove this canvas surface",0,0,0,ourinv_RemoveCanvasSurface,ourmod_RemoveCanvasSurface,U'🗴',0);
     laCreateOperatorType("OUR_duplicate_canvas_surface","Duplicate Canvas Surface","Duplicate this canvas surface",0,0,0,ourinv_DuplicateCanvasSurface,0,U'⎘',0);
@@ -4077,8 +4154,8 @@ void ourRegisterEverything(){
     
 
     pc=laAddPropertyContainer("our_pigment_data","Our Pigment Data","OurPaint pigment data",0,0,sizeof(OurPigmentData),0,0,LA_PROP_OTHER_ALLOC);
-    laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Reflectance,0,0,0);
+    laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Absorption,0,0,0);
     laAddFloatProperty(pc,"reflectance_density","Density","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance[15]),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,0,0,0,0,0,0,0,0,0,0);
     //laAddFloatProperty(pc,"display_color","Display Color","Color to display on the interface",0,0,0,1,0,0.05,0.8,0,offsetof(OurPigmentData,DisplayColor),0,0,3,0,0,0,0,0,0,0,LA_READ_ONLY);
@@ -4100,13 +4177,15 @@ void ourRegisterEverything(){
     laAddSubGroup(pc,"emission","Emission","Spectral emmission info","our_pigment_data",0,0,0,offsetof(OurLight,Emission),0,0,0,0,0,0,0,LA_UDF_LOCAL);
     laAddOperatorProperty(pc,"remove","Remove","Remove light","OUR_remove_light",U'🗴',0);
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate light","OUR_duplicate_light",U'⎘',0);
+    laAddOperatorProperty(pc,"use","Use","Use this light","OUR_use_light",0,0);
 
     pc=laAddPropertyContainer("our_canvas_surface","Our Canvas Surface","OurPaint canvas surface",0,0,sizeof(OurCanvasSurface),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the canvas surface",0,0,0,0,1,offsetof(OurCanvasSurface,Name),0,0,0,0,LA_AS_IDENTIFIER);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_CanvasSurfaceMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddSubGroup(pc,"reflectance","Reflectance","Reflectance info","our_pigment_data",0,0,0,offsetof(OurCanvasSurface,Reflectance),0,0,0,0,0,0,0,LA_UDF_LOCAL);
-    laAddOperatorProperty(pc,"remove","Remove","Remove light","OUR_remove_canvas_surface",U'🗴',0);
-    laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate light","OUR_duplicate_canvas_surface",U'⎘',0);
+    laAddOperatorProperty(pc,"remove","Remove","Remove surface","OUR_remove_canvas_surface",U'🗴',0);
+    laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate surface","OUR_duplicate_canvas_surface",U'⎘',0);
+    laAddOperatorProperty(pc,"use","Use","Use this canvas surface","OUR_use_canvas_surface",0,0);
 
     pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
@@ -4554,5 +4633,18 @@ int ourInit(){
 #endif
 
     return 1;
+}
+
+void ourFinalize(){
+    if(!Our->CanvasSurfaces.pFirst){
+        OurCanvasSurface* cs=our_NewCanvasSurface("Gray");
+        memcpy(&cs->Reflectance,OUR_PIGMENT_GRAY,sizeof(OurPigmentData));
+    }
+    if(!Our->Lights.pFirst){
+        OurLight* l=our_NewLight("D65");
+        memcpy(&l->Emission,OUR_PIGMENT_D65,sizeof(OurPigmentData));
+    }
+    our_SetActiveCanvasSurface(Our->CanvasSurfaces.pFirst);
+    our_SetActiveLight(Our->Lights.pFirst);
 }
 

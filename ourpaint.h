@@ -286,7 +286,7 @@ STRUCTURE(OurDab){
 STRUCTURE(OurPigmentData){
     real Reflectance[16];
     real Absorption[16];
-    real PreviewColor[4][4];
+    real PreviewColor[3][4];
 };
 STRUCTURE(OurPigment){
     laListItem Item;
@@ -555,6 +555,7 @@ STRUCTURE(OurPaint){
 int ourProcessInitArgs(int argc, char* argv[]);
 
 int ourInit();
+void ourFinalize();
 void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();
