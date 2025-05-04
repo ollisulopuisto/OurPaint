@@ -557,6 +557,8 @@ void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
             laShowSeparator(uil,c)->Expand=1;
             laShowItem(uil,c,0,"OUR_new_brush")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
             OUR_ER
+        }laElse(uil,b);{
+            laShowItem(uil,c,0,"OUR_new_brush")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b);
         b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.brush_page"),laIntExpression(OUR_BRUSH_PAGE_LIST)));{
             laShowItemFull(uil,c,0,"our.tools.brushes",0,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
