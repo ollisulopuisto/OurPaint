@@ -581,7 +581,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laColumn *cl=laLeftColumn(c,0),*cr=laRightColumn(c,6);
 
     laUiItem* pigb=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.pigment_mode"));{
-        laUiItem* mixui=laShowItemFull(uil,cl,0,"our.mixed_pigment",OUR_WIDGET_PIGMENT_MIXER,0,0,0); mixui->Extent=2;
+        laUiItem* mixui=laShowItemFull(uil,cl,0,"our.mixed_pigment",OUR_WIDGET_PIGMENT_MIXER,0,0,0); mixui->Extent=7;
         laShowItemFull(uil, cr, 0, "our.canvas.use_pigments",0,0,ourui_UsePigmentItem,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
         laShowItemFull(uil, cr, 0, "OUR_new_use_pigment", 0, "text=new;",0,0);
     }laElse(uil,pigb);{
@@ -1237,7 +1237,6 @@ void our_PigmentDrawPreview(int L,int R, int U, int B, OurPigmentData *pd, laBox
         our_PigmentToPreview(pd,bkgs[i],rgb);
         tnsColor4d(LA_COLOR3(rgb),1.0f); la_DrawBox(_L,_R,U,B);
     }
-    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(L,R,U,B);
 }
 
 int ourmod_ColorPad(laOperator* a, laEvent* e){
@@ -1298,11 +1297,14 @@ void our_ColorPadDraw(laUiItem *ui, int h){
     }
 
     our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,&up->pigment->Pigment,bt);
+
+    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
 }
 
 int our_PigmentMixerDetectPosition(laUiItem* ui, int x, int y){
     int h = (ui->B-ui->U)/2; if(h>LA_RH) h=LA_RH; h+=ui->U;
     if(y<h){ int middle = (ui->R-ui->L)/2; if(x<=middle) return 2; return 3; }
+    if((x+y)>ui->B+ui->R-LA_RH){ return 4; }
     return 1;
 }
 int ourmod_PigmentMixer(laOperator* a, laEvent* e){
@@ -1320,12 +1322,14 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
     if(!es->On){
         if(e->type==LA_L_MOUSE_DOWN){
             es->On=our_PigmentMixerDetectPosition(ui,e->x,e->y);
+            if(es->On==4){ es->LastX=e->x;es->LastY=e->y;es->TargetIndexVali=ui->Extent; es->Dragging=1; }
             if(es->On==2){ our_PigmentClear(pd); laNotifyUsers("our.mixed_pigment"); return LA_RUNNING;  }
         }
     }
     if(es->On){
-        if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; return LA_RUNNING; }
+        if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; es->Dragging=0; return LA_RUNNING; }
         if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure); laNotifyUsers("our.mixed_pigment"); }
+        if(es->On==4){ int d=e->y-es->LastY; int h=es->TargetIndexVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
     }
 
     return LA_RUNNING;
@@ -1336,6 +1340,18 @@ void our_PigmentMixerDraw(laUiItem* ui, int h){
     tnsUseNoTexture();
 
     our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+
+    real bkg[4]; tnsVectorCopy4d(laThemeColor(bt,LA_BT_NORMAL),bkg);
+    tnsColor4d(LA_COLOR3(bkg),bkg[3]*0.5); la_DrawBox(ui->L,ui->R,ui->U,ui->U+LA_RH);
+    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
+
+    int middle=(ui->R+ui->L)/2;
+
+    tnsDrawStringAuto("🧹 Clear",laThemeColor(bt,LA_BT_TEXT),ui->L+LA_M,middle-LA_M,ui->U,LA_TEXT_ALIGN_LEFT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto("Water 💦",laThemeColor(bt,LA_BT_TEXT),middle+LA_M,ui->R-LA_M,ui->U,LA_TEXT_ALIGN_RIGHT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto("⋮",laThemeColor(bt,LA_BT_TEXT),middle-LA_RH,middle+LA_RH,ui->U,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
+
+    tnsDrawStringAuto("◿",laThemeColor(bt,LA_BT_BORDER),ui->R-LA_RH,ui->R,ui->B-LA_RH,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
 }
 void our_PigmentPreviewDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
@@ -1343,6 +1359,7 @@ void our_PigmentPreviewDraw(laUiItem* ui, int h){
     tnsUseNoTexture();
     if(pd){
         our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+        tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
         real rgb[3]; our_PigmentToPreview(pd,OUR_PIGMENT_BLACK,rgb);
         char buf[128]; sprintf(buf,"%.3f,%.3f,%.3f",LA_COLOR3(rgb));
         tnsDrawStringAuto(buf,laThemeColor(bt,LA_BT_TEXT),ui->L,ui->R,ui->U,LA_TEXT_SHADOW);
