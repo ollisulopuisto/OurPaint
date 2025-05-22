@@ -70,13 +70,31 @@ void our_Spectral2XYZ(real spec[16],real XYZ[3]){
         xyz[2]+=spec[i]*PigmentCMF[2][i];
         n+=PigmentCMF[1][i];
     }
-    tnsVectorMultiSelf3d(xyz,1.0);
     XYZ[0]=xyz[0]/n;
     XYZ[1]=xyz[1]/n;
     XYZ[2]=xyz[2]/n;
     //printf("%f %f %f\n",XYZ[0],XYZ[1],XYZ[2]);
     //tnsVectorSet3v(XYZ,xyz);
 }
+void our_ToPigmentData140(OurPigmentData* pd,OurPigmentData* paper, OurPigmentData140* pd140){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        pd140->Absorption[i*4]=pd->Absorption[i];
+        pd140->Reflectance[i*4]=pd->Reflectance[i];
+        pd140->PaperAbsorption[i*4]=paper->Absorption[i];
+        pd140->PaperReflectance[i*4]=paper->Reflectance[i];
+    }
+    pd140->Reflectance[15*4]=1.0f;
+    pd140->PaperReflectance[15*4]=1.0f;
+    pd140->Absorption[15*4]=0.0f;
+    pd140->PaperAbsorption[15*4]=0.0f;
+}
+void our_ToBrushData140(OurBrushData140* b140){
+    for(int i=0;i<16;i++){
+        b140->Absorption[i*4]=Our->MixedPigment.Absorption[i];
+        b140->Reflectance[i*4]=Our->MixedPigment.Reflectance[i];
+    }
+}
+
 
 
 #ifdef LA_USE_GLES
@@ -836,8 +854,7 @@ void our_CanvasSaveOffscreen(tnsOffscreen* off1,tnsOffscreen* off2){
     tnsDrawToOffscreenOnlyBind(off1);
 }
 void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
-    tnsUseImmShader(); tnsEnableShaderv(T->immShader); real MultiplyColor[4];
-    glDisable(GL_BLEND);
+    real MultiplyColor[4];
 
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
@@ -863,7 +880,6 @@ void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
         if(any) tnsFlush();
     }
     tnsUseTexture2(0,0);
-    glEnable(GL_BLEND);
 }
 void our_CanvasDrawTiles(){
     OurLayer* l=Our->CurrentLayer; if(!l) return;
@@ -1101,19 +1117,28 @@ void our_CanvasDrawInit(laUiItem* ui){
     glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
     logPrint("GPU max local work group invocations %i\n", work_grp_inv);
 }
+void our_CanvasEnsureDrawBuffers(OurCanvasDraw* ocd, int W, int H){ laCanvasExtra*e=&ocd->Base;
+    int format = Our->PigmentMode?GL_RGBA16UI:GL_RGBA16F;
+    if (!e->OffScr || e->OffScr->pColor[0]->Height != H || e->OffScr->pColor[0]->Width != W ||
+        e->OffScr->pColor[0]->GLTexBitsType!=format){
+        if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
+        e->OffScr = tnsCreate2DOffscreen(format, W, H, 0, 0, 0);
+    }
+    if (!ocd->OffScrSave || ocd->OffScrSave->pColor[0]->Height != H || ocd->OffScrSave->pColor[0]->Width != W ||
+        ocd->OffScrSave->pColor[0]->GLTexBitsType!=format){
+        if (ocd->OffScrSave) tnsDelete2DOffscreen(ocd->OffScrSave);
+        ocd->OffScrSave = tnsCreate2DOffscreen(format, W, H, 0, 0, 0);
+    }
+    if(Our->PigmentMode){
+        glDisable(GL_BLEND); glDisable(GL_DITHER);
+    }
+}
 void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     OurCanvasDraw* ocd=ui->Extra; OurPaint* oc=ui->PP.EndInstance; laCanvasExtra*e=&ocd->Base;
     int W, H; W = ui->R - ui->L; H = ui->B - ui->U;
-    tnsFlush();
 
-    if (!e->OffScr || e->OffScr->pColor[0]->Height != H || e->OffScr->pColor[0]->Width != W){
-        if (e->OffScr) tnsDelete2DOffscreen(e->OffScr);
-        e->OffScr = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
-    }
-    if (!ocd->OffScrSave || ocd->OffScrSave->pColor[0]->Height != H || ocd->OffScrSave->pColor[0]->Width != W){
-        if (ocd->OffScrSave) tnsDelete2DOffscreen(ocd->OffScrSave);
-        ocd->OffScrSave = tnsCreate2DOffscreen(GL_RGBA16F, W, H, 0, 0, 0);
-    }
+    tnsFlush();
+    our_CanvasEnsureDrawBuffers(ocd,W,H);
 
     //our_CANVAS_TEST(bt,ui);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
@@ -1124,25 +1149,62 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     tnsViewportWithScissor(0, 0, W, H);
     tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
     tnsOrtho(e->PanX - W * e->ZoomX / 2, e->PanX + W * e->ZoomX / 2, e->PanY - e->ZoomY * H / 2, e->PanY + e->ZoomY * H / 2, 100, -100);
-    tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
+    
+    if(Our->PigmentMode){
+        uint val[4]={0};
+        glClearBufferuiv(GL_COLOR, 0,&val);
+        tnsEnableShaderv(Our->PigmentCompositionProgramT);
+    }else{
+        tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
+        tnsUseImmShader(); tnsEnableShaderv(T->immShader);
+    }
+
+    glDisable(GL_BLEND);
     our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
 
+    tnsUseImmShader();
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
     if(Our->ShowRef){ our_CanvasDrawReferenceBlock(ocd); }
+    tnsFlush();
+    glEnable(GL_BLEND);
+}
+void our_CanvasDrawOverlayInit(laUiItem* ui){
+    int W, H; W = ui->R - ui->L; H = ui->B - ui->U;
+    if(Our->PigmentMode){
+        tnsUseShader(Our->PigmentDisplayProgramT); tnsEnableShaderv(Our->PigmentDisplayProgramT);
+        OurPigmentData140 pd140; our_ToPigmentData140(&Our->CanvasLight.Emission,&Our->CanvasSurface.Reflectance,&pd140);
+        glBindBufferBase(GL_UNIFORM_BUFFER, Our->uboCanvasPigmentLocation, Our->uboCanvasPigment);
+        glBindBuffer(GL_UNIFORM_BUFFER, Our->uboCanvasPigment);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(OurPigmentData140), &pd140);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glUniform2ui(Our->uPigmentDisplaySize,W,H);
+    }else{
+        tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,2);
+        tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
+        if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){ tnsUniformInputColorSpace(T->immShader, 0); }
+        elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){ tnsUniformInputColorSpace(T->immShader, 1); }
+        elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3){ tnsUniformInputColorSpace(T->immShader, 2); }
+    }
+}
+void our_CanvasDrawOverlayTexture(laUiItem* ui){
+    laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
+    if(Our->PigmentMode){
+        tnsBindTexture(e->OffScr->pColor[0]);
+        tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
+    }else{
+        tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
+    }
 }
 void our_CanvasDrawOverlay(laUiItem* ui,int h){
     laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
     laBoxedTheme *bt = (*ui->Type->Theme);
 
-    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,2);
-    tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
-    if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB){ tnsUniformInputColorSpace(T->immShader, 0); }
-    elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY){ tnsUniformInputColorSpace(T->immShader, 1); }
-    elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3){ tnsUniformInputColorSpace(T->immShader, 2); }
+    our_CanvasDrawOverlayInit(ui);
 
-    tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
-    tnsFlush();
+    our_CanvasDrawOverlayTexture(ui);
+
+    tnsFlush();tnsUseImmShader();tnsEnableShaderv(T->immShader);
 
     tnsUniformColorMode(T->immShader, 0); tnsUniformInputColorSpace(T->immShader, 0);
     laWindow* w=MAIN.CurrentWindow;
@@ -1220,8 +1282,8 @@ static inline real safepow(real a, real b){
     real ae=TNS_MAX2(DBL_EPSILON,a); return pow(ae,b);
 }
 void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor){
-    real afac=factor*pow(source->Absorption[15],0.5), afac1=(1.0f-afac)*target->Absorption[15];
-    real rfac=factor*pow(source->Reflectance[15],0.5), rfac1=(1.0f-rfac)*target->Reflectance[15];
+    real afac=factor*source->Absorption[15], afac1=(1.0f-afac)*target->Absorption[15];
+    real rfac=factor*source->Reflectance[15], rfac1=(1.0f-rfac)*target->Reflectance[15];
     real ascale=1.0f/(afac1+afac+DBL_EPSILON), rscale=1.0f/(rfac1+rfac+DBL_EPSILON); 
     afac*=ascale; afac1*=ascale; rfac*=rscale;rfac1*=rscale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
@@ -1472,10 +1534,16 @@ void our_RemoveLayer(OurLayer* l, int cleanup){
 }
 int our_MergeLayer(OurLayer* l){
     OurLayer* ol=l->Item.pNext; if(!ol) return 0; int xmin=INT_MAX,xmax=-INT_MAX,ymin=INT_MAX,ymax=-INT_MAX; int seam=OUR_TILE_SEAM;
-    glUseProgram(Our->CompositionProgram);
-    glUniform1i(Our->uBlendMode, l->BlendMode);
-    glUniform1f(Our->uAlphaTop, 1-l->Transparency);
-    glUniform1f(Our->uAlphaBottom, 1-ol->Transparency);
+    if(Our->PigmentMode){
+
+        Our->u=&Our->uPigment;
+    }else{
+        glUseProgram(Our->CompositionProgram);
+        Our->u=&Our->uRGBA;
+    }
+    glUniform1i(OURU->uBlendMode, l->BlendMode);
+    glUniform1f(OURU->uAlphaTop, 1-l->Transparency);
+    glUniform1f(OURU->uAlphaBottom, 1-ol->Transparency);
     for(int row=0;row<OUR_TILES_PER_ROW;row++){ if(!l->TexTiles[row]) continue;// Should not happen.
         for(int col=0;col<OUR_TILES_PER_ROW;col++){ if(!l->TexTiles[row][col]) continue; OurTexTile*t=l->TexTiles[row][col];
             if(!t->Texture) continue;
@@ -1499,10 +1567,6 @@ int our_MergeLayer(OurLayer* l){
     laPushDifferences("Merge layers",0);
 
     return 1;
-}
-
-void our_RecalcPigmentPreview(OurPigment* p){
-    
 }
 
 OurPigment* our_NewPigment(char* name){
@@ -1556,6 +1620,7 @@ OurLight* our_DuplicateLight(OurLight* l){
 void our_SetActiveCanvasSurface(OurCanvasSurface* cs){
     memcpy(&Our->CanvasSurface.Reflectance,&cs->Reflectance,sizeof(OurPigmentData));
     strSafeSet(&Our->CanvasSurface.Name,SSTR(cs->Name));
+    laRedrawAllWindows();
 }
 OurCanvasSurface* our_NewCanvasSurface(char* name){
     OurCanvasSurface* cs=memAcquireHyper(sizeof(OurCanvasSurface)); strSafeSet(&cs->Name,name); lstAppendItem(&Our->CanvasSurfaces, cs);
@@ -2293,10 +2358,10 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     return 0;
 }
 void our_PaintDoSample(int x, int y, int sx, int sy, int ssize, int last,int begin_stroke){
-    glUniform2i(Our->uBrushCorner,x-sx,y-sy);
-    glUniform2f(Our->uBrushCenter,x-sx,y-sy);
-    glUniform1f(Our->uBrushSize, ssize);
-    glUniform1i(Our->uBrushErasing,last?(begin_stroke?2:1):0);
+    glUniform2i(OURU->uBrushCorner,x-sx,y-sy);
+    glUniform2f(OURU->uBrushCenter,x-sx,y-sy);
+    glUniform1f(OURU->uBrushSize, ssize);
+    glUniform1i(OURU->uBrushErasing,last?(begin_stroke?2:1):0);
     glDispatchCompute(1,1,1);
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
@@ -2310,20 +2375,30 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     } tnsVectorSet2(Our->LastBrushCenter,d->X,d->Y);
     if(corner[0]>tr||MaxX<tl||corner[1]>tb||MaxY<tu) return;
     corner[0]=corner[0]-tl; corner[1]=corner[1]-tu;
-    glUniform2iv(Our->uBrushCorner,1,corner);
-    glUniform2fv(Our->uBrushCenter,1,center);
-    glUniform1f(Our->uBrushSize,d->Size);
-    glUniform1f(Our->uBrushHardness,d->Hardness);
-    glUniform1f(Our->uBrushSmudge,d->Smudge);
-    glUniform1f(Our->uBrushSlender,d->Slender);
-    glUniform1f(Our->uBrushAngle,d->Angle);
-    glUniform2fv(Our->uBrushDirection,1,d->Direction);
-    glUniform1f(Our->uBrushForce,d->Force);
-    glUniform1f(Our->uBrushGunkyness,d->Gunkyness);
-    glUniform1f(Our->uBrushRecentness,d->Recentness);
-    glUniform4fv(Our->uBrushColor,1,d->Color);
-    GLuint compute_dimension = ceil((d->Size+2)*2/OUR_WORKGROUP_SIZE);
-    glDispatchCompute(compute_dimension, compute_dimension, 1);
+    glUniform2iv(OURU->uBrushCorner,1,corner);
+    glUniform2fv(OURU->uBrushCenter,1,center);
+    glUniform1f(OURU->uBrushSize,d->Size);
+    glUniform1f(OURU->uBrushHardness,d->Hardness);
+    glUniform1f(OURU->uBrushSmudge,d->Smudge);
+    glUniform1f(OURU->uBrushSlender,d->Slender);
+    glUniform1f(OURU->uBrushAngle,d->Angle);
+    glUniform2fv(OURU->uBrushDirection,1,d->Direction);
+    glUniform1f(OURU->uBrushForce,d->Force);
+    glUniform1f(OURU->uBrushGunkyness,d->Gunkyness);
+    glUniform1f(OURU->uBrushRecentness,d->Recentness);
+    if(Our->PigmentMode){
+        OurBrushData140 b140; our_ToBrushData140(&b140);
+        glBindBufferBase(GL_UNIFORM_BUFFER, Our->uboBrushPigmentLocation, Our->uboBrushPigment);
+        glBindBuffer(GL_UNIFORM_BUFFER, Our->uboBrushPigment);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(OurBrushData140), &b140);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        GLuint compute_dimension = ceil((d->Size+2)/OUR_WORKGROUP_SIZE);
+        glDispatchCompute(compute_dimension, compute_dimension, 1);
+    }else{
+        glUniform4fv(OURU->uBrushColor,1,d->Color);
+        GLuint compute_dimension = ceil((d->Size+2)*2/OUR_WORKGROUP_SIZE);
+        glDispatchCompute(compute_dimension, compute_dimension, 1);
+    }
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int End){
@@ -2332,7 +2407,7 @@ void our_PaintDoDabs(OurLayer* l,int tl, int tr, int tu, int tb, int Start, int 
             OurTexTile* ott=l->TexTiles[row][col];
             glBindImageTexture(0, ott->Texture->GLTexHandle, 0, GL_FALSE, 0, GL_READ_WRITE, OUR_CANVAS_GL_PIX);
             int s[2]; s[0]=l->TexTiles[row][col]->l,s[1]=l->TexTiles[row][col]->b;
-            glUniform2iv(Our->uImageOffset,1,s);
+            glUniform2iv(OURU->uImageOffset,1,s);
             for(int i=Start;i<End;i++){
                 our_PaintDoDab(&Our->Dabs[i],s[0],s[0]+OUR_TILE_W,s[1],s[1]+OUR_TILE_W);
             }
@@ -2355,28 +2430,36 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     oss->Start=from; oss->End=to;
     if(Our->Dabs[0].ResampleSmudge){ ((OurSmudgeSegement*)Segments.pFirst)->Resample=1; }
 
-    glUseProgram(Our->CanvasProgram);
-    glUniform1i(Our->uBrushErasing,Our->Erasing);
-    glUniform1i(Our->uBrushMix,Our->Erasing?0:Our->BrushMix);
+    int subroutine_count;
+    if(Our->PigmentMode){
+        glUseProgram(Our->CanvasPigmentProgram);
+        Our->u=&Our->uPigment; subroutine_count=1;
+    }else{
+        glUseProgram(Our->CanvasProgram);
+        Our->u=&Our->uRGBA; subroutine_count=2;
+    }
+
+    glUniform1i(OURU->uBrushErasing,Our->Erasing);
+    glUniform1i(OURU->uBrushMix,Our->Erasing?0:Our->BrushMix);
 #ifdef LA_USE_GLES
     glUniform1i(Our->uBrushRoutineSelectionES,0);
     glUniform1i(Our->uMixRoutineSelectionES,Our->SpectralMode?1:0);
 #else
-    uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
-    uniforms[Our->uMixRoutineSelection]=Our->SpectralMode?Our->RoutineDoMixSpectral:Our->RoutineDoMixNormal;
-    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+    uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
+    uniforms[OURU->uMixRoutineSelection]=Our->SpectralMode?OURU->RoutineDoMixSpectral:OURU->RoutineDoMixNormal;
+    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
 #endif
-    glUniform1i(Our->uCanvasType,Our->BackgroundType);
-    glUniform1i(Our->uCanvasRandom,Our->BackgroundRandom);
-    glUniform1f(Our->uCanvasFactor,Our->BackgroundFactor);
+    glUniform1i(OURU->uCanvasType,Our->BackgroundType);
+    glUniform1i(OURU->uCanvasRandom,Our->BackgroundRandom);
+    glUniform1f(OURU->uCanvasFactor,Our->BackgroundFactor);
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
-            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoSample;
+            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoSample;
 #ifdef LA_USE_GLES
             glUniform1i(Our->uBrushRoutineSelectionES,1);
 #else
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
 #endif
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
             float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
@@ -2393,13 +2476,13 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
                 }
             }
             Our->CurrentBrush->SmudgeRestart=0;
-            uniforms[Our->uBrushRoutineSelection]=Our->RoutineDoDabs;
+            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
 #ifdef LA_USE_GLES
             glUniform1i(Our->uBrushRoutineSelectionES,0);
 #else
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,2,uniforms);
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
 #endif
-            glUniform1i(Our->uBrushErasing,Our->Erasing);
+            glUniform1i(OURU->uBrushErasing,Our->Erasing);
         }
 
         //printf("from to %d %d %d\n", oss->Start,oss->End,Our->Dabs[oss->Start].ResampleSmudge);
@@ -3705,6 +3788,8 @@ void ourget_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECT
 void ourset_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Reflectance[i]=data[i]; } our_PigmentToPreviewSelf(pd); }
 void ourget_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=pd->Absorption[i]; } }
 void ourset_Absorption(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Absorption[i]=data[i]; } our_PigmentToPreviewSelf(pd); }
+void ourset_ReflectanceDensity(OurPigmentData* pd, real data){ pd->Reflectance[15]=data; our_PigmentToPreviewSelf(pd); }
+void ourset_AbsorptionDensity(OurPigmentData* pd, real data){ pd->Absorption[15]=data; our_PigmentToPreviewSelf(pd); }
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -4156,8 +4241,8 @@ void ourRegisterEverything(){
     pc=laAddPropertyContainer("our_pigment_data","Our Pigment Data","OurPaint pigment data",0,0,sizeof(OurPigmentData),0,0,LA_PROP_OTHER_ALLOC);
     laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Reflectance,0,0,0);
     laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Absorption,0,0,0);
-    laAddFloatProperty(pc,"reflectance_density","Density","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance[15]),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"reflectance_density","Density","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance[15]),0,ourset_ReflectanceDensity,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,ourset_AbsorptionDensity,0,0,0,0,0,0,0,0,0);
     //laAddFloatProperty(pc,"display_color","Display Color","Color to display on the interface",0,0,0,1,0,0.05,0.8,0,offsetof(OurPigmentData,DisplayColor),0,0,3,0,0,0,0,0,0,0,LA_READ_ONLY);
 
     pc=laAddPropertyContainer("our_pigment","Our Pigment","OurPaint pigment",0,0,sizeof(OurPigment),0,0,2);
@@ -4477,6 +4562,47 @@ static void android_ensure_asset_to_public_dir(char* asset_file){
 }
 #endif
 
+void ourGetUniforms(int CanvasProgram, int CompositionProgram){
+    OURU->uCanvasType=glGetUniformLocation(CanvasProgram,"uCanvasType");
+    OURU->uCanvasRandom=glGetUniformLocation(CanvasProgram,"uCanvasRandom");
+    OURU->uCanvasFactor=glGetUniformLocation(CanvasProgram,"uCanvasFactor");
+    OURU->uImageOffset=glGetUniformLocation(CanvasProgram,"uImageOffset");
+    OURU->uBrushCorner=glGetUniformLocation(CanvasProgram,"uBrushCorner");
+    OURU->uBrushCenter=glGetUniformLocation(CanvasProgram,"uBrushCenter");
+    OURU->uBrushSize=glGetUniformLocation(CanvasProgram,"uBrushSize");
+    OURU->uBrushHardness=glGetUniformLocation(CanvasProgram,"uBrushHardness");
+    OURU->uBrushSmudge=glGetUniformLocation(CanvasProgram,"uBrushSmudge");
+    OURU->uBrushRecentness=glGetUniformLocation(CanvasProgram,"uBrushRecentness");
+    OURU->uBrushColor=glGetUniformLocation(CanvasProgram,"uBrushColor");
+    OURU->uBrushSlender=glGetUniformLocation(CanvasProgram,"uBrushSlender");
+    OURU->uBrushAngle=glGetUniformLocation(CanvasProgram,"uBrushAngle");
+    OURU->uBrushDirection=glGetUniformLocation(CanvasProgram,"uBrushDirection");
+    OURU->uBrushForce=glGetUniformLocation(CanvasProgram,"uBrushForce");
+    OURU->uBrushGunkyness=glGetUniformLocation(CanvasProgram,"uBrushGunkyness");
+    OURU->uBrushErasing=glGetUniformLocation(CanvasProgram,"uBrushErasing");
+    OURU->uBrushMix=glGetUniformLocation(CanvasProgram,"uBrushMix");
+
+#ifdef LA_USE_GLES
+    OURU->uBrushRoutineSelectionES=glGetUniformLocation(CanvasProgram, "uBrushRoutineSelectionES");
+#else
+    OURU->uBrushRoutineSelection=glGetSubroutineUniformLocation(CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
+    OURU->RoutineDoDabs=glGetSubroutineIndex(CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
+    OURU->RoutineDoSample=glGetSubroutineIndex(CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
+#endif
+
+#ifdef LA_USE_GLES
+    OURU->uMixRoutineSelectionES=glGetUniformLocation(CanvasProgram, "uMixRoutineSelectionES");
+#else
+    OURU->uMixRoutineSelection=glGetSubroutineUniformLocation(CanvasProgram, GL_COMPUTE_SHADER, "uMixRoutineSelection");
+    OURU->RoutineDoMixNormal=glGetSubroutineIndex(CanvasProgram, GL_COMPUTE_SHADER, "DoMixNormal");
+    OURU->RoutineDoMixSpectral=glGetSubroutineIndex(CanvasProgram, GL_COMPUTE_SHADER, "DoMixSpectral");
+#endif
+
+    OURU->uBlendMode=glGetUniformLocation(CompositionProgram,"uBlendMode");
+    OURU->uAlphaTop=glGetUniformLocation(CompositionProgram,"uAlphaTop");
+    OURU->uAlphaBottom=glGetUniformLocation(CompositionProgram,"uAlphaBottom");
+}
+
 int ourInit(){
     Our=memAcquire(sizeof(OurPaint));
     MAIN.EnableLogStdOut=1;
@@ -4487,95 +4613,85 @@ int ourInit(){
 
     char error[1024]=""; int status;
 
-    Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,256,1,0);
+    Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,512,2,0);
 
     Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
+    Our->CanvasPigmentShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source1 = strSub(OUR_CANVAS_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
-    char* UseContent=tnsEnsureShaderCommoms(source1,0,0); if(source1){free(source1);}
+    const GLchar* source1a = strSub(source1,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
+    char* UseContent=tnsEnsureShaderCommoms(source1a,0,0); if(source1){free(source1);}  if(source1a){free(source1a);}
 #ifdef LA_USE_GLES
     const GLchar* versionstr=OUR_SHADER_VERSION_320ES;
 #else
     const GLchar* versionstr=OUR_SHADER_VERSION_430;
 #endif
-    const GLchar* sources1[]={versionstr, UseContent};
-    glShaderSource(Our->CanvasShader, 2, sources1, NULL); glCompileShader(Our->CanvasShader);
-    glGetShaderiv(Our->CanvasShader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE){
-        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); logPrintNew("Canvas shader error:\n%s", error); glDeleteShader(Our->CanvasShader); return 0;
-    } else {
-        glGetShaderInfoLog(Our->CanvasShader, sizeof(error), 0, error); if(error[0]) logPrintNew("Canvas shader info:\n%s", error);
-    }
+    const GLchar* sources1rgb[]={versionstr, "\n#define OUR_CANVAS_MODE_RGB\n", UseContent};
+    const GLchar* sources1pigment[]={versionstr, "\n#define OUR_CANVAS_MODE_PIGMENT\n", UseContent};
+    glShaderSource(Our->CanvasShader, 3, sources1rgb, NULL); glCompileShader(Our->CanvasShader);
+    glShaderSource(Our->CanvasPigmentShader, 3, sources1pigment, NULL); glCompileShader(Our->CanvasPigmentShader);
+    if(!tnsCheckShaderCompileStatus(Our->CanvasShader,"Canvas RGB")) exit(0);
+    if(!tnsCheckShaderCompileStatus(Our->CanvasPigmentShader,"Canvas Pigment")) exit(0);
     if(UseContent){ free(UseContent); }
 
     Our->CanvasProgram = glCreateProgram();
     glAttachShader(Our->CanvasProgram, Our->CanvasShader); glLinkProgram(Our->CanvasProgram);
     glGetProgramiv(Our->CanvasProgram, GL_LINK_STATUS, &status);
-    if (status == GL_FALSE){
-        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); logPrintNew("Canvas program Linking error:\n%s", error); return 0;
-    } else {
-        glGetProgramInfoLog(Our->CanvasProgram, sizeof(error), 0, error); if (error[0]) logPrintNew("Canvas program Linking info:\n%s", error);
-    }
+    tnsCheckProgramLinkStatus(Our->CanvasProgram,"Canvas");
+
+    Our->CanvasPigmentProgram = glCreateProgram();
+    glAttachShader(Our->CanvasPigmentProgram, Our->CanvasPigmentShader); glLinkProgram(Our->CanvasPigmentProgram);
+    glGetProgramiv(Our->CanvasPigmentProgram, GL_LINK_STATUS, &status);
+    tnsCheckProgramLinkStatus(Our->CanvasPigmentProgram,"Canvas Pigment");
+    Our->uboBrushPigmentLocation=glGetUniformBlockIndex(Our->CanvasPigmentProgram, "BrushPigmentBlock");
+    glUniformBlockBinding(Our->CanvasPigmentProgram, Our->uboBrushPigmentLocation, 0);
+
 
     Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source2 = strSub(OUR_COMPOSITION_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
     const GLchar* sources2[]={versionstr, source2};
     glShaderSource(Our->CompositionShader, 2, sources2, NULL); glCompileShader(Our->CompositionShader);
-    glGetShaderiv(Our->CompositionShader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE){
-        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); logPrintNew("Composition shader error:\n%s", error); glDeleteShader(Our->CompositionShader); return 0;
-    } else {
-        glGetShaderInfoLog(Our->CompositionShader, sizeof(error), 0, error); if(error[0]) logPrintNew("Composition shader info:\n%s", error);
-    }
+    tnsCheckShaderCompileStatus(Our->CompositionShader,"Canvas");
     if(source2) free(source2);
 
     Our->CompositionProgram = glCreateProgram();
     glAttachShader(Our->CompositionProgram, Our->CompositionShader); glLinkProgram(Our->CompositionProgram);
-    glGetProgramiv(Our->CompositionProgram, GL_LINK_STATUS, &status);
-    if (status == GL_FALSE){
-        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); logPrintNew("Composition program Linking error:\n%s", error); return 0;
-    } else {
-        glGetProgramInfoLog(Our->CompositionProgram, sizeof(error), 0, error); if(error[0]) logPrintNew("Composition shader info:\n%s", error);
-    }
+    tnsCheckProgramLinkStatus(Our->CompositionProgram,"Canvas");
 
-    Our->uCanvasType=glGetUniformLocation(Our->CanvasProgram,"uCanvasType");
-    Our->uCanvasRandom=glGetUniformLocation(Our->CanvasProgram,"uCanvasRandom");
-    Our->uCanvasFactor=glGetUniformLocation(Our->CanvasProgram,"uCanvasFactor");
-    Our->uImageOffset=glGetUniformLocation(Our->CanvasProgram,"uImageOffset");
-    Our->uBrushCorner=glGetUniformLocation(Our->CanvasProgram,"uBrushCorner");
-    Our->uBrushCenter=glGetUniformLocation(Our->CanvasProgram,"uBrushCenter");
-    Our->uBrushSize=glGetUniformLocation(Our->CanvasProgram,"uBrushSize");
-    Our->uBrushHardness=glGetUniformLocation(Our->CanvasProgram,"uBrushHardness");
-    Our->uBrushSmudge=glGetUniformLocation(Our->CanvasProgram,"uBrushSmudge");
-    Our->uBrushRecentness=glGetUniformLocation(Our->CanvasProgram,"uBrushRecentness");
-    Our->uBrushColor=glGetUniformLocation(Our->CanvasProgram,"uBrushColor");
-    Our->uBrushSlender=glGetUniformLocation(Our->CanvasProgram,"uBrushSlender");
-    Our->uBrushAngle=glGetUniformLocation(Our->CanvasProgram,"uBrushAngle");
-    Our->uBrushDirection=glGetUniformLocation(Our->CanvasProgram,"uBrushDirection");
-    Our->uBrushForce=glGetUniformLocation(Our->CanvasProgram,"uBrushForce");
-    Our->uBrushGunkyness=glGetUniformLocation(Our->CanvasProgram,"uBrushGunkyness");
-    Our->uBrushErasing=glGetUniformLocation(Our->CanvasProgram,"uBrushErasing");
-    Our->uBrushMix=glGetUniformLocation(Our->CanvasProgram,"uBrushMix");
+    Our->PigmentCompositionShader = glCreateShader(GL_FRAGMENT_SHADER);
+    const GLchar* source3 = strSub(OUR_PIGMENT_TEXTURE_MIX_SHADER,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
+    const GLchar* sources3[]={versionstr, source3};
+    glShaderSource(Our->PigmentCompositionShader, 2, sources3, NULL); glCompileShader(Our->PigmentCompositionShader);
+    if(!tnsCheckShaderCompileStatus(Our->PigmentCompositionShader,"Pigment Composition")) exit(0);
+    if(source3){free(source3);}
 
-#ifdef LA_USE_GLES
-    Our->uBrushRoutineSelectionES=glGetUniformLocation(Our->CanvasProgram, "uBrushRoutineSelectionES");
-#else
-    Our->uBrushRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uBrushRoutineSelection");
-    Our->RoutineDoDabs=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoDabs");
-    Our->RoutineDoSample=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoSample");
-#endif
+    Our->PigmentCompositionProgramT = tnsNewShaderProgram(T->immShader->vtShaderID,Our->PigmentCompositionShader,-1);
 
-#ifdef LA_USE_GLES
-    Our->uMixRoutineSelectionES=glGetUniformLocation(Our->CanvasProgram, "uMixRoutineSelectionES");
-#else
-    Our->uMixRoutineSelection=glGetSubroutineUniformLocation(Our->CanvasProgram, GL_COMPUTE_SHADER, "uMixRoutineSelection");
-    Our->RoutineDoMixNormal=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixNormal");
-    Our->RoutineDoMixSpectral=glGetSubroutineIndex(Our->CanvasProgram, GL_COMPUTE_SHADER, "DoMixSpectral");
-#endif
+    Our->PigmentDisplayShader = glCreateShader(GL_FRAGMENT_SHADER);
+    const GLchar* source4 = strSub(OUR_PIGMENT_TEXTURE_DISPLAY_SHADER,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
+    const GLchar* sources4[]={versionstr, source4};
+    glShaderSource(Our->PigmentDisplayShader, 2, sources4, NULL); glCompileShader(Our->PigmentDisplayShader);
+    if(!tnsCheckShaderCompileStatus(Our->PigmentDisplayShader,"Pigment Display")) exit(0);
+    if(source4){free(source4);}
 
-    Our->uBlendMode=glGetUniformLocation(Our->CompositionProgram,"uBlendMode");
-    Our->uAlphaTop=glGetUniformLocation(Our->CompositionProgram,"uAlphaTop");
-    Our->uAlphaBottom=glGetUniformLocation(Our->CompositionProgram,"uAlphaBottom");
+    Our->PigmentDisplayProgramT = tnsNewShaderProgram(T->immShader->vtShaderID,Our->PigmentDisplayShader,-1);
+    int pid=Our->PigmentDisplayProgramT->glProgramID;
+    Our->uboCanvasPigmentLocation=glGetUniformBlockIndex(pid, "CanvasPigmentBlock");
+    glUniformBlockBinding(pid, Our->uboCanvasPigmentLocation, 0);
+    Our->uPigmentDisplaySize=glGetUniformLocation(pid, "display_size");
 
+    glGenBuffers(1, &Our->uboBrushPigment);
+    glGenBuffers(1, &Our->uboCanvasPigment);
+    glBindBuffer(GL_UNIFORM_BUFFER, Our->uboCanvasPigment);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(OurPigmentData140), 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBuffer(GL_UNIFORM_BUFFER, Our->uboBrushPigment);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(OurBrushData140), 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    Our->u = &Our->uRGBA;
+    ourGetUniforms(Our->CanvasProgram,Our->CompositionProgram);
+    Our->u = &Our->uPigment;
+    ourGetUniforms(Our->CanvasPigmentProgram,Our->CompositionProgram); // XXXXX
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;

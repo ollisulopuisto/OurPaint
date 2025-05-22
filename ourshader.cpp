@@ -49,6 +49,7 @@ uvec4 cpack(vec4 c){
 
 const char OUR_CANVAS_SHADER[]=R"(
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+
 #ifdef OUR_GLES
 precision highp uimage2D;
 precision highp float;
@@ -61,6 +62,7 @@ layout(rgba16ui, binding = 0) uniform uimage2D img;
 layout(rgba16ui, binding = 1) coherent uniform uimage2D smudge_buckets;
 #define OUR_FLT_EPS (1e-4)
 #endif
+
 uniform int uCanvasType;
 uniform int uCanvasRandom;
 uniform float uCanvasFactor;
@@ -82,10 +84,15 @@ uniform int uBrushErasing;
 uniform int uBrushMix;
 
 #ifdef OUR_GLES
-
 uniform int uBrushRoutineSelectionES;
 uniform int uMixRoutineSelectionES;
+#endif
 
+#ifdef OUR_CANVAS_MODE_PIGMENT
+#with OUR_PIGMENT_COMMON
+layout(std140) uniform BrushPigmentBlock{
+    PigmentData p;
+}uBrushPigment;
 #endif
 
 #with OUR_SHADER_COMMON
@@ -328,6 +335,8 @@ vec3 rgb_to_hcy(vec3 rgb){
 subroutine void BrushRoutines();
 #endif
 
+#ifdef OUR_CANVAS_MODE_RGB
+
 #ifndef OUR_GLES
 subroutine(BrushRoutines)
 #endif
@@ -373,6 +382,97 @@ void DoSample(){
     OurImageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);
     OurImageStore(smudge_buckets,ivec2(0,0),color);
 }
+
+#endif // canvas mode rgb
+
+#ifdef OUR_CANVAS_MODE_PIGMENT //========================================================================================
+
+#define GetImgPixel(tex, uv, p) \
+{ \
+    uvec4 c0=imageLoad(tex,uv); \
+    uvec4 c1=imageLoad(tex,ivec2(uv.x,uv.y+1)); \
+    uvec4 c2=imageLoad(tex,ivec2(uv.x+1,uv.y)); \
+    uvec4 c3=imageLoad(tex,ivec2(uv.x+1,uv.y+1)); \
+    setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p); \
+}
+
+#define WriteImgPixel(tex, uv, p) \
+{ \
+    uvec4 c0=getRL(p); uvec4 c1=getRH(p); uvec4 c2=getAL(p); uvec4 c3=getAH(p); \
+    imageStore(tex,uv,c0); \
+    imageStore(tex,ivec2(uv.x,uv.y+1),c1); \
+    imageStore(tex,ivec2(uv.x+1,uv.y),c2); \
+    imageStore(tex,ivec2(uv.x+1,uv.y+1),c3); \
+}
+
+int dab_pigment(float d, vec2 fpx, PigmentData color, float size, float hardness,
+                float smudge, PigmentData smudge_color, PigmentData last_color, out PigmentData final){
+    PigmentData cc=(uBrushErasing!=0)?PIGMENT_BLANK:color;
+    float erasing=float(uBrushErasing);
+    float fac=1.0f-pow(d/size,1.0f+1.0f/(1.0f-hardness+OUR_FLT_EPS));
+    float canvas=SampleCanvas(fpx,uBrushDirection,fac,uBrushForce,uBrushGunkyness);
+
+    if(uBrushErasing!=0){
+        PigmentData smudged_color=PigmentMix(last_color,smudge_color,smudge*fac*canvas);
+        final=PigmentMix(smudged_color,PIGMENT_BLANK,erasing*canvas*fac);
+    }else{
+        cc.a[15]=color.a[15]*canvas*fac*(1.-smudge);
+        cc.r[15]=color.r[15]*canvas*fac*(1.-smudge);
+        PigmentData smudged_color=PigmentMix(last_color,smudge_color,smudge*fac*canvas);
+        PigmentData added_color=PigmentOver(cc,smudged_color);
+        final=added_color;//PigmentInterpolate(added_color,smudged_color,smudge);
+    }
+    return 1;
+}
+
+#ifndef OUR_GLES
+subroutine(BrushRoutines)
+#endif
+void DoDabs(){
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy)*2+uBrushCorner; px/=2; px*=2;
+
+    if(px.x<0||px.y<0||px.x>=1024||px.y>=1024) return; vec2 fpx=vec2(px),origfpx=fpx;
+    fpx=uBrushCenter+rotate(fpx-uBrushCenter,uBrushAngle);
+    fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1.+uBrushSlender);
+    float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;
+
+    PigmentData dabc;   GetImgPixel(img, px, dabc);
+    PigmentData sm_old; ivec2 oldvec=ivec2(2,0); GetImgPixel(smudge_buckets,oldvec,sm_old);
+    PigmentData sm_new; ivec2 newvec=ivec2(0,0); GetImgPixel(smudge_buckets,newvec,sm_new);
+    PigmentData smudgec=PigmentMix(sm_old,sm_new,uBrushRecentness);
+    PigmentData final_color;
+    dab_pigment(dd,origfpx,uBrushPigment.p,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
+    if(final_color.a[15]>0. || final_color.r[15]>0.){
+        WriteImgPixel(img, px, final_color);
+    }
+}
+
+#ifndef OUR_GLES
+subroutine(BrushRoutines)
+#endif
+void DoSample(){
+    ivec2 p=ivec2(gl_GlobalInvocationID.xy);
+    int DoSample=1; ivec2 corner=ivec2(uBrushCenter);
+    if(p.y==0){
+        vec2 sp=round(vec2(sin(float(p.x)),cos(float(p.x)))*(uBrushSize+2));
+        ivec2 px=ivec2(sp)+corner; px/=2; px*=2; if(px.x<0||px.y<0||px.x>=1024||px.y>=1024){ DoSample=0; }
+        if(DoSample!=0){
+            PigmentData dabc; GetImgPixel(img, px, dabc);
+            WriteImgPixel(smudge_buckets,ivec2(p.x*2+128,0),dabc);
+        }
+    }else{DoSample=0;}
+    memoryBarrier();barrier(); if(DoSample==0) return;
+    if(uBrushErasing==0 || p.x!=0) return;
+    PigmentData color=PIGMENT_BLANK; for(int i=0;i<WORKGROUP_SIZE;i++){
+        PigmentData dabc; GetImgPixel(smudge_buckets, ivec2(i*2+128,0), dabc); color=PigmentMix(color,dabc,1.0/float(i+1.));
+    }
+    PigmentData oldcolor; GetImgPixel(smudge_buckets, ivec2(0,0), oldcolor);
+    //PigmentMultiply(color,2./WORKGROUP_SIZE);
+    WriteImgPixel(smudge_buckets,ivec2(2,0),uBrushErasing==2?color:oldcolor);
+    WriteImgPixel(smudge_buckets,ivec2(0,0),color);
+}
+
+#endif // canvas mode pigment
 
 #ifdef OUR_GLES
 void uBrushRoutineSelection(){
@@ -422,5 +522,215 @@ void main() {
     vec4 c=(uBlendMode==0)?mix_over(c1,c2):add_over(c1,c2);
     OurImageStore(bottom,px,c);
     OurImageStore(top,px,vec4(1.));
+}
+)";
+
+const char OUR_PIGMENT_COMMON[]=R"(
+#define POW_EPS (1e-7)
+#define USE_SAFE_POW 1
+
+#if USE_SAFE_POW
+float safepow(float a, float b){
+    return pow(max(a,POW_EPS),b);
+}
+#else
+#define safepow pow
+#endif
+
+#define l8f(a) (float(((a)&0x00ff)>>0)/255.)
+#define h8f(a) (float(((a)&0xff00)>>8)/255.)
+#define fl16(l,h) ((uint((l)*255.))|((uint((h)*255.))<<8))
+
+#define OUR_SPECTRAL_SLICES 15
+
+struct PigmentData{ float r[16]; float a[16]; };
+
+const PigmentData PIGMENT_BLANK={{0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.},{0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.}};
+const PigmentData PIGMENT_WHITE={{1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.},{0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.}};
+const PigmentData PIGMENT_BLACK={{0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.},{0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.}};
+
+void setRL(uvec4 c, inout PigmentData p){
+    p.r[0]=l8f(c[0]); p.r[1]=h8f(c[0]); p.r[2]=l8f(c[1]); p.r[3]=h8f(c[1]);
+    p.r[4]=l8f(c[2]); p.r[5]=h8f(c[2]); p.r[6]=l8f(c[3]); p.r[7]=h8f(c[3]);
+}
+void setRH(uvec4 c, inout PigmentData p){
+    p.r[8]= l8f(c[0]); p.r[9] =h8f(c[0]); p.r[10]=l8f(c[1]); p.r[11]=h8f(c[1]);
+    p.r[12]=l8f(c[2]); p.r[13]=h8f(c[2]); p.r[14]=l8f(c[3]); p.r[15]=h8f(c[3]);
+}
+void setAL(uvec4 c, inout PigmentData p){
+    p.a[0]=l8f(c[0]); p.a[1]=h8f(c[0]); p.a[2]=l8f(c[1]); p.a[3]=h8f(c[1]);
+    p.a[4]=l8f(c[2]); p.a[5]=h8f(c[2]); p.a[6]=l8f(c[3]); p.a[7]=h8f(c[3]);
+}
+void setAH(uvec4 c, inout PigmentData p){
+    p.a[8]= l8f(c[0]); p.a[9] =h8f(c[0]); p.a[10]=l8f(c[1]); p.a[11]=h8f(c[1]);
+    p.a[12]=l8f(c[2]); p.a[13]=h8f(c[2]); p.a[14]=l8f(c[3]); p.a[15]=h8f(c[3]);
+}
+uvec4 getRL(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.r[0],p.r[1]); c[1]=fl16(p.r[2],p.r[3]);
+    c[2]=fl16(p.r[4],p.r[5]); c[3]=fl16(p.r[6],p.r[7]); return c;
+}
+uvec4 getRH(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.r[8],p.r[9]); c[1]=fl16(p.r[10],p.r[11]);
+    c[2]=fl16(p.r[12],p.r[13]); c[3]=fl16(p.r[14],p.r[15]); return c;
+}
+uvec4 getAL(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.a[0],p.a[1]); c[1]=fl16(p.a[2],p.a[3]);
+    c[2]=fl16(p.a[4],p.a[5]); c[3]=fl16(p.a[6],p.a[7]); return c;
+}
+uvec4 getAH(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.a[8],p.a[9]); c[1]=fl16(p.a[10],p.a[11]);
+    c[2]=fl16(p.a[12],p.a[13]); c[3]=fl16(p.a[14],p.a[15]); return c;
+}
+PigmentData GetPixel(usampler2D tex, ivec2 uv){
+    uvec4 c0=texelFetch(tex,uv,0); 
+    uvec4 c1=texelFetch(tex,ivec2(uv.x,uv.y+1),0);
+    uvec4 c2=texelFetch(tex,ivec2(uv.x+1,uv.y),0);
+    uvec4 c3=texelFetch(tex,ivec2(uv.x+1,uv.y+1),0);
+    PigmentData p;
+    setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p);
+    return p;
+}
+uvec4 PackPixel(PigmentData p, int choose){
+    switch(choose){
+        case 0: return getRL(p); case 1: return getRH(p);
+        case 2: return getAL(p); case 3: return getAH(p);
+        default: return uvec4(65535,0,65535,65535);
+    }
+}
+void PigmentMixSlices(float a[16], inout float b[16], float factor){
+    if(factor==1.) return; if(factor==0.){ for(int i=0;i<16;i++){b[i]=a[i];} return; }
+    float fac=(1.0f-factor)*a[15]; float fac1=factor*b[15]; if(fac+fac1==0.){ return; }
+    float scale=1.0/(fac+fac1); b[15]=mix(a[15],b[15],factor); fac*=scale; fac1*=scale;
+    for(int i=0;i<15;i++){
+        b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+    }
+}
+void PigmentOverSlices(float a[16], inout float b[16]){
+    float fac=a[15]; float fac1=(1.0f-fac)*b[15]; if(fac==0.) return;
+    float scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
+    for(int i=0;i<15;i++){
+        b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+    }
+}
+PigmentData PigmentMix(PigmentData p0, PigmentData p1, float factor){
+    PigmentData result=p1;
+    PigmentMixSlices(p0.a,result.a,factor);
+    PigmentMixSlices(p0.r,result.r,factor);
+    return result;
+}
+PigmentData PigmentOver(PigmentData p0, PigmentData p1){
+    PigmentData result=p1;
+    PigmentOverSlices(p0.a,result.a);
+    PigmentOverSlices(p0.r,result.r);
+    return result;
+}
+void PigmentAdd(inout PigmentData p, PigmentData on_top){
+    for(int i=0;i<16;i++){ p.r[i]+=on_top.r[i]; p.a[i]+=on_top.a[i]; }
+}
+void PigmentMultiply(inout PigmentData p, float a){
+    for(int i=0;i<15;i++){ p.r[i]*=a; p.a[i]*=a; }
+}
+PigmentData PigmentInterpolate(PigmentData p0, PigmentData p1, float fac){
+    PigmentData a; for(int i=0;i<16;i++){ a.r[i]=mix(p0.r[i],p1.r[i],fac); a.a[i]=mix(p0.a[i],p1.a[i],fac); } return a;
+}
+
+vec3 XYZ2sRGB(vec3 xyz){
+	mat3 mat=mat3(vec3(3.2404542,-1.5371385,-0.4985314),
+				  vec3(-0.9692660,1.8760108,0.0415560),
+				  vec3(0.0556434,-0.2040259,1.0572252));
+	return xyz*mat;
+}
+
+float srgb_transfer_function(float a){
+	return .0031308f >= a ? 12.92f * a : 1.055f * pow(a, .4166666666666667f) - .055f;
+}
+vec3 to_log_srgb(vec3 color){
+	return vec3(srgb_transfer_function(color.r),srgb_transfer_function(color.g),srgb_transfer_function(color.b));
+}
+
+float PigmentCMF[3][16]={
+{0.0256137852631579,0.176998549473684,0.324992573684211,0.278209710526316,0.131263202631579,0.014745683,0.037739453368421,0.208473868421053,0.469442405263158,0.793365010526316,1.08417487894737,1.09022132105263,0.760274115789474,0.370996610526316,0.132563511052632,0.0379143815789474},
+{0.00273202863157895,0.0180098264736842,0.0448669426315789,0.0778269289473684,0.154425073684211,0.284083294736842,0.581026268421053,0.873226015789474,0.989738668421053,0.964781294736842,0.815827405263158,0.5850558,0.336884215789474,0.150147182631579,0.0515898715789474,0.0145470502631579},
+{0.127527536315789,0.914883057894737,1.77482205263158,1.653703,1.00137200526316,0.346880121052632,0.102993546315789,0.0227326414210526,0.00393168242105263,0.000625332878947368,0.000105245846315789,1.92985747368421E-05,0,0,0,0},
+};
+vec3 Spectral2XYZ(float spec[OUR_SPECTRAL_SLICES]){
+    vec3 xyz=vec3(0.,0.,0.); float n=0.;
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        xyz[0]+=spec[i]*PigmentCMF[0][i];
+        xyz[1]+=spec[i]*PigmentCMF[1][i];
+        xyz[2]+=spec[i]*PigmentCMF[2][i];
+        n+=PigmentCMF[1][i];
+    }
+    vec3 XYZ;
+    XYZ[0]=xyz[0]/n;
+    XYZ[1]=xyz[1]/n;
+    XYZ[2]=xyz[2]/n;
+    return XYZ;
+}
+
+vec3 PigmentToRGB(PigmentData pd, PigmentData light){
+    float slices[OUR_SPECTRAL_SLICES];
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        float absfac=1.0f-pd.a[i]*pow(pd.a[15],2); if(absfac<0)absfac=0; slices[i]=pd.r[i]*absfac;
+        slices[i]*= light.r[i];
+    }
+    vec3 xyz=Spectral2XYZ(slices); vec3 rgb=XYZ2sRGB(xyz); return rgb;
+}
+
+)";
+
+const char OUR_PIGMENT_TEXTURE_MIX_SHADER[]=R"(
+#extension GL_ARB_shading_language_420pack : enable // uniform sampler binding
+precision highp float;
+precision highp int;
+layout (binding=2) uniform highp usampler2D TexColorUI0;
+layout (binding=5) uniform highp usampler2D TexColorUI1;
+
+in vec2 fUV;
+
+layout(location = 0) out uvec4 outColor;
+
+#with OUR_PIGMENT_COMMON
+
+void main(){
+    ivec2 iuv=ivec2(ivec2(fUV*512.)*2);
+    ivec2 iuvscr=ivec2(gl_FragCoord.xy); int xof=iuvscr.x%2; int yof=iuvscr.y%2; iuvscr.x-=xof; iuvscr.y-=yof;
+
+    PigmentData p0 = GetPixel(TexColorUI0,iuv);
+    PigmentData p1 = GetPixel(TexColorUI1,iuvscr);
+    PigmentData result = PigmentOver(p0,p1);
+
+    int choose = xof*2+yof;
+    uvec4 pixel = PackPixel(p0,choose);
+    outColor=pixel;
+}
+)";
+
+const char OUR_PIGMENT_TEXTURE_DISPLAY_SHADER[]=R"(
+#extension GL_ARB_shading_language_420pack : enable // uniform sampler binding
+precision highp float;
+precision highp int;
+layout (binding=2) uniform highp usampler2D TexColorUI;
+uniform uvec2 display_size;
+
+in vec2 fUV;
+
+layout(location = 0) out vec4 outColor;
+
+#with OUR_PIGMENT_COMMON
+
+layout(std140) uniform CanvasPigmentBlock{
+    PigmentData light;
+    PigmentData paper;
+}uCanvasPigment;
+
+void main(){
+    ivec2 iuv=ivec2(fUV*vec2(display_size)); int xof=iuv.x%2; int yof=iuv.y%2; iuv.x-=xof; iuv.y-=yof;
+
+    PigmentData p0 = GetPixel(TexColorUI,iuv);
+
+    PigmentData final = PigmentOver(p0,uCanvasPigment.paper);
+    vec3 pixel = to_log_srgb(PigmentToRGB(final,uCanvasPigment.light));
+    outColor=vec4(pixel,1.0);
 }
 )";

@@ -41,6 +41,9 @@ extern const char OUR_SHADER_COMMON[];
 extern const char OUR_MIME[];
 extern const char OUR_THUMBNAILER[];
 extern const char OUR_DESKTOP[];
+extern const char OUR_PIGMENT_TEXTURE_MIX_SHADER[];
+extern const char OUR_PIGMENT_TEXTURE_DISPLAY_SHADER[];
+extern const char OUR_PIGMENT_COMMON[];
 #ifdef __cplusplus
 } // extern "C"
 #endif
@@ -85,6 +88,8 @@ extern const char OUR_DESKTOP[];
 
 extern laWidget* OUR_WIDGET_PIGMENT;
 extern laUiType* _OUR_UI_PIGMENT;
+
+#define OURU Our->u
 
 STRUCTURE(OurCanvasDraw){
     laCanvasExtra Base;
@@ -288,6 +293,16 @@ STRUCTURE(OurPigmentData){
     real Absorption[16];
     real PreviewColor[3][4];
 };
+STRUCTURE(OurBrushData140){
+    float Reflectance[64];
+    float Absorption[64];
+};
+STRUCTURE(OurPigmentData140){
+    float Reflectance[64];
+    float Absorption[64];
+    float PaperReflectance[64];
+    float PaperAbsorption[64];
+};
 STRUCTURE(OurPigment){
     laListItem Item;
     laSafeString* Name;
@@ -405,6 +420,38 @@ STRUCTURE(OurUsePigment){
     OurPigment* pigment;
 };
 
+STRUCTURE(BrushUniforms){
+    GLint uCanvasType;
+    GLint uCanvasRandom;
+    GLint uCanvasFactor;
+    GLint uImageOffset;
+    GLint uBrushCorner;
+    GLint uBrushCenter;
+    GLint uBrushSize;
+    GLint uBrushHardness;
+    GLint uBrushSmudge;
+    GLint uBrushRecentness;
+    GLint uBrushColor;
+    GLint uBrushSlender;
+    GLint uBrushAngle;
+    GLint uBrushDirection;
+    GLint uBrushForce;
+    GLint uBrushGunkyness;
+    GLint uBrushRoutineSelection;
+    GLint uBrushRoutineSelectionES;
+    GLint uMixRoutineSelection;
+    GLint uMixRoutineSelectionES;
+    GLint uBrushErasing;
+    GLint uBrushMix;
+    GLint RoutineDoDabs;
+    GLint RoutineDoSample;
+    GLint RoutineDoMixNormal;
+    GLint RoutineDoMixSpectral;
+    GLint uBlendMode;
+    GLint uAlphaTop;
+    GLint uAlphaBottom;
+};
+
 STRUCTURE(OurPaint){
     real pad;
 
@@ -424,7 +471,7 @@ STRUCTURE(OurPaint){
     laListHandle Brushes;
     OurBrush*    CurrentBrush;
     laListHandle Pigments;
-    OurBrush*    CurrentPigment;
+    OurPigment*  CurrentPigment;
     laListHandle Lights;
     laListHandle CanvasSurfaces;
     real SaveBrushSize,SaveEraserSize;
@@ -474,39 +521,18 @@ STRUCTURE(OurPaint){
     int SegmentedWrite;
 
     tnsTexture* SmudgeTexture;
-    GLuint CanvasShader;      GLuint CanvasProgram;
-    GLuint CompositionShader; GLuint CompositionProgram;
-    GLuint LayerShader;       GLuint LayerProgram;
-    GLuint DisplayShader;     GLuint DisplayProgram;
-    GLint uCanvasType;
-    GLint uCanvasRandom;
-    GLint uCanvasFactor;
-    GLint uImageOffset;
-    GLint uBrushCorner;
-    GLint uBrushCenter;
-    GLint uBrushSize;
-    GLint uBrushHardness;
-    GLint uBrushSmudge;
-    GLint uBrushRecentness;
-    GLint uBrushColor;
-    GLint uBrushSlender;
-    GLint uBrushAngle;
-    GLint uBrushDirection;
-    GLint uBrushForce;
-    GLint uBrushGunkyness;
-    GLint uBrushRoutineSelection;
-    GLint uBrushRoutineSelectionES;
-    GLint uMixRoutineSelection;
-    GLint uMixRoutineSelectionES;
-    GLint uBrushErasing;
-    GLint uBrushMix;
-    GLint RoutineDoDabs;
-    GLint RoutineDoSample;
-    GLint RoutineDoMixNormal;
-    GLint RoutineDoMixSpectral;
-    GLint uBlendMode;
-    GLint uAlphaTop;
-    GLint uAlphaBottom;
+    GLuint CanvasShader;         GLuint CanvasProgram;
+    GLuint CanvasPigmentShader;  GLuint CanvasPigmentProgram;
+    GLuint CompositionShader;    GLuint CompositionProgram;
+    GLuint LayerShader;          GLuint LayerProgram;
+    GLuint DisplayShader;        GLuint DisplayProgram;
+    GLuint PigmentCompositionShader; tnsShader* PigmentCompositionProgramT;
+    GLuint PigmentDisplayShader; tnsShader* PigmentDisplayProgramT;
+    GLuint uPigmentDisplaySize;
+    GLint uboBrushPigment,uboBrushPigmentLocation;
+    GLint uboCanvasPigment,uboCanvasPigmentLocation;
+
+    BrushUniforms *u,uRGBA,uPigment;
 
     OurCanvasSurface CanvasSurface;
     OurLight         CanvasLight;

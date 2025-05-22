@@ -33,7 +33,7 @@ int main(int argc, char *argv[]){
     ia.GLMajor=4; ia.GLMinor=5;
     ia.GLESMajor=3; ia.GLESMinor=2;
     ia.UseColorManagement=1;
-    //ia.HasTextureInspector=1;
+    ia.HasTextureInspector=1;
     ia.HasTerminal=1;
     ia.HasHistories=1;
     //MAIN.EnableGLDebug=1;
