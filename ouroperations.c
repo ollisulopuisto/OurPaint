@@ -1296,7 +1296,7 @@ void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor)
     real ascale=1.0f/(afac1+afac+DBL_EPSILON), rscale=1.0f/(rfac1+rfac+DBL_EPSILON); 
     afac*=ascale; afac1*=ascale; rfac*=rscale;rfac1*=rscale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        target->Absorption[i]=safepow(target->Absorption[i],afac1)*safepow(source->Absorption[i],afac);
+        target->Absorption[i]=1.0f-safepow(1.0f-target->Absorption[i],afac1)*safepow(1.0f-source->Absorption[i],afac);
         target->Reflectance[i]=safepow(target->Reflectance[i],rfac1)*safepow(source->Reflectance[i],rfac);
     }
     target->Absorption[15]=tnsInterpolate(target->Absorption[15],source->Absorption[15],factor);
@@ -2524,7 +2524,7 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     if(Our->PigmentMode){
         u8bit pigment[32]={0}; x/=2;x*=2; y/=2; y*=2;
-        glReadPixels(x,y,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
+        glReadPixels(x*2,y*2,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
         printf("read:\n");
         for(int i=0;i<16;i++) { printf("%03d ", pigment[i]); } printf("\n");
         for(int i=16;i<32;i++){ printf("%03d ", pigment[i]); } printf("\n");

@@ -422,7 +422,7 @@ int dab_pigment(float d, vec2 fpx, PigmentData color, float size, float hardness
         cc.r[15]=color.r[15]*canvas*fac*(1.-smudge);
         PigmentData smudged_color=PigmentMix(last_color,smudge_color,smudge*fac*canvas);
         PigmentData added_color=PigmentOver(cc,smudged_color);
-        final=added_color;//PigmentInterpolate(added_color,smudged_color,smudge);
+        final=added_color;
     }
     return 1;
 }
@@ -624,29 +624,54 @@ void PigmentMixSlices(float a[16], inout float b[16], float factor){
     if(factor==1.) return; if(factor==0.){ for(int i=0;i<16;i++){b[i]=a[i];} return; }
     float fac=(1.0f-factor)*a[15]; float fac1=factor*b[15]; if(fac+fac1==0.){ return; }
     float scale=1.0/(fac+fac1); b[15]=mix(a[15],b[15],factor); fac*=scale; fac1*=scale;
-    for(int i=0;i<15;i++){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+    }
+}
+void PigmentMixSlicesInverted(float a[16], inout float b[16], float factor){
+    if(factor==1.) return; if(factor==0.){ for(int i=0;i<16;i++){b[i]=a[i];} return; }
+    float fac=(1.0f-factor)*a[15]; float fac1=factor*b[15]; if(fac+fac1==0.){ return; }
+    float scale=1.0/(fac+fac1); b[15]=mix(a[15],b[15],factor); fac*=scale; fac1*=scale;
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        b[i]=1.-safepow(1.-a[i],fac)*safepow(1.-b[i],fac1);
     }
 }
 void PigmentOverSlices(float a[16], inout float b[16]){
     float fac=a[15]; float fac1=(1.0f-fac)*b[15]; if(fac==0.) return;
     float scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
-    for(int i=0;i<15;i++){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+    }
+}
+void PigmentOverSlicesInverted(float a[16], inout float b[16]){
+    float fac=a[15]; float fac1=(1.0f-fac)*b[15]; if(fac==0.) return;
+    float scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        b[i]=1.-safepow((1.-a[i]),fac)*safepow((1.-b[i]),fac1);
+    }
+}
+void PigmentMultiplySlicesInverted(float a[16], inout float b[16], float factor){
+    float fac=a[15]*factor; float fac1=b[15]; if(fac==0.) return;
+    b[15]=1.-(1.-fac1)*(1.-fac);
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        float pre=1.-b[i]*fac1; float mult=pre*(1.-a[i]*fac);
+        b[i]=(1.-mult)/b[15];
+        //b[i]=1.-(1.-a[i]*fac)*(1.-b[i]);
     }
 }
 PigmentData PigmentMix(PigmentData p0, PigmentData p1, float factor){
     PigmentData result=p1;
-    PigmentMixSlices(p0.a,result.a,factor);
+    PigmentMixSlicesInverted(p0.a,result.a,factor);
     PigmentMixSlices(p0.r,result.r,factor);
     return result;
 }
 PigmentData PigmentOver(PigmentData p0, PigmentData p1){
-    PigmentData result=p1;
+    PigmentData result=p1; float mfac=1.0;//p0.r[15];
     //for(int i=0;i<15;i++){ result.r[i]=result.r[i]*(1.0-result.a[i]*safepow(result.a[15],2.)); }
     float rfac=p0.r[15]; result.a[15]=mix(result.a[15],0.,safepow(rfac,2.));
     PigmentOverSlices(p0.r,result.r);
-    PigmentOverSlices(p0.a,result.a);
+    PigmentMultiplySlicesInverted(p0.a,result.a,mfac);
+
     return result;
 }
 void PigmentAdd(inout PigmentData p, PigmentData on_top){
@@ -696,7 +721,7 @@ vec3 Spectral2XYZ(float spec[OUR_SPECTRAL_SLICES]){
 vec3 PigmentToRGB(PigmentData pd, PigmentData light){
     float slices[OUR_SPECTRAL_SLICES];
     for(int i=0;i<OUR_SPECTRAL_SLICES-1;i++){
-        float absfac=1.0f-pd.a[i]*pow(pd.a[15],2.); if(absfac<0.)absfac=0.; slices[i]=pd.r[i]*absfac;
+        float absfac=1.0f-pd.a[i]*pow(pd.a[15],1.); if(absfac<0.)absfac=0.; slices[i]=pd.r[i]*absfac;
         slices[i]*=light.r[i];
     }
     vec3 xyz=Spectral2XYZ(slices); vec3 rgb=XYZ2sRGB(xyz); return rgb;
