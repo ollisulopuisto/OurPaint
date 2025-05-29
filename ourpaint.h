@@ -109,7 +109,7 @@ STRUCTURE(OurCanvasDraw){
 
 #define OUR_DPC (600*0.3937007874)
 
-#define OUR_SPECTRAL_SLICES 15
+#define OUR_SPECTRAL_SLICES 14
 
 #define OUR_MIXING_SPEED 0.05f
 
@@ -528,7 +528,7 @@ STRUCTURE(OurPaint){
     GLuint DisplayShader;        GLuint DisplayProgram;
     GLuint PigmentCompositionShader; tnsShader* PigmentCompositionProgramT;
     GLuint PigmentDisplayShader; tnsShader* PigmentDisplayProgramT;
-    GLuint uPigmentDisplaySize;
+    GLuint uPigmentDisplaySize,uPigmentZoomSize;
     GLint uboBrushPigment,uboBrushPigmentLocation;
     GLint uboCanvasPigment,uboCanvasPigmentLocation;
 
