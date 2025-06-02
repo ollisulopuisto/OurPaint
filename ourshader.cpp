@@ -248,14 +248,21 @@ subroutine uniform MixRoutines uMixRoutineSelection;
 vec4 spectral_mix(vec4 a, vec4 b, float fac_a){
     return uMixRoutineSelection(a,b,fac_a);
 }
-vec4 spectral_mix_unpre(vec4 colora, vec4 colorb, float fac){
+vec4 spectral_mix_always(vec4 colora, vec4 colorb, float fac){
+#ifndef OUR_STRAIGHT_ALPHA
     vec4 ca=(colora.a==0.0f)?colora:vec4(colora.rgb/colora.a,colora.a);
     vec4 cb=(colorb.a==0.0f)?colorb:vec4(colorb.rgb/colorb.a,colorb.a);
+#else
+    vec4 ca=colora; vec4 cb=colorb;
+#endif
     float af=colora.a*(1.0f-fac);
     float aa=af/(af+fac*colorb.a+0.000001);
     vec4 result=spectral_mix(ca,cb,aa);
     result.a=mix(colora.a,colorb.a,fac);
-    return vec4(result.rgb*result.a,result.a);
+#ifndef OUR_STRAIGHT_ALPHA
+    result = vec4(result.rgb*result.a,result.a);
+#endif
+    return result;
 }
 float atan2(in float y, in float x){
     bool s = (abs(x) > abs(y)); return mix(3.1415926535/2.0 - atan(x,y), atan(y,x), s);
@@ -268,29 +275,38 @@ float brightness(vec4 color) {
     return color.r*0.2126+color.b*0.7152+color.g*0.0722;
 }
 vec4 mix_over(vec4 colora, vec4 colorb){
+#ifndef OUR_STRAIGHT_ALPHA
     vec4 a=(colora.a==0.0f)?colora:vec4(colora.rgb/colora.a,colora.a);
     vec4 b=(colorb.a==0.0f)?colorb:vec4(colorb.rgb/colorb.a,colorb.a);
+#else
+    vec4 a=colora; vec4 b=colorb;
+#endif
     vec4 m=vec4(0,0,0,0); float aa=colora.a/(colora.a+(1.0f-colora.a)*colorb.a+OUR_FLT_EPS);
     m=spectral_mix(a,b,aa);
     m.a=colora.a+colorb.a*(1.0f-colora.a);
+#ifndef OUR_STRAIGHT_ALPHA
     m=vec4(m.rgb*m.a,m.a);
+#endif
     return m;
 }
 int dab(float d, vec2 fpx, vec4 color, float size, float hardness, float smudge, vec4 smudge_color, vec4 last_color, out vec4 final){
     vec4 cc=color;
     float fac=1.0f-pow(d/size,1.0f+1.0f/(1.0f-hardness+OUR_FLT_EPS));
     float canvas=SampleCanvas(fpx,uBrushDirection,fac,uBrushForce,uBrushGunkyness);
-    cc.a=color.a*canvas*(1.0f-smudge); cc.rgb=cc.rgb*cc.a;
+    cc.a=color.a*canvas*(1.0f-smudge);
+#ifndef OUR_STRAIGHT_ALPHA
+    cc.rgb=cc.rgb*cc.a;
+#endif
     float erasing=float(uBrushErasing);
     cc=cc*(1.0f-erasing);
 
     // this looks better than the one commented out below
-    vec4 c2=spectral_mix_unpre(last_color,smudge_color,smudge*fac*color.a*canvas);
+    vec4 c2=spectral_mix_always(last_color,smudge_color,smudge*fac*color.a*canvas);
     c2=mix_over(cc,c2);
     //vec4 c2=mix_over(cc,last_color);
-    //c2=spectral_mix_unpre(c2,smudge_color,smudge*fac*color.a*canvas);
+    //c2=spectral_mix_always(c2,smudge_color,smudge*fac*color.a*canvas);
 
-    c2=spectral_mix_unpre(c2,c2*(1.0f-fac*color.a),erasing*canvas);
+    c2=spectral_mix_always(c2,c2*(1.0f-fac*color.a),erasing*canvas);
     final=c2;
     return 1;
 }
@@ -350,7 +366,7 @@ void DoDabs(){
     fpx.x=uBrushCenter.x+(fpx.x-uBrushCenter.x)*(1.+uBrushSlender);
     float dd=distance(fpx,uBrushCenter); if(dd>uBrushSize) return;
     vec4 dabc=OurImageLoad(img, px);
-    vec4 smudgec=pow(spectral_mix_unpre(pow(OurImageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(OurImageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);
+    vec4 smudgec=pow(spectral_mix_always(pow(OurImageLoad(smudge_buckets,ivec2(1,0)),p1_22),pow(OurImageLoad(smudge_buckets,ivec2(0,0)),p1_22),uBrushRecentness),p22);
     vec4 final_color;
     dab(dd,origfpx,uBrushColor,uBrushSize,uBrushHardness,uBrushSmudge,smudgec,dabc,final_color);
     if(final_color.a>0.){
@@ -380,7 +396,7 @@ void DoSample(){
     memoryBarrier();barrier(); if(DoSample==0) return;
     if(uBrushErasing==0 || p.x!=0) return;
     color=vec4(0.,0.,0.,0.); for(int i=0;i<WORKGROUP_SIZE;i++){ color=color+OurImageLoad(smudge_buckets, ivec2(i+128,0)); }
-    color=spectral_mix_unpre(color/vec4(WORKGROUP_SIZE),OurImageLoad(smudge_buckets, ivec2(128+WORKGROUP_SIZE,0)),0.6*(1.0f-uBrushColor.a)); vec4 oldcolor=OurImageLoad(smudge_buckets, ivec2(0,0));
+    color=spectral_mix_always(color/vec4(WORKGROUP_SIZE),OurImageLoad(smudge_buckets, ivec2(128+WORKGROUP_SIZE,0)),0.6*(1.0f-uBrushColor.a)); vec4 oldcolor=OurImageLoad(smudge_buckets, ivec2(0,0));
     OurImageStore(smudge_buckets,ivec2(1,0),uBrushErasing==2?color:oldcolor);
     OurImageStore(smudge_buckets,ivec2(0,0),color);
 }
@@ -699,9 +715,9 @@ vec3 to_log_srgb(vec3 color){
 }
 
 float PigmentCMF[3][14]=float[3][14](
-float[14](0.0312392895238095,0.206838056190476,0.331771961904762,0.2294144,0.0603565122857143,0.0115536425238095,0.142399409047619,0.409927923809524,0.757860147619048,1.08086195714286,1.06489606190476,0.671900195238095,0.279014533333333,0.0811807252380952),
-float[14](0.003291837,0.0216550814285714,0.0526897938095238,0.100688807142857,0.203943585714286,0.437220023809524,0.797736085714286,0.977969833333333,0.972346723809524,0.814787419047619,0.558064080952381,0.290953433333333,0.111183708095238,0.0313402304761905),
-float[14](0.155952732857143,1.07818551904762,1.8438429047619,1.44867880952381,0.630120847619048,0.180786707619048,0.0385669957142857,0.00592827266666667,0.000780832180952381,0.000108133873809524,1.5619930952381E-05,0.,0.,0.)
+float[14](0.0343533436363636,0.220925140909091,0.328355822727273,0.2018815,0.0360974655,0.0285879281818182,0.215876535454545,0.525338609090909,0.906198259090909,1.13085586363636,0.895278031818182,0.435115186363636,0.138809882272727,0.0324976972727273),
+float[14](0.00359930259090909,0.0236005122727273,0.0565472954545455,0.114833071818182,0.236568031818182,0.535090640909091,0.876579286363636,0.992233536363636,0.923666477272727,0.708120895454545,0.419073681818182,0.178679336363636,0.0541232845454545,0.0124627878181818),
+float[14](0.171746535909091,1.15671911363636,1.84186645454545,1.32759531363636,0.488183445454546,0.12631411,0.0225265765,0.00293351760909091,0.000351412640909091,4.70501886363636E-05,3.51041136363636E-06,0.,0.,0.)
 );
 const float PigmentCMFNormalize=5.13517814086364; 
 vec3 Spectral2XYZ(float spec[OUR_SPECTRAL_SLICES]){

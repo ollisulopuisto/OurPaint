@@ -59,10 +59,10 @@ extern const char OUR_PIGMENT_COMMON[];
 #define OUR_AT_CROP_BR 8
 
 #define OUR_VERSION_MAJOR 0
-#define OUR_VERSION_MINOR 4
+#define OUR_VERSION_MINOR 5
 #define OUR_VERSION_SUB 0
 
-#define OUR_PAINT_NAME_STRING "Our Paint v0.4"
+#define OUR_PAINT_NAME_STRING "Our Paint v0.5"
 
 #define OUR_SIGNAL_PICK 1
 #define OUR_SIGNAL_MOVE 2
@@ -522,6 +522,7 @@ STRUCTURE(OurPaint){
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;         GLuint CanvasProgram;
+    GLuint CanvasStraightShader; GLuint CanvasStraightProgram;
     GLuint CanvasPigmentShader;  GLuint CanvasPigmentProgram;
     GLuint CompositionShader;    GLuint CompositionProgram;
     GLuint LayerShader;          GLuint LayerProgram;
@@ -532,7 +533,8 @@ STRUCTURE(OurPaint){
     GLint uboBrushPigment,uboBrushPigmentLocation;
     GLint uboCanvasPigment,uboCanvasPigmentLocation;
 
-    BrushUniforms *u,uRGBA,uPigment;
+    BrushUniforms *u,uRGBA,uRGBStraightA,uPigment;
+    int AlphaMode;
 
     OurCanvasSurface CanvasSurface;
     OurLight         CanvasLight;

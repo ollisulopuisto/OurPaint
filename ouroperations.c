@@ -317,18 +317,22 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laUiItem* b3=laOnConditionThat(uil,c,laPropExpression(&pigui->PP,""));{
 
         }laElse(uil,b3);{
-            b=laBeginRow(uil,c,1,0);
-            laShowLabel(uil,c,"Color:",0,0);
-            laShowItemFull(uil,c,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+            laShowLabel(uil,cl,"Color:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+            laShowItemFull(uil,cr,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0);
+            
+            laShowLabel(uil,cl,"Pattern:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+            b=laBeginRow(uil,cr,0,0);
+            laUiItem* sel=laShowItemFull(uil,cr,0,"our.canvas.background_type",0,0,0,0);
+                sel->Flags|=LA_UI_FLAGS_NO_CONFIRM; sel->Expand=1;
+            laShowItemFull(uil,cr,0,"our.canvas.background_factor",0,0,0,0)->Flags|=LA_UI_FLAGS_KNOB;
             laEndRow(uil,b);
-            b=laBeginRow(uil,c,1,0);
-            laShowLabel(uil,c,"Pattern:",0,0);
-            laShowItemFull(uil,c,0,"our.canvas.background_type",0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
-            laEndRow(uil,b);
-            b=laBeginRow(uil,c,1,0);
-            laShowItemFull(uil,c,0,"our.canvas.background_random",0,0,0,0);
-            laShowItemFull(uil,c,0,"our.canvas.background_factor",0,0,0,0);
-            laEndRow(uil,b);
+            
+            laShowItemFull(uil,cr,0,"our.canvas.background_random",0,0,0,0);
+            
+            laShowSeparator(uil,c);
+
+            laShowLabel(uil,cl,"Alpha Mode:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+            laShowItem(uil,cr,0,"our.canvas.alpha_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b3);
     }laEndCondition(uil,b2);
 }
@@ -382,7 +386,7 @@ void ourui_PigmentDetails(laUiList *uil, laPropPack *This, laPropPack *DetachedP
     laShowItem(uil,cr,This,"pigment.absorption")->Flags|=LA_UI_FLAGS_TRANSPOSE;
     laShowItem(uil,cr,This,"pigment.absorption_density");
 }
-void ourUI_PIGMENT_PREVIEWsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
+void ourui_PigmentsPreviewPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.3); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
     laUiItem* gu; laUiList* guil; laColumn* gc;
     laShowColumnAdjuster(uil,c);
@@ -863,7 +867,7 @@ void our_CanvasSaveOffscreen(tnsOffscreen* off1,tnsOffscreen* off2){
     tnsDrawToOffscreenOnlyBind(off1);
 }
 void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
-    real MultiplyColor[4];
+    real MultiplyColor[4]; int premult=(Our->CanvasVersion<50)?1:(Our->AlphaMode==0);
 
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
@@ -881,18 +885,18 @@ void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
                 if(!l->TexTiles[row][col] || !l->TexTiles[row][col]->Texture) continue;
                 int sx=l->TexTiles[row][col]->l,sy=l->TexTiles[row][col]->b;
                 real pad=(real)OUR_TILE_SEAM/OUR_TILE_W; int seam=OUR_TILE_SEAM;
-                tnsUseTexture2(off2->pColor[0],mixmode);    
+                tnsUseTexture2(off2->pColor[0],mixmode,premult);    
                 tnsDraw2DTextureArg(l->TexTiles[row][col]->Texture,sx+seam,sy+OUR_TILE_W-seam,OUR_TILE_W-seam*2,-OUR_TILE_W+seam*2,MultiplyColor,pad,pad,pad,pad);
                 any=1;
             }
         }
         if(any) tnsFlush();
     }
-    tnsUseTexture2(0,0);
+    tnsUseTexture2(0,0,0);
 }
 void our_CanvasDrawTiles(){
     OurLayer* l=Our->CurrentLayer; if(!l) return;
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0,0); tnsUseNoTexture();
     int any=0;
     for(int row=0;row<OUR_TILES_PER_ROW;row++){
         if(!l->TexTiles[row]) continue;
@@ -912,7 +916,7 @@ void our_CanvasDrawTiles(){
     if(any) tnsFlush();
 }
 void our_CanvasDrawCropping(OurCanvasDraw* ocd){
-    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
+    tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0,0); tnsUseNoTexture();
     if(Our->BorderFadeWidth > 1e-6){
         real _H=Our->H,_W=Our->W,_X=Our->X,_Y=Our->Y-Our->H;
         real color[72]={0}; for(int i=1;i<18;i++){ color[i*4+3]=Our->BorderAlpha; }
@@ -1000,7 +1004,7 @@ void our_CanvasDrawReferenceBlock(OurCanvasDraw* ocd){
     real LP=Our->RefPaddings[0]*dpc,RP=LP,TP=Our->RefPaddings[1]*dpc,BP=TP;
     real MM=Our->RefMargins[2]*dpc;
 
-    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0); tnsUseNoTexture();
+    tnsUseImmShader; tnsEnableShaderv(T->immShader); tnsUniformUseTexture(T->immShader,0,0,0,0,0); tnsUseNoTexture();
     tnsColor4d(0,0,0,Our->RefAlpha); tnsLineWidth(3.0);
     tnsVertex2d(-W2,H2); tnsVertex2d(W2,H2); tnsVertex2d(W2,-H2); tnsVertex2d(-W2,-H2); tnsPackAs(GL_LINE_LOOP);
     if(Our->ShowRef==2){
@@ -1544,7 +1548,6 @@ void our_RemoveLayer(OurLayer* l, int cleanup){
 int our_MergeLayer(OurLayer* l){
     OurLayer* ol=l->Item.pNext; if(!ol) return 0; int xmin=INT_MAX,xmax=-INT_MAX,ymin=INT_MAX,ymax=-INT_MAX; int seam=OUR_TILE_SEAM;
     if(Our->PigmentMode){
-
         Our->u=&Our->uPigment;
     }else{
         glUseProgram(Our->CompositionProgram);
@@ -2444,7 +2447,12 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         glUseProgram(Our->CanvasPigmentProgram);
         Our->u=&Our->uPigment; subroutine_count=1;
     }else{
-        glUseProgram(Our->CanvasProgram);
+        int premult=(Our->CanvasVersion<50)?1:(Our->AlphaMode==0);
+        if(premult){
+            glUseProgram(Our->CanvasProgram);
+        }else{
+            glUseProgram(Our->CanvasStraightProgram);
+        }
         Our->u=&Our->uRGBA; subroutine_count=2;
     }
 
@@ -3812,12 +3820,16 @@ void ourget_PigmentInfo(OurPigmentData* pd,char* buf, char** copy){
     real sum=xyz[0]+xyz[1]+xyz[2]; for(int i=0;i<3;i++){ xyz[i]/=sum; }
     sprintf(buf, "xyz:  %0.4lf %0.4lf %0.4lf\nsRGB: %0.4lf %0.4lf %0.4lf", LA_COLOR3(xyz), LA_COLOR3(rgb));
 }
+void ourset_AlphaMode(void* unused, int a){
+    Our->AlphaMode=a;
+}
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
 }
 void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
+    if(Our->CanvasVersion<50){ Our->AlphaMode=0; }
     LA_ACQUIRE_GLES_CONTEXT;
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
@@ -4138,7 +4150,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_tools", "Tools", ourui_ToolsPanel, 0, 0,0, 0,10,20);
     laRegisterUiTemplate("panel_brushes", "Brushes", ourui_BrushesPanel, 0, 0,0, 0,10,15);
     laRegisterUiTemplate("panel_color", "Color", ourui_ColorPanel, 0, 0,0, GL_RGBA16F,0,0);
-    laRegisterUiTemplate("panel_pigments", "Pigments", ourUI_PIGMENT_PREVIEWsPanel, 0, 0,0, GL_RGBA16F,0,0);
+    laRegisterUiTemplate("panel_pigments", "Pigments", ourui_PigmentsPreviewPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_pallettes", "Pallettes", ourui_PallettesPanel, 0, 0,0, GL_RGBA16F,0,0);
     laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
     laRegisterUiTemplate("panel_notes", "Notes", ourui_NotesPanel, 0, 0,0, 0,15,15);
@@ -4246,7 +4258,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"TILT","Tilt","Brush direction line follows tilt direction",1,0);
     laAddEnumItemAs(p,"TWIST","Twist","Brush direction line follows twist direction",2,0);
     laAddEnumItemAs(p,"AUTO","Auto","Brush direction line determines automatically whether to show tilt or twist",3,0);
-
+    
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
     sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,ourgetstate_H2Modified,0,offsetof(OurPaint,Brushes),0);
@@ -4375,7 +4387,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"CANVAS","Canvas","Background mimics canvas texture",1,0);
     laAddEnumItemAs(p,"PAPER","Paper","Background mimics paper texture",2,0);
     laAddIntProperty(pc,"background_random","Random","Background random pattern value",0,0,0,0,0,0,0,0,offsetof(OurPaint,BackgroundRandom),0,0,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"background_factor","Factor","Background effect factor",0,0,0,1,0,0.1,0,0,offsetof(OurPaint,BackgroundFactor),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_alpha","Border Alpha","Alpha of the border region around the canvas",0,0,0,1,0,0.05,0.5,0,offsetof(OurPaint,BorderAlpha),0,ourset_BorderAlpha,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"border_fade_width","Fade Width","Fading of the border",0,0,0,1,0,0.05,0,0,offsetof(OurPaint,BorderFadeWidth),0,ourset_BorderFadeWidth,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_border","Show Border","Whether to show border on the canvas",0,0,0,0,0,offsetof(OurPaint,ShowBorder),0,ourset_ShowBorder,0,0,0,0,0,0,0,0);
@@ -4419,6 +4431,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"RGBA","RGBA","Canvas stores regular RGBA data",0,0);
     laAddEnumItemAs(p,"PIGMENT","Pigment","Canvas stores pigment data",1,0);
     laAddSubGroup(pc,"use_pigments","Use Pigments","Pigments that are referenced in this canvas for color picker","our_use_pigment",0,0,0,-1,0,0,0,0,0,0,offsetof(OurPaint,UsePigments),0);
+    p=laAddEnumProperty(pc,"alpha_mode","Alpha Mode","How to associate alpha channel with color in RGBA canvas",0,0,0,0,0,offsetof(OurPaint,AlphaMode),0,ourset_AlphaMode,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"PREMULT","Premultiplied","Color values on canvas are pre-multiplied with alpha channel",0,0);
+    laAddEnumItemAs(p,"STRAIGHT","Straight","Color values are not associative with alpha values on canvas",1,0);
 
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);
@@ -4639,33 +4654,38 @@ int ourInit(){
 
     Our->SmudgeTexture=tnsCreate2DTexture(OUR_CANVAS_GL_PIX,512,2,0);
 
-    Our->CanvasShader = glCreateShader(GL_COMPUTE_SHADER);
-    Our->CanvasPigmentShader = glCreateShader(GL_COMPUTE_SHADER);
-    const GLchar* source1 = strSub(OUR_CANVAS_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
-    const GLchar* source1a = strSub(source1,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
-    char* UseContent=tnsEnsureShaderCommoms(source1a,0,0); if(source1){free(source1);}  if(source1a){free(source1a);}
+    Our->CanvasShader =         glCreateShader(GL_COMPUTE_SHADER);
+    Our->CanvasStraightShader = glCreateShader(GL_COMPUTE_SHADER);
+    Our->CanvasPigmentShader =  glCreateShader(GL_COMPUTE_SHADER);
+    char* rep[]={"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON,
+                 "#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON,0,0};
+    const GLchar* source1=tnsRegexReplace(OUR_CANVAS_SHADER, rep);
 #ifdef LA_USE_GLES
     const GLchar* versionstr=OUR_SHADER_VERSION_320ES;
 #else
     const GLchar* versionstr=OUR_SHADER_VERSION_430;
 #endif
-    const GLchar* sources1rgb[]={versionstr, "\n#define OUR_CANVAS_MODE_RGB\n", UseContent};
-    const GLchar* sources1pigment[]={versionstr, "\n#define OUR_CANVAS_MODE_PIGMENT\n", UseContent};
-    glShaderSource(Our->CanvasShader, 3, sources1rgb, NULL); glCompileShader(Our->CanvasShader);
-    glShaderSource(Our->CanvasPigmentShader, 3, sources1pigment, NULL); glCompileShader(Our->CanvasPigmentShader);
-    if(!tnsCheckShaderCompileStatus(Our->CanvasShader,"Canvas RGB")) exit(0);
-    if(!tnsCheckShaderCompileStatus(Our->CanvasPigmentShader,"Canvas Pigment")) exit(0);
-    if(UseContent){ free(UseContent); }
+    const GLchar* sources1rgb[]=        {versionstr, "\n#define OUR_CANVAS_MODE_RGB\n", source1};
+    const GLchar* sources1rgbstraight[]={versionstr, "\n#define OUR_CANVAS_MODE_RGB\n#define OUR_STRAIGHT_ALPHA", source1};
+    const GLchar* sources1pigment[]=    {versionstr, "\n#define OUR_CANVAS_MODE_PIGMENT\n", source1};
+    glShaderSource(Our->CanvasShader, 3, sources1rgb, NULL);                 glCompileShader(Our->CanvasShader);
+    glShaderSource(Our->CanvasStraightShader, 3, sources1rgbstraight, NULL); glCompileShader(Our->CanvasStraightShader);
+    glShaderSource(Our->CanvasPigmentShader, 3, sources1pigment, NULL);      glCompileShader(Our->CanvasPigmentShader);
+    if(!tnsCheckShaderCompileStatus(Our->CanvasShader,"Canvas RGB"))                  exit(0);
+    if(!tnsCheckShaderCompileStatus(Our->CanvasStraightShader,"Canvas RGB Straight")) exit(0);
+    if(!tnsCheckShaderCompileStatus(Our->CanvasPigmentShader,"Canvas Pigment"))       exit(0);
+    if(source1){free(source1);}
 
-    Our->CanvasProgram = glCreateProgram();
-    glAttachShader(Our->CanvasProgram, Our->CanvasShader); glLinkProgram(Our->CanvasProgram);
-    glGetProgramiv(Our->CanvasProgram, GL_LINK_STATUS, &status);
+    Our->CanvasProgram =         glCreateProgram();
+    Our->CanvasStraightProgram = glCreateProgram();
+    Our->CanvasPigmentProgram =  glCreateProgram();
+    glAttachShader(Our->CanvasProgram, Our->CanvasShader);                 glLinkProgram(Our->CanvasProgram);
+    glAttachShader(Our->CanvasStraightProgram, Our->CanvasStraightShader); glLinkProgram(Our->CanvasStraightProgram);
+    glAttachShader(Our->CanvasPigmentProgram, Our->CanvasPigmentShader);   glLinkProgram(Our->CanvasPigmentProgram);
     tnsCheckProgramLinkStatus(Our->CanvasProgram,"Canvas");
-
-    Our->CanvasPigmentProgram = glCreateProgram();
-    glAttachShader(Our->CanvasPigmentProgram, Our->CanvasPigmentShader); glLinkProgram(Our->CanvasPigmentProgram);
-    glGetProgramiv(Our->CanvasPigmentProgram, GL_LINK_STATUS, &status);
+    tnsCheckProgramLinkStatus(Our->CanvasStraightProgram,"Canvas Straight");
     tnsCheckProgramLinkStatus(Our->CanvasPigmentProgram,"Canvas Pigment");
+
     Our->uboBrushPigmentLocation=glGetUniformBlockIndex(Our->CanvasPigmentProgram, "BrushPigmentBlock");
     glUniformBlockBinding(Our->CanvasPigmentProgram, Our->uboBrushPigmentLocation, 0);
 
@@ -4714,8 +4734,10 @@ int ourInit(){
 
     Our->u = &Our->uRGBA;
     ourGetUniforms(Our->CanvasProgram,Our->CompositionProgram);
+    Our->u = &Our->uRGBStraightA;
+    ourGetUniforms(Our->CanvasStraightProgram,Our->CompositionProgram);
     Our->u = &Our->uPigment;
-    ourGetUniforms(Our->CanvasPigmentProgram,Our->CompositionProgram); // XXXXX
+    ourGetUniforms(Our->CanvasPigmentProgram,Our->PigmentCompositionProgramT->glProgramID); // XXXXX  (?)
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;
@@ -4766,6 +4788,8 @@ int ourInit(){
     Our->FileRegistered = our_FileAssociationsRegistered();
 
     Our->SegmentedWrite = 1;
+    Our->CanvasVersion=ourget_CanvasVersion(0);
+    Our->AlphaMode=1;
 
 #ifdef LAGUI_ANDROID
     android_ensure_asset_to_public_dir("default_brushes.udf");
