@@ -119,7 +119,7 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
 void our_LayerEnsureTileDirect(OurLayer* ol, int col, int row);
 void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int Aligned,int Push);
 
-void our_CanvasAlphaMix(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
+void our_CanvasAlphaOver(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
     real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
     int a=(int)(source[3])*alpha+(int)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
     int r=(int)(source[0])*alpha+(int)(target[0])*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
@@ -128,6 +128,21 @@ void our_CanvasAlphaMix(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real a
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAdd(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
+    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
+    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
+    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
+    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,OUR_PIX_MAX);
+    target[3]=a; target[0]=r; target[1]=g; target[2]=b;
+}
+void our_CanvasAlphaOverStraight(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
+    real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
+    int a=(int)(source[3])*alpha+(int)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
+    int r=((int)(source[0])*alpha*source[3]+(int)(target[0])*a_1*target[3])/(a); TNS_CLAMP(r,0,OUR_PIX_MAX);
+    int g=((int)(source[1])*alpha*source[3]+(int)(target[1])*a_1*target[3])/(a); TNS_CLAMP(g,0,OUR_PIX_MAX);
+    int b=((int)(source[2])*alpha*source[3]+(int)(target[2])*a_1*target[3])/(a); TNS_CLAMP(b,0,OUR_PIX_MAX);
+    target[3]=a; target[0]=r; target[1]=g; target[2]=b;
+}
+void our_CanvasAddStraight(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
     int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
     int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
     int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
@@ -867,7 +882,7 @@ void our_CanvasSaveOffscreen(tnsOffscreen* off1,tnsOffscreen* off2){
     tnsDrawToOffscreenOnlyBind(off1);
 }
 void our_CanvasDrawTextures(tnsOffscreen* off1,tnsOffscreen* off2){
-    real MultiplyColor[4]; int premult=(Our->CanvasVersion<50)?1:(Our->AlphaMode==0);
+    real MultiplyColor[4]; int premult=!Our->AlphaMode;
 
     for(OurLayer* l=Our->Layers.pLast;l;l=l->Item.pPrev){
         if(l->Hide || l->Transparency==1) continue; real a=1-l->Transparency;
@@ -1823,7 +1838,11 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
                 if(BlendMode==OUR_BLEND_NORMAL){
-                    our_CanvasAlphaMix(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    if(Our->AlphaMode){
+                        our_CanvasAlphaOverStraight(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    }else{
+                        our_CanvasAlphaOver(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
+                    }
                 }elif(BlendMode==OUR_BLEND_ADD){
                     our_CanvasAdd(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
                 }
@@ -1873,14 +1892,16 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate){
 }
 void our_LayerClearEmptyTiles(OurLayer* ol);
 int our_CanvasEnsureImageBuffer(){
-    int x=INT_MAX,y=INT_MAX,w=-INT_MAX,h=-INT_MAX;
+    int x=INT_MAX,y=INT_MAX,r=-INT_MAX,u=-INT_MAX;
     for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
         our_LayerClearEmptyTiles(l);
         our_LayerEnsureImageBuffer(l,1);
         if(Our->ImageX<x) x=Our->ImageX; if(Our->ImageY<y) y=Our->ImageY;
-        if(Our->ImageW>w) w=Our->ImageW; if(Our->ImageH>h) h=Our->ImageH;
+        int rr=Our->ImageW+Our->ImageX, uu=Our->ImageY+Our->ImageH;
+        if(rr>r) r=rr; if(uu>u) u=uu;
     }
-    if(w<0||h<0) return 0;
+    if(r==-INT_MAX||u==-INT_MAX) return 0;
+    int w=r-x,h=u-y; if(w<0||h<0) return 0;
     Our->ImageX=x; Our->ImageY=y; Our->ImageW=w; Our->ImageH=h;
     if(Our->ImageBuffer) free(Our->ImageBuffer);
     Our->ImageBuffer = calloc(Our->ImageW*4,Our->ImageH*sizeof(uint16_t));
@@ -2447,11 +2468,10 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         glUseProgram(Our->CanvasPigmentProgram);
         Our->u=&Our->uPigment; subroutine_count=1;
     }else{
-        int premult=(Our->CanvasVersion<50)?1:(Our->AlphaMode==0);
-        if(premult){
-            glUseProgram(Our->CanvasProgram);
-        }else{
+        if(Our->AlphaMode){
             glUseProgram(Our->CanvasStraightProgram);
+        }else{
+            glUseProgram(Our->CanvasProgram);
         }
         Our->u=&Our->uRGBA; subroutine_count=2;
     }
