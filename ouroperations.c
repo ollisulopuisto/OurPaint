@@ -121,34 +121,36 @@ void our_RecordUndo(OurLayer* ol, real xmin,real xmax, real ymin,real ymax,int A
 
 void our_CanvasAlphaOver(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
     real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
-    int a=(int)(source[3])*alpha+(int)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
-    int r=(int)(source[0])*alpha+(int)(target[0])*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
-    int g=(int)(source[1])*alpha+(int)(target[1])*a_1; TNS_CLAMP(g,0,OUR_PIX_MAX);
-    int b=(int)(source[2])*alpha+(int)(target[2])*a_1; TNS_CLAMP(b,0,OUR_PIX_MAX);
+    uint32_t a=(uint32_t)(source[3])*alpha+(uint32_t)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
+    uint32_t r=(uint32_t)(source[0])*alpha+(uint32_t)(target[0])*a_1; TNS_CLAMP(r,0,OUR_PIX_MAX);
+    uint32_t g=(uint32_t)(source[1])*alpha+(uint32_t)(target[1])*a_1; TNS_CLAMP(g,0,OUR_PIX_MAX);
+    uint32_t b=(uint32_t)(source[2])*alpha+(uint32_t)(target[2])*a_1; TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAdd(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
-    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
-    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
-    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
-    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,OUR_PIX_MAX);
+    uint32_t a=((uint32_t)source[3]*alpha+(uint32_t)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
+    uint32_t r=((uint32_t)source[0]*alpha+(uint32_t)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
+    uint32_t g=((uint32_t)source[1]*alpha+(uint32_t)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
+    uint32_t b=((uint32_t)source[2]*alpha+(uint32_t)target[2]); TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAlphaOverStraight(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
     real a_1=(real)(OUR_PIX_MAX-source[3]*alpha)/OUR_PIX_MAX;
-    int a=(int)(source[3])*alpha+(int)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
-    int r=((int)(source[0])*alpha*source[3]+(int)(target[0])*a_1*target[3])/(a); TNS_CLAMP(r,0,OUR_PIX_MAX);
-    int g=((int)(source[1])*alpha*source[3]+(int)(target[1])*a_1*target[3])/(a); TNS_CLAMP(g,0,OUR_PIX_MAX);
-    int b=((int)(source[2])*alpha*source[3]+(int)(target[2])*a_1*target[3])/(a); TNS_CLAMP(b,0,OUR_PIX_MAX);
+    uint64_t a=(uint64_t)(source[3])*alpha+(uint64_t)(target[3])*a_1; TNS_CLAMP(a,0,OUR_PIX_MAX);
+    uint64_t r=((uint64_t)(source[0])*alpha*source[3]+(uint64_t)(target[0])*a_1*target[3])/a; TNS_CLAMP(r,0,OUR_PIX_MAX);
+    uint64_t g=((uint64_t)(source[1])*alpha*source[3]+(uint64_t)(target[1])*a_1*target[3])/a; TNS_CLAMP(g,0,OUR_PIX_MAX);
+    uint64_t b=((uint64_t)(source[2])*alpha*source[3]+(uint64_t)(target[2])*a_1*target[3])/a; TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
 void our_CanvasAddStraight(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha){
-    int a=((int)source[3]*alpha+(int)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
-    int r=((int)source[0]*alpha+(int)target[0]); TNS_CLAMP(r,0,OUR_PIX_MAX);
-    int g=((int)source[1]*alpha+(int)target[1]); TNS_CLAMP(g,0,OUR_PIX_MAX);
-    int b=((int)source[2]*alpha+(int)target[2]); TNS_CLAMP(b,0,OUR_PIX_MAX);
+    uint64_t a=((uint64_t)source[3]*alpha+(uint64_t)target[3]); TNS_CLAMP(a,0,OUR_PIX_MAX);
+    uint64_t r=((uint64_t)source[0]*alpha*source[3]+(uint64_t)target[0]*target[3])/a; TNS_CLAMP(r,0,OUR_PIX_MAX);
+    uint64_t g=((uint64_t)source[1]*alpha*source[3]+(uint64_t)target[1]*target[3])/a; TNS_CLAMP(g,0,OUR_PIX_MAX);
+    uint64_t b=((uint64_t)source[2]*alpha*source[3]+(uint64_t)target[2]*target[3])/a; TNS_CLAMP(b,0,OUR_PIX_MAX);
     target[3]=a; target[0]=r; target[1]=g; target[2]=b;
 }
+
+typedef void (*our_MixFuncRGBA)(OUR_PIX_COMPACT* target, OUR_PIX_COMPACT* source, real alpha);
 
 void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, void** ptr, int* psize, char* copyright, char* manufacturer, char* description){
     cmsCIExyY d65_srgb_adobe_specs = {0.3127, 0.3290, 1.0};
@@ -1181,7 +1183,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     if(Our->PigmentMode){
         uint val[4]={0};
         glClearBufferuiv(GL_COLOR, 0,&val);
-        tnsEnableShaderv(Our->PigmentCompositionProgramT);
+        tnsEnableShaderv(Our->PigmentLayeringProgramT);
     }else{
         tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
         tnsUseImmShader(); tnsEnableShaderv(T->immShader);
@@ -1565,7 +1567,7 @@ int our_MergeLayer(OurLayer* l){
     if(Our->PigmentMode){
         Our->u=&Our->uPigment;
     }else{
-        glUseProgram(Our->CompositionProgram);
+        glUseProgram(Our->AlphaMode?Our->CompositionStraightProgram:Our->CompositionProgram);
         Our->u=&Our->uRGBA;
     }
     glUniform1i(OURU->uBlendMode, l->BlendMode);
@@ -1834,18 +1836,18 @@ void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int B
     tnsBindTexture(ot->Texture); glPixelStorei(GL_PACK_ALIGNMENT, 1);
     tnsGet2DTextureSubImage(ot->Texture, seam, seam, width, width, OUR_CANVAS_GL_FORMAT, OUR_CANVAS_DATA_FORMAT, bufsize, ot->Data);
     OUR_PIX_COMPACT* image_buffer=Our->ImageBuffer;
+    our_MixFuncRGBA mixfunc;
+    if(Our->AlphaMode){
+        if(BlendMode==OUR_BLEND_NORMAL) mixfunc=our_CanvasAlphaOverStraight;
+        elif(BlendMode==OUR_BLEND_ADD) mixfunc=our_CanvasAddStraight;
+    }else{
+        if(BlendMode==OUR_BLEND_NORMAL) mixfunc=our_CanvasAlphaOver;
+        elif(BlendMode==OUR_BLEND_ADD) mixfunc=our_CanvasAdd;
+    }
     if(composite){
         for(int row=0;row<OUR_TILE_W_USE;row++){
             for(int col=0;col<OUR_TILE_W_USE;col++){
-                if(BlendMode==OUR_BLEND_NORMAL){
-                    if(Our->AlphaMode){
-                        our_CanvasAlphaOverStraight(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
-                    }else{
-                        our_CanvasAlphaOver(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
-                    }
-                }elif(BlendMode==OUR_BLEND_ADD){
-                    our_CanvasAdd(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
-                }
+                mixfunc(&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4], &ot->Data[(row*OUR_TILE_W_USE+col)*4],alpha);
             }
         }
     }else{
@@ -4711,24 +4713,32 @@ int ourInit(){
 
 
     Our->CompositionShader = glCreateShader(GL_COMPUTE_SHADER);
+    Our->CompositionStraightShader = glCreateShader(GL_COMPUTE_SHADER);
     const GLchar* source2 = strSub(OUR_COMPOSITION_SHADER,"#with OUR_SHADER_COMMON",OUR_SHADER_COMMON);
-    const GLchar* sources2[]={versionstr, source2};
-    glShaderSource(Our->CompositionShader, 2, sources2, NULL); glCompileShader(Our->CompositionShader);
-    tnsCheckShaderCompileStatus(Our->CompositionShader,"Canvas");
+    const GLchar* sources2[]= {versionstr, source2};
+    const GLchar* sources2a[]={versionstr, "#define OUR_STRAIGHT_ALPHA", source2};
+    glShaderSource(Our->CompositionShader, 2, sources2, NULL);          glCompileShader(Our->CompositionShader);
+    glShaderSource(Our->CompositionStraightShader, 3, sources2a, NULL); glCompileShader(Our->CompositionStraightShader);
+    tnsCheckShaderCompileStatus(Our->CompositionShader,"Composition");
+    tnsCheckShaderCompileStatus(Our->CompositionStraightShader,"Composition Straight");
     if(source2) free(source2);
 
-    Our->CompositionProgram = glCreateProgram();
-    glAttachShader(Our->CompositionProgram, Our->CompositionShader); glLinkProgram(Our->CompositionProgram);
-    tnsCheckProgramLinkStatus(Our->CompositionProgram,"Canvas");
+    Our->CompositionProgram =         glCreateProgram();
+    Our->CompositionStraightProgram = glCreateProgram();
+    glAttachShader(Our->CompositionProgram, Our->CompositionShader);                 glLinkProgram(Our->CompositionProgram);
+    glAttachShader(Our->CompositionStraightProgram, Our->CompositionStraightShader); glLinkProgram(Our->CompositionStraightProgram);
+    tnsCheckProgramLinkStatus(Our->CompositionProgram,"Composition");
+    tnsCheckProgramLinkStatus(Our->CompositionStraightProgram,"Composition Straight");
 
-    Our->PigmentCompositionShader = glCreateShader(GL_FRAGMENT_SHADER);
+    Our->PigmentLayeringShader = glCreateShader(GL_FRAGMENT_SHADER);
     const GLchar* source3 = strSub(OUR_PIGMENT_TEXTURE_MIX_SHADER,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
     const GLchar* sources3[]={versionstr, source3};
-    glShaderSource(Our->PigmentCompositionShader, 2, sources3, NULL); glCompileShader(Our->PigmentCompositionShader);
-    if(!tnsCheckShaderCompileStatus(Our->PigmentCompositionShader,"Pigment Composition")) exit(0);
+    glShaderSource(Our->PigmentLayeringShader, 2, sources3, NULL); glCompileShader(Our->PigmentLayeringShader);
+    if(!tnsCheckShaderCompileStatus(Our->PigmentLayeringShader,"Pigment Layering")) exit(0);
     if(source3){free(source3);}
 
-    Our->PigmentCompositionProgramT = tnsNewShaderProgram(T->immShader->vtShaderID,Our->PigmentCompositionShader,-1);
+    Our->PigmentLayeringProgramT = tnsNewShaderProgram(T->immShader->vtShaderID,Our->PigmentLayeringShader,-1);
+
 
     Our->PigmentDisplayShader = glCreateShader(GL_FRAGMENT_SHADER);
     const GLchar* source4 = strSub(OUR_PIGMENT_TEXTURE_DISPLAY_SHADER,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
@@ -4757,7 +4767,7 @@ int ourInit(){
     Our->u = &Our->uRGBStraightA;
     ourGetUniforms(Our->CanvasStraightProgram,Our->CompositionProgram);
     Our->u = &Our->uPigment;
-    ourGetUniforms(Our->CanvasPigmentProgram,Our->PigmentCompositionProgramT->glProgramID); // XXXXX  (?)
+    ourGetUniforms(Our->CanvasPigmentProgram,Our->PigmentLayeringProgramT->glProgramID); // XXXXX  (?)
 
     Our->X=-2800/2; Our->W=2800;
     Our->Y=2400/2;  Our->H=2400;

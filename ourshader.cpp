@@ -525,14 +525,30 @@ uniform float uAlphaBottom;
 #with OUR_SHADER_COMMON
 
 vec4 mix_over(vec4 colora, vec4 colorb){
+#ifdef OUR_STRAIGHT_ALPHA
+    colora=vec4(colora.rgb*colora.a,colora.a);
+    colorb=vec4(colorb.rgb*colorb.a,colorb.a);
+#endif
     colora=colora*uAlphaTop/uAlphaBottom;
     vec4 c; c.a=colora.a+colorb.a*(1.0f-colora.a);
     c.rgb=(colora.rgb+colorb.rgb*(1.0f-colora.a));
+#ifdef OUR_STRAIGHT_ALPHA
+    c=(c.a!=0.)?vec4(c.rgb/c.a,c.a):vec4(0.,0.,0.,0.);
+#endif
     return c;
 }
+
 vec4 add_over(vec4 colora, vec4 colorb){
+#ifdef OUR_STRAIGHT_ALPHA
+    colora=vec4(colora.rgb*colora.a,colora.a);
+    colorb=vec4(colorb.rgb*colorb.a,colorb.a);
+#endif
     colora=colora*uAlphaTop/uAlphaBottom;
-    vec4 a=colora+colorb; a.a=clamp(a.a,0.,1.); return a;
+    vec4 result=colora+colorb; result.a=clamp(result.a,0.,1.);
+#ifdef OUR_STRAIGHT_ALPHA
+    result=result.a!=0.?vec4(result.rgb/result.a,result.a):vec4(0.,0.,0.,0.);
+#endif
+    return result;
 }
 void main() {
     ivec2 px=ivec2(gl_GlobalInvocationID.xy);

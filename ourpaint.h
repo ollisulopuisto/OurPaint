@@ -525,9 +525,10 @@ STRUCTURE(OurPaint){
     GLuint CanvasStraightShader; GLuint CanvasStraightProgram;
     GLuint CanvasPigmentShader;  GLuint CanvasPigmentProgram;
     GLuint CompositionShader;    GLuint CompositionProgram;
+    GLuint CompositionStraightShader; GLuint CompositionStraightProgram;
     GLuint LayerShader;          GLuint LayerProgram;
     GLuint DisplayShader;        GLuint DisplayProgram;
-    GLuint PigmentCompositionShader; tnsShader* PigmentCompositionProgramT;
+    GLuint PigmentLayeringShader; tnsShader* PigmentLayeringProgramT;
     GLuint PigmentDisplayShader; tnsShader* PigmentDisplayProgramT;
     GLuint uPigmentDisplaySize,uPigmentZoomSize;
     GLint uboBrushPigment,uboBrushPigmentLocation;
