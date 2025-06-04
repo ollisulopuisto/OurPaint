@@ -519,6 +519,7 @@ STRUCTURE(OurPaint){
     int UndoOnHeader;
     int SketchMode;
     int SegmentedWrite;
+    int PigmentDisplayMethod;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;         GLuint CanvasProgram;
@@ -530,7 +531,7 @@ STRUCTURE(OurPaint){
     GLuint DisplayShader;        GLuint DisplayProgram;
     GLuint PigmentLayeringShader; tnsShader* PigmentLayeringProgramT;
     GLuint PigmentDisplayShader; tnsShader* PigmentDisplayProgramT;
-    GLuint uPigmentDisplaySize,uPigmentZoomSize;
+    GLuint uPigmentFragOffset,uPigmentTextureScale,uPigmentDisplayMode;
     GLint uboBrushPigment,uboBrushPigmentLocation;
     GLint uboCanvasPigment,uboCanvasPigmentLocation;
 

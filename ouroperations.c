@@ -769,6 +769,8 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
     laShowItem(uil,cl,0,"our.preferences.show_grid");
     laShowItem(uil,cr,0,"our.preferences.multithread_write");
+    laShowLabel(uil,c,"Pigment Display Method:",0,0);
+    laShowItem(uil,c,0,"our.preferences.pigment_display_method")->Flags|=LA_UI_FLAGS_EXPAND;
     
     laShowSeparator(uil,c);
 
@@ -1148,9 +1150,9 @@ void our_CanvasDrawInit(laUiItem* ui){
     logPrint("GPU max local work group invocations %i\n", work_grp_inv);
 }
 void our_CanvasEnsureDrawBuffers(OurCanvasDraw* ocd, int W, int H){ laCanvasExtra*e=&ocd->Base;
-    int format = Our->PigmentMode?GL_RGBA16UI:GL_RGBA16F; int RealW=W,RealH=H;
+    int format = Our->PigmentMode?GL_RGBA16UI:GL_RGBA16F; int RealW=W,RealH=H,texscale=1;
     if(Our->PigmentMode){
-        glDisable(GL_BLEND); glDisable(GL_DITHER); W*=2; H*=2;
+        glDisable(GL_BLEND); glDisable(GL_DITHER); if(Our->PigmentDisplayMethod>=2){ W*=2; H*=2; texscale=2; }
     }
     if (!e->OffScr || e->OffScr->pColor[0]->Height != H || e->OffScr->pColor[0]->Width != W ||
         e->OffScr->pColor[0]->GLTexBitsType!=format){
@@ -1199,16 +1201,28 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     tnsFlush();
     glEnable(GL_BLEND);
 }
+void our_CanvasGetFragOffset(laUiItem* ui,int *x,int* y){
+    if(!x || !y) return; *x=0;*y=0;
+    laWindow* w=MAIN.CurrentWindow; if(!w) return;
+    if(w->MaximizedUi==ui) return;
+    laPanel* p=MAIN.CurrentPanel; if(!p) return;
+    *x=-ui->L; *y=ui->B-p->H;
+}
 void our_CanvasDrawOverlayInit(laUiItem* ui){
     int W, H; W = ui->R - ui->L; H = ui->B - ui->U;
     if(Our->PigmentMode){
+        laCanvasExtra* e=ui->Extra;
         tnsUseShader(Our->PigmentDisplayProgramT); tnsEnableShaderv(Our->PigmentDisplayProgramT);
         OurPigmentData140 pd140; our_ToPigmentData140(&Our->CanvasLight.Emission,&Our->CanvasSurface.Reflectance,&pd140);
         glBindBufferBase(GL_UNIFORM_BUFFER, Our->uboCanvasPigmentLocation, Our->uboCanvasPigment);
         glBindBuffer(GL_UNIFORM_BUFFER, Our->uboCanvasPigment);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(OurPigmentData140), &pd140);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
-        glUniform2ui(Our->uPigmentDisplaySize,W*2,H*2);
+        int size_multiply=(Our->PigmentDisplayMethod>=2)?2:1;
+        int ofx,ofy; our_CanvasGetFragOffset(ui,&ofx,&ofy);
+        glUniform2i(Our->uPigmentFragOffset,ofx,ofy);
+        glUniform1f(Our->uPigmentTextureScale,1.0f/e->ZoomX*(real)size_multiply);
+        glUniform1i(Our->uPigmentDisplayMode,Our->PigmentDisplayMethod);
     }else{
         tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,2);
         tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
@@ -1220,7 +1234,6 @@ void our_CanvasDrawOverlayInit(laUiItem* ui){
 void our_CanvasDrawOverlayTexture(laUiItem* ui){
     laCanvasExtra *e = ui->Extra; OurCanvasDraw* ocd=e;
     if(Our->PigmentMode){
-        tnsBindTexture(e->OffScr->pColor[0]);
         tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
     }else{
         tnsDraw2DTextureDirectly(e->OffScr->pColor[0], ui->L, ui->U, ui->R - ui->L, ui->B - ui->U);
@@ -1271,7 +1284,8 @@ void our_CanvasDrawOverlay(laUiItem* ui,int h){
             for(int i=ui->U+delta;i<ui->B;i+=delta*2){ tnsVertex2d(ui->L,i); tnsVertex2d(ui->R,i); } tnsColor4d(0,0,0,0.5); tnsPackAs(GL_LINES);
             for(int i=ui->U+delta*2;i<ui->B;i+=delta*2){ tnsVertex2d(ui->L,i); tnsVertex2d(ui->R,i); } tnsColor4d(1,1,1,0.5); tnsPackAs(GL_LINES);
         }
-        char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX);
+        int texscale=Our->PigmentMode?2:1;
+        char buf[128]; sprintf(buf,"%.1lf%%",100.0f/e->ZoomX*texscale);
         tnsDrawStringAuto(buf,colork,ui->L+LA_M+1,ui->R-LA_M,ui->B-LA_RH-LA_M+1,0);
         tnsDrawStringAuto(buf,colorw,ui->L+LA_M,ui->R-LA_M,ui->B-LA_RH-LA_M,0);
     }
@@ -2553,8 +2567,9 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     if(Our->PigmentMode){
+        int texscale=1; if(Our->PigmentDisplayMethod>=2){ texscale=2; }
         u8bit pigment[32]={0}; x/=2;x*=2; y/=2; y*=2;
-        glReadPixels(x*2,y*2,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
+        glReadPixels(x*texscale,y*texscale,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
         printf("read:\n");
         for(int i=0;i<16;i++) { printf("%03d ", pigment[i]); } printf("\n");
         for(int i=16;i<32;i++){ printf("%03d ", pigment[i]); } printf("\n");
@@ -3845,6 +3860,9 @@ void ourget_PigmentInfo(OurPigmentData* pd,char* buf, char** copy){
 void ourset_AlphaMode(void* unused, int a){
     Our->AlphaMode=a;
 }
+void ourset_PigmentDisplayMethod(void* unused, int a){
+    Our->PigmentDisplayMethod=a; laNotifyUsers("our.canvas");
+}
 
 int ourget_CanvasVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
@@ -4280,6 +4298,11 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"TILT","Tilt","Brush direction line follows tilt direction",1,0);
     laAddEnumItemAs(p,"TWIST","Twist","Brush direction line follows twist direction",2,0);
     laAddEnumItemAs(p,"AUTO","Auto","Brush direction line determines automatically whether to show tilt or twist",3,0);
+    p=laAddEnumProperty(pc,"pigment_display_method","Pigment Display Mode","How do display pigment canvas",0,0,0,0,0,offsetof(OurPaint,PigmentDisplayMethod),0,ourset_PigmentDisplayMethod,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"SPEED","Speed","Draw the canvas with half resolution sampling",0,0);
+    laAddEnumItemAs(p,"DEBAYER","Debayer","Interpolate channels from pigment canvas to display color at pixel level resolution",1,0);
+    laAddEnumItemAs(p,"SHARP","Sharp","Using two times resolution for the view buffer to store converted color information",2,0);
+    laAddEnumItemAs(p,"QUALITY","Quality","Using two times resolution for the view buffer and do 4x supersampled debayer average",3,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -4751,7 +4774,9 @@ int ourInit(){
     int pid=Our->PigmentDisplayProgramT->glProgramID;
     Our->uboCanvasPigmentLocation=glGetUniformBlockIndex(pid, "CanvasPigmentBlock");
     glUniformBlockBinding(pid, Our->uboCanvasPigmentLocation, 0);
-    Our->uPigmentDisplaySize=glGetUniformLocation(pid, "display_size");
+    Our->uPigmentTextureScale=glGetUniformLocation(pid, "texture_scale");
+    Our->uPigmentDisplayMode=glGetUniformLocation(pid, "display_mode");
+    Our->uPigmentFragOffset=glGetUniformLocation(pid, "frag_offset");
 
     glGenBuffers(1, &Our->uboBrushPigment);
     glGenBuffers(1, &Our->uboCanvasPigment);

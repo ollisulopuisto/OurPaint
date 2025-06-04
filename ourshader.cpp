@@ -624,8 +624,118 @@ uvec4 getAH(PigmentData p){ uvec4 c;
     c[2]=fl16(p.a[12],p.a[13]); c[3]=fl16w(p.a[15]); //c[3]=fl16(p.a[14],p.a[15]);
     return c;
 }
+uvec4 PixelAvg2(uvec4 a, uvec4 b){
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
+    r[3]=(((a[3]&0xffu)+(b[3]&0xffu))/2u)|((((a[3]&0xff00u)+(b[3]&0xff00u))/2u)&0xff00u);
+    return r;
+}
+uvec4 PixelAvg2H(uvec4 a, uvec4 b){
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
+    r[3]=(a[3]+b[3])/2u;
+    return r;
+}
+uvec4 PixelAvg4(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu)+(c[2]&0xffu)+(d[2]&0xffu))/4u)|((((a[2]&0xff00u)+(b[2]&0xff00u)+(c[2]&0xff00u)+(d[2]&0xff00u))/4u)&0xff00u);
+    r[3]=(((a[3]&0xffu)+(b[3]&0xffu)+(c[3]&0xffu)+(d[3]&0xffu))/4u)|((((a[3]&0xff00u)+(b[3]&0xff00u)+(c[3]&0xff00u)+(d[3]&0xff00u))/4u)&0xff00u);
+    return r;
+}
+uvec4 PixelAvg4H(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu)+(c[2]&0xffu)+(d[2]&0xffu))/4u)|((((a[2]&0xff00u)+(b[2]&0xff00u)+(c[2]&0xff00u)+(d[2]&0xff00u))/4u)&0xff00u);
+    r[3]=(a[3]+b[3]+c[3]+d[3])/4u;
+    return r;
+}
+uvec4 GetSubPixelH2(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
+    if(uv.x<=offset) return texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+    return PixelAvg2(a,b);
+}
+uvec4 GetSubPixelH2H(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
+    if(uv.x<=offset) return texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+    return PixelAvg2H(a,b);
+}
+uvec4 GetSubPixelV2(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.y>=textureSize(tex,0).y-offset) return texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
+    if(uv.y<=offset) return texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+    uvec4 a=texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+    return PixelAvg2(a,b);
+}
+uvec4 GetSubPixelV2H(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.y>=textureSize(tex,0).y-offset) return texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
+    if(uv.y<=offset) return texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+    uvec4 a=texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+    return PixelAvg2H(a,b);
+}
+uvec4 GetSubPixelX4(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return GetSubPixelV2(tex,ivec2(uv.x-offset,uv.y),offset);
+    if(uv.y>=textureSize(tex,0).y-offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y-offset),offset);
+    if(uv.x<=offset) return GetSubPixelV2(tex,ivec2(uv.x+offset,uv.y),offset);
+    if(uv.y<=offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y+offset),offset);
+    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y-offset),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x-offset,uv.y+offset),0);
+    uvec4 c=texelFetch(tex,ivec2(uv.x+offset,uv.y-offset),0);
+    uvec4 d=texelFetch(tex,ivec2(uv.x+offset,uv.y+offset),0);
+    return PixelAvg4(a,b,c,d);
+}
+uvec4 GetSubPixelX4H(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return GetSubPixelV2(tex,ivec2(uv.x-offset,uv.y),offset);
+    if(uv.y>=textureSize(tex,0).y-offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y-offset),offset);
+    if(uv.x<=offset) return GetSubPixelV2(tex,ivec2(uv.x+offset,uv.y),offset);
+    if(uv.y<=offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y+offset),offset);
+    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y-offset),0);
+    uvec4 b=texelFetch(tex,ivec2(uv.x-offset,uv.y+offset),0);
+    uvec4 c=texelFetch(tex,ivec2(uv.x+offset,uv.y-offset),0);
+    uvec4 d=texelFetch(tex,ivec2(uv.x+offset,uv.y+offset),0);
+    return PixelAvg4H(a,b,c,d);
+}
+PigmentData GetPixelDebayer(highp usampler2D tex, ivec2 uv, int offset){
+    uvec4 c[4]; int s=(uv.x%2)*2+uv.y%2;
+    c[0]=uvec4(0);
+    if(s==0){
+        c[0]=texelFetch(tex,uv,0); 
+        c[1]=GetSubPixelV2H(tex,uv,offset);
+        c[2]=GetSubPixelH2(tex,uv,offset);
+        c[3]=GetSubPixelX4H(tex,uv,offset);
+    }else if(s==1){
+        c[0]=GetSubPixelV2(tex,uv,offset);
+        c[1]=texelFetch(tex,uv,0); 
+        c[2]=GetSubPixelX4(tex,uv,offset);
+        c[3]=GetSubPixelH2H(tex,uv,offset);
+    }else if(s==2){
+        c[0]=GetSubPixelH2(tex,uv,offset);
+        c[1]=GetSubPixelX4H(tex,uv,offset);
+        c[2]=texelFetch(tex,uv,0);
+        c[3]=GetSubPixelV2H(tex,uv,offset);
+    }else{
+        c[0]=GetSubPixelX4(tex,uv,offset);
+        c[1]=GetSubPixelH2H(tex,uv,offset);
+        c[2]=GetSubPixelV2(tex,uv,offset);
+        c[3]=texelFetch(tex,uv,0);
+    }
+    PigmentData p;
+    setRL(c[0],p); setRH(c[1],p); setAL(c[2],p); setAH(c[3],p);
+    return p;
+}
 const uvec4 DB[4]=uvec4[4](uvec4(0,1,2,3),uvec4(1,0,3,2),uvec4(2,3,0,1),uvec4(3,2,1,0));
-PigmentData GetPixelDebayer(highp usampler2D tex, ivec2 uv){
+PigmentData GetPixelQuick(highp usampler2D tex, ivec2 uv){
     uvec4 c[4];
     c[0]=texelFetch(tex,uv,0); 
     c[1]=texelFetch(tex,ivec2(uv.x,uv.y+1),0);
@@ -793,7 +903,9 @@ const char OUR_PIGMENT_TEXTURE_DISPLAY_SHADER[]=R"(
 precision highp float;
 precision highp int;
 layout (binding=2) uniform highp usampler2D TexColorUI;
-uniform uvec2 display_size;
+uniform float texture_scale;
+uniform int display_mode;
+uniform ivec2 frag_offset;
 
 in vec2 fUV;
 
@@ -807,9 +919,24 @@ layout(std140) uniform CanvasPigmentBlock{
 }uCanvasPigment;
 
 void main(){
-    ivec2 iuv=ivec2(fUV*vec2(display_size)); //int xof=iuv.x%2; int yof=iuv.y%2; iuv.x-=xof; iuv.y-=yof;
+    ivec2 iuv=ivec2(gl_FragCoord.xy)+frag_offset;
+    //ivec2(fUV*vec2(display_size)); //int xof=iuv.x%2; int yof=iuv.y%2; iuv.x-=xof; iuv.y-=yof;
 
-    PigmentData p0 = GetPixelDebayer(TexColorUI,iuv);
+    int offset=int(texture_scale/2)*2+1;
+    PigmentData p0;
+    if(display_mode==0){
+        p0=GetPixelQuick(TexColorUI,iuv);
+    }else if(display_mode==1){
+        p0=GetPixelDebayer(TexColorUI,iuv,offset);
+    }else if(display_mode==2){
+        p0=GetPixelQuick(TexColorUI,iuv*2);
+    }else if(display_mode==3){
+                    p0=GetPixelDebayer(TexColorUI,iuv*2+ivec2(0,0),offset);
+        PigmentData p1=GetPixelDebayer(TexColorUI,iuv*2+ivec2(0,1),offset);
+        PigmentData p2=GetPixelDebayer(TexColorUI,iuv*2+ivec2(1,1),offset);
+        PigmentData p3=GetPixelDebayer(TexColorUI,iuv*2+ivec2(1,0),offset);
+        p0=PigmentMix(PigmentMix(p0,p1,0.5),PigmentMix(p2,p3,0.5),0.5);
+    }
 
     PigmentData final = PigmentOver(p0,uCanvasPigment.paper);
     vec3 pixel = to_log_srgb(PigmentToRGB(final,uCanvasPigment.light));
