@@ -809,7 +809,6 @@ PigmentData PigmentMix(PigmentData p0, PigmentData p1, float factor){
 }
 PigmentData PigmentOver(PigmentData p0, PigmentData p1){
     PigmentData result=p1; float mfac=1.0;//p0.r[15];
-    //for(int i=0;i<15;i++){ result.r[i]=result.r[i]*(1.0-result.a[i]*safepow(result.a[15],2.)); }
     float rfac=p0.r[15]; result.a[15]=mix(result.a[15],0.,safepow(rfac,2.));
     PigmentOverSlices(p0.r,result.r);
     PigmentMultiplySlicesInverted(p0.a,result.a,mfac);
@@ -893,7 +892,7 @@ void main(){
     PigmentData result = PigmentOver(p0,p1);
 
     int choose = xof*2+yof;
-    uvec4 pixel = PackPixel(p0,choose);
+    uvec4 pixel = PackPixel(result,choose);
     outColor=pixel;
 }
 )";

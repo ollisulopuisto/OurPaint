@@ -394,6 +394,9 @@ STRUCTURE(OurPNGWriteExtra){
     int BitDepth;
     int ColorProfile;
     int Transparent;
+    
+    int PigmentConversionMethod;
+    int CropX,CropY,CropW,CropH;
 };
 STRUCTURE(OurThreadExportPNGData){
     uint32_t* r_sizes;
@@ -401,6 +404,13 @@ STRUCTURE(OurThreadExportPNGData){
     int i;
     int segy,h;
     int fail;
+};
+typedef void (*our_XYZ2RGBFunc)(tnsVector3d xyz, tnsVector3d rgb);
+STRUCTURE(OurPigmentConversionData){
+    int RowStart,RowCount;
+    int cols;
+    uint16_t *ImageConversionBuffer;
+    our_XYZ2RGBFunc XYZ2RGB;
 };
 NEED_STRUCTURE(OurThreadImportPNGDataMain);
 STRUCTURE(OurThreadImportPNGData){
