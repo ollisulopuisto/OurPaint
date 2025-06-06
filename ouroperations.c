@@ -209,7 +209,7 @@ void our_InitProofLUT(void** lut, cmsHPROFILE cmyk_profile, cmsHPROFILE rgb_prof
     char* table = *lut;
     
     cmsHTRANSFORM htransform=cmsCreateProofingTransform(rgb_profile,TYPE_RGB_DBL,rgb_profile,TYPE_RGB_8,cmyk_profile,
-        INTENT_ABSOLUTE_COLORIMETRIC,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_HIGHRESPRECALC|cmsFLAGS_SOFTPROOFING);
+        INTENT_ABSOLUTE_COLORIMETRIC,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_HIGHRESPRECALC|cmsFLAGS_SOFTPROOFING|cmsFLAGS_NOOPTIMIZE);
     cmsDoTransform(htransform,data,table,OUR_PROOF_PIXCOUNT);
 }
 void our_WriteProofingTable(const char* name,void* data){
@@ -1175,6 +1175,7 @@ void our_CanvasEnsureDrawBuffers(OurCanvasDraw* ocd, int W, int H){ laCanvasExtr
         ocd->OffScrSave = tnsCreate2DOffscreen(format, W, H, 0, 0, 0);
     }
     tnsUseImmShader(); tnsEnableShaderv(T->immShader); tnsUniformColorMode(T->immShader,0);
+    tnsUniformInputColorSpace(T->immShader, 0);
     tnsUniformOutputColorSpace(T->immShader, 0); tnsUniformColorComposing(T->immShader,0,0,0,0);
 
     tnsDrawToOffscreen(e->OffScr,1,0);
@@ -2049,21 +2050,39 @@ int our_CanvasEnsureImageBuffer(){
     return 1;
 }
 void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
-    real bk[4]; 
+    real bk[4];
+    uint16_t BColorU16[4]; uint8_t BColorU8[4];
+
+#define OUR_SET_BCOLORS \
+    { BColorU16[0]=bk[0]*65535;  BColorU16[1]=bk[1]*65535;  BColorU16[2]=bk[2]*65535;  BColorU16[3]=65535; \
+      BColorU8[0]=0.5+bk[0]*255; BColorU8[1]=0.5+bk[1]*255; BColorU8[2]=0.5+bk[2]*255; BColorU8[3]=255; }
+#define OUR_SET_GLOBAL_BCOLORS \
+    { Our->BColorU16[0]=bk[0]*65535;  Our->BColorU16[1]=bk[1]*65535;  Our->BColorU16[2]=bk[2]*65535;  Our->BColorU16[3]=65535; \
+      Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255; }
 
     if(Our->PigmentMode){
         real xyz[3]; our_CanvasToXYZ(&Our->CanvasSurface.Reflectance,xyz);
         if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ tnsXYZ2sRGB(xyz,bk); tns2LogsRGB(bk); }
-        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ tnsXYZ2Clay(xyz,bk); tns2LogsRGB(bk); /* should be clay */ }
-        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ tnsXYZ2sRGB(xyz,bk); tns2LogsRGB(bk); /* should be d65 */ }
-        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ tnsXYZ2Clay(xyz,bk); }
+        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ tnsXYZ2Clay(xyz,bk); tns2LogClay(bk); }
+        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ tnsXYZ2D65P3(xyz,bk); tns2LogsRGB(bk); }
+        elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ tnsXYZ2sRGB(xyz,bk); }
         TNS_CLAMP(bk[0],0,1);TNS_CLAMP(bk[1],0,1);TNS_CLAMP(bk[2],0,1);
+        OUR_SET_GLOBAL_BCOLORS
     }else{
-        tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1;
+        real xyz[3]={0}; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1; int itp=0;
+        if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
+            our_2LogRGBFunc ToLogRGB=tns2LogsRGB;
+            if(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_SRGB)    { tnssRGB2XYZ(bk,xyz);  itp=1; }
+            elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3){ tnsD65P32XYZ(bk,xyz); itp=2; }
+            elif(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)  { tnsClay2XYZ(bk,xyz);  itp=3; }
+            if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB)    { if(itp!=1)tnsXYZ2sRGB(xyz,bk);  ToLogRGB=tns2LogsRGB;  }
+            elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ if(itp!=2)tnsXYZ2D65P3(xyz,bk); ToLogRGB=tns2LogsRGB; }
+            elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY)  { if(itp!=3)tnsXYZ2Clay(xyz,bk);  ToLogRGB=tns2LogClay;  }
+            OUR_SET_BCOLORS
+            ToLogRGB(bk);
+            OUR_SET_GLOBAL_BCOLORS
+        }
     }
-
-    Our->BColorU16[0]=bk[0]*65535; Our->BColorU16[1]=bk[1]*65535; Our->BColorU16[2]=bk[2]*65535; Our->BColorU16[3]=65535;
-    Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255;
 
     if(transparent){ return; } // it should already be 0,0,0,0.
 
@@ -2102,9 +2121,9 @@ void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
         for(int64_t i=0;i<count;i++){
             OUR_PIX_COMPACT* p=&image_buffer[(int64_t)i*4];
 #ifdef LA_USE_GLES
-            tnsVectorSet4v(p,Our->BColorU8);
+            tnsVectorSet4v(p,BColorU8);
 #else
-            tnsVectorSet4v(p,Our->BColorU16);
+            tnsVectorSet4v(p,BColorU16);
 #endif
         }
     }
@@ -2168,7 +2187,7 @@ TYPE* our_GetFinalRow_##TYPE(int UseFrame, int row, int x, int y, int w, int h, 
     int sstart=x>Our->ImageX?(x-Our->ImageX):0, tstart=x>Our->ImageX?0:(Our->ImageX-x);\
     int slen=(x+w>Our->ImageX+Our->ImageW)?(Our->ImageW-sstart):(Our->ImageW-sstart-(Our->ImageX+Our->ImageW-x-w));\
     for(int i=0;i<tstart;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); }\
-    for(int i=sstart+slen;i<w;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); }\
+    for(int i=tstart+slen;i<w;i++){ tnsVectorSet4v(&temp[(int64_t)i*4],BCOLOR); }\
     memcpy(&temp[(int64_t)tstart*4],&((TYPE*)Our->ImageBuffer)[(int64_t)(Our->ImageW*(userow)+sstart)*4],slen*sizeof(TYPE)*4);\
     return temp;\
 }
@@ -2239,8 +2258,8 @@ void our_PigmentConvertSimple(int BitDepth, int ToColorSpace){
     free(th); free(pcd);
     free(Our->ImageBuffer); Our->ImageBuffer=ImageConversionBuffer;
     Our->ImageW=cols; Our->ImageH=rows;
-    Our->X=tnsInterpolate(Our->X,Our->ImageX,0.5);
-    Our->Y=tnsInterpolate(Our->Y,Our->ImageY,0.5);
+    Our->ImageX/=2; Our->ImageY/=2;
+    Our->X/=2; Our->Y/=2;
     Our->W/=2; Our->H/=2;
 }
 void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod){
@@ -2289,16 +2308,11 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
         if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT && total_pixels<=UINT32_MAX){
             if(ColorProfile==OUR_EXPORT_COLOR_MODE_SRGB){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB); }
             elif(ColorProfile==OUR_EXPORT_COLOR_MODE_CLAY){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay); }
-            cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, input_gamma_profile, TYPE_RGBA_8,
-                INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
+            elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ output_buffer_profile=cmsOpenProfileFromMem(Our->icc_D65P3,Our->iccsize_D65P3); }
+            cmsTransform = cmsCreateTransform(input_buffer_profile, TYPE_RGBA_16, output_buffer_profile, TYPE_RGBA_8,
+                INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC|cmsFLAGS_NOOPTIMIZE);
             cmsDoTransform(cmsTransform,Our->ImageBuffer,NewImage,total_pixels);
             cmsDeleteTransform(cmsTransform);
-            if(input_gamma_profile!=output_buffer_profile){
-                cmsTransform = cmsCreateTransform(input_gamma_profile, TYPE_RGBA_8, output_buffer_profile, TYPE_RGBA_8,
-                    INTENT_ABSOLUTE_COLORIMETRIC, cmsFLAGS_COPY_ALPHA|cmsFLAGS_HIGHRESPRECALC);
-                cmsDoTransform(cmsTransform,NewImage,NewImage,total_pixels);
-                cmsDeleteTransform(cmsTransform);
-            }
         }else{
             if(total_pixels>UINT32_MAX){
                 logPrintNew("Export: [TODO] Image pixel count exceeds UINT32_MAX, not doing any transforms.\n");
@@ -2310,6 +2324,8 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
             }
         }
     }
+
+
     cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }

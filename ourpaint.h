@@ -406,6 +406,7 @@ STRUCTURE(OurThreadExportPNGData){
     int fail;
 };
 typedef void (*our_XYZ2RGBFunc)(tnsVector3d xyz, tnsVector3d rgb);
+typedef void (*our_2LogRGBFunc)(tnsVector3d rgb);
 STRUCTURE(OurPigmentConversionData){
     int RowStart,RowCount;
     int cols;
