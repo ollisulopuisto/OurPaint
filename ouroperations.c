@@ -2265,8 +2265,7 @@ void our_PigmentConvertSimple(int BitDepth, int ToColorSpace){
 void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod){
     uint8_t* NewImage;
     cmsHTRANSFORM cmsTransform = NULL;
-    cmsHPROFILE input_buffer_profile=NULL,input_gamma_profile=NULL;
-    cmsHPROFILE output_buffer_profile=NULL;
+    cmsHPROFILE input_buffer_profile=NULL, output_buffer_profile=NULL;
 
     if(!Our->AlphaMode){
         /* unpremultiply */
@@ -2296,11 +2295,6 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
         ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
             cmsOpenProfileFromMem(Our->icc_LinearD65P3,Our->iccsize_LinearD65P3):
             cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB));
-    input_gamma_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
-        cmsOpenProfileFromMem(Our->icc_Clay,Our->icc_Clay):
-        ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
-            cmsOpenProfileFromMem(Our->icc_D65P3,Our->iccsize_D65P3):
-            cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB));
 
     NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(NewImage){
@@ -2326,7 +2320,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
     }
 
 
-    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(input_gamma_profile);cmsCloseProfile(output_buffer_profile);
+    cmsCloseProfile(input_buffer_profile);cmsCloseProfile(output_buffer_profile);
     free(Our->ImageBuffer); Our->ImageBuffer=NewImage;
 }
 int our_ImageExportPNG(FILE* fp, int WriteToBuffer, void** buf, int* sizeof_buf, int UseFrame, int BitDepth, int ColorProfile, int SegmentY, int SegmentH){
