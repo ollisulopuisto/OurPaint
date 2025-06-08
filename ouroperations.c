@@ -1205,12 +1205,17 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     glDisable(GL_BLEND);
     our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
 
-    tnsUseImmShader();
+    tnsUseImmShader(); 
+    if(Our->PigmentMode){
+        tnsLineWidth(2);
+    }else{
+
+    }
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
     if(Our->ShowRef){ our_CanvasDrawReferenceBlock(ocd); }
     tnsFlush();
-    glEnable(GL_BLEND);
+    tnsLineWidth(1); glEnable(GL_BLEND);
 }
 void our_CanvasGetFragOffset(laUiItem* ui,int *x,int* y){
     if(!x || !y) return; *x=0;*y=0;
@@ -1527,7 +1532,7 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
     if(!es->On){
         if(e->type==LA_L_MOUSE_DOWN){
             es->On=our_PigmentMixerDetectPosition(ui,e->x,e->y);
-            if(es->On==4){ es->LastX=e->x;es->LastY=e->y;es->TargetIndexVali=ui->Extent; es->Dragging=1; }
+            if(es->On==4){ es->LastX=e->x;es->LastY=e->y;es->TargetVali=ui->Extent; es->Dragging=1; }
             if(es->On==2){ our_PigmentClear(pd); laNotifyUsers("our.mixed_pigment"); return LA_RUNNING;  }
         }
     }
@@ -1535,7 +1540,7 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; es->Dragging=0; return LA_RUNNING; }
         if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure);
             our_PigmentToPreviewSelf(&Our->MixedPigment); laNotifyUsers("our.mixed_pigment"); }
-        if(es->On==4){ int d=e->y-es->LastY; int h=es->TargetIndexVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
+        if(es->On==4){ int d=e->y-es->LastY; int h=es->TargetVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
     }
 
     return LA_RUNNING;
