@@ -753,53 +753,52 @@ void ourui_AboutContent(laUiList *uil, laPropPack *This, laPropPack *DetachedPro
     laShowLabel(uil, c, "(C)Yiming Wu", 0, 0);
 }
 void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+    laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.33);cl=laLeftColumn(c,10);cr=laRightColumn(c,0);
+    laColumn* crl,*crr; laSplitColumn(uil,cr,0.5); crl=laLeftColumn(cr,0); crr=laRightColumn(cr,0);
     laUiItem* b,*uiitem;
 
     laShowLabel(uil,c,"Generic:",0,0);
-    uiitem=laShowItem(uil,cl,0,"our.preferences.enable_brush_circle");
+    laShowItemFull(uil,cr,0,"our.preferences.spectral_mode",0,"text=Spectral Mixing in RGB",0,0)->Flags|=LA_UI_FLAGS_CHECKBOX;
+    uiitem=laShowItem(uil,cr,0,"our.preferences.enable_brush_circle");uiitem->Flags|=LA_UI_FLAGS_CHECKBOX;
     b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
-    laShowLabel(uil,cr,"Show brush direction:",0,0);
-    laShowItem(uil,cr,0,"our.preferences.brush_circle_tilt_mode")->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.brush_circle_tilt_mode",0,0,0,0,"Show brush direction",0,c)->Flags|=LA_UI_FLAGS_EXPAND;
     laEndCondition(uil,b);
-    laShowItem(uil,cl,0,"our.preferences.spectral_mode");
 
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Pressure:",0,0);
-    laShowItem(uil,cl,0,"our.preferences.allow_none_pressure");
+    laShowItem(uil,cr,0,"our.preferences.allow_none_pressure")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
-    laShowItem(uil,cl,0,"our.preferences.smoothness");
+    laShowItem(uil,cr,0,"our.preferences.smoothness");
     laShowItem(uil,cr,0,"our.preferences.hardness");
 
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Canvas:",0,0);
-    laShowItem(uil,cl,0,"our.preferences.show_stripes");
+    laShowItem(uil,crl,0,"our.preferences.show_stripes")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItem(uil,crr,0,"our.preferences.show_grid")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItem(uil,cr,0,"our.preferences.multithread_write")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
-    laShowItem(uil,cl,0,"our.preferences.show_grid");
-    laShowItem(uil,cr,0,"our.preferences.multithread_write");
-    laShowLabel(uil,c,"Pigment Display Method:",0,0);
-    laShowItem(uil,c,0,"our.preferences.pigment_display_method")->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.pigment_display_method",0,0,0,0,0,0,c)->Flags|=LA_UI_FLAGS_EXPAND;
     
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Shortcut Buttons:",0,0);
-    laShowItem(uil,cl,0,"our.preferences.undo_on_header");
-    laShowItem(uil,cr,0,"our.preferences.tools_on_header");
-    laShowItem(uil,cl,0,"our.preferences.mix_mode_on_header");
-    laShowItem(uil,cr,0,"our.preferences.brush_numbers_on_header");
+    laShowItem(uil,crl,0,"our.preferences.undo_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItem(uil,crr,0,"our.preferences.tools_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItem(uil,crl,0,"our.preferences.mix_mode_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItem(uil,crr,0,"our.preferences.brush_numbers_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
 
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Undo:",0,0);
-    laShowItem(uil,c,0,"our.preferences.paint_undo_limit");
+    laShowItem(uil,cr,0,"our.preferences.paint_undo_limit");
     
     laShowSeparator(uil,c);
 
     laShowLabel(uil,c,"Exporting Defaults:",0,0);
-    laShowLabel(uil,cl,"Bit Depth:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_bit_depth");
-    laShowLabel(uil,cl,"Color Profile:",0,0); laShowItem(uil,cr,0,"our.preferences.export_default_color_profile");
+    laShowItemWithLabel(uil,crl,crl,0,"our.preferences.export_default_bit_depth",0,0,0,0,"Bit Depth",LA_TEXT_ALIGN_LEFT,0);
+    laShowItemWithLabel(uil,crr,crr,0,"our.preferences.export_default_color_profile",0,0,0,0,"Color Profile",LA_TEXT_ALIGN_LEFT,0);
     
     laShowSeparator(uil,c);
 
@@ -818,7 +817,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 #endif
 
     laShowLabel(uil,c,"Developer:",0,0);
-    laShowItem(uil,cl,0,"our.preferences.show_debug_tiles");
+    laShowItem(uil,cr,0,"our.preferences.show_debug_tiles")->Flags|=LA_UI_FLAGS_CHECKBOX;
 }
 void ourui_OurPreferencePigments(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
