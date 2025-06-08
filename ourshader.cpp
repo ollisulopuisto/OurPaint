@@ -402,7 +402,8 @@ void DoSample(){
 }
 
 #endif // canvas mode rgb
-
+)"
+R"(
 #ifdef OUR_CANVAS_MODE_PIGMENT //========================================================================================
 
 #define GetImgPixel(tex, uv, p) \

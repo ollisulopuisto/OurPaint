@@ -1194,7 +1194,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,GL_ONE,GL_ONE);
     
     if(Our->PigmentMode){
-        uint val[4]={0};
+        uint32_t val[4]={0};
         glClearBufferuiv(GL_COLOR, 0,&val);
         tnsEnableShaderv(Our->PigmentLayeringProgramT);
     }else{
@@ -2747,7 +2747,9 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     glUniform1i(OURU->uMixRoutineSelectionES,Our->SpectralMode?1:0);
 #else
     uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
-    uniforms[OURU->uMixRoutineSelection]=Our->SpectralMode?OURU->RoutineDoMixSpectral:OURU->RoutineDoMixNormal;
+    if(OURU->uMixRoutineSelection>=0){
+        uniforms[OURU->uMixRoutineSelection]=Our->SpectralMode?OURU->RoutineDoMixSpectral:OURU->RoutineDoMixNormal;
+    }
     glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
 #endif
     glUniform1i(OURU->uCanvasType,Our->BackgroundType);
