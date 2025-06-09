@@ -561,7 +561,7 @@ void main() {
 )";
 
 const char OUR_PIGMENT_COMMON[]=R"(
-#define POW_EPS (1e-9)
+#define POW_EPS (1.0e-9)
 #define USE_SAFE_POW 1
 
 #if USE_SAFE_POW
@@ -863,7 +863,11 @@ vec3 Spectral2XYZ(float spec[OUR_SPECTRAL_SLICES]){
 vec3 PigmentToRGB(PigmentData pd, PigmentData light){
     float slices[OUR_SPECTRAL_SLICES];
     for(int i=0;i<OUR_SPECTRAL_SLICES-1;i++){
-        float absfac=1.0f-pd.a[i]*pow(pd.a[15],1.); if(absfac<0.)absfac=0.; slices[i]=pd.r[i]*absfac;
+        if(pd.a[15]!=0.0){ // apparently intel iGPUs need this
+            float absfac=1.0f-pd.a[i]*pow(pd.a[15],1.); if(absfac<0.)absfac=0.; slices[i]=pd.r[i]*absfac;
+        }else{
+            slices[i]=pd.r[i];
+        }
         slices[i]*=light.r[i];
     }
     vec3 xyz=Spectral2XYZ(slices); vec3 rgb=XYZ2sRGB(xyz); return rgb;

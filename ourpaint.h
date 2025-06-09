@@ -461,7 +461,7 @@ STRUCTURE(BrushUniforms){
     GLint uBlendMode;
     GLint uAlphaTop;
     GLint uAlphaBottom;
-    GLsizei MaxSubroutineUniformLocations;
+    GLsizei SubroutineUniformLocations;
 };
 
 STRUCTURE(OurPaint){
