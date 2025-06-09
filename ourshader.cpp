@@ -810,7 +810,7 @@ PigmentData PigmentMix(PigmentData p0, PigmentData p1, float factor){
 }
 PigmentData PigmentOver(PigmentData p0, PigmentData p1){
     PigmentData result=p1; float mfac=1.0;//p0.r[15];
-    float rfac=p0.r[15]; result.a[15]=mix(result.a[15],0.,safepow(rfac,2.));
+    float rfac=p0.r[15]; result.a[15]=mix(result.a[15],0.,rfac*rfac);
     PigmentOverSlices(p0.r,result.r);
     PigmentMultiplySlicesInverted(p0.a,result.a,mfac);
 
@@ -862,7 +862,7 @@ vec3 Spectral2XYZ(float spec[OUR_SPECTRAL_SLICES]){
 
 vec3 PigmentToRGB(PigmentData pd, PigmentData light){
     float slices[OUR_SPECTRAL_SLICES];
-    for(int i=0;i<OUR_SPECTRAL_SLICES-1;i++){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         if(pd.a[15]!=0.0){ // apparently intel iGPUs need this
             float absfac=1.0f-pd.a[i]*pow(pd.a[15],1.); if(absfac<0.)absfac=0.; slices[i]=pd.r[i]*absfac;
         }else{
