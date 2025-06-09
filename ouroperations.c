@@ -2721,8 +2721,7 @@ STRUCTURE(OurSmudgeSegement){
 };
 void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int tb){
     laListHandle Segments={0}; int from=0,to=Our->NextDab; if(!Our->NextDab) return;
-    OurSmudgeSegement* oss; unsigned int uniforms[2];
-    oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
+    OurSmudgeSegement* oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));
     for(int i=1;i<to;i++){
         if(Our->Dabs[i].ResampleSmudge){ oss->Start=from; oss->End=i; from=i;
             oss=lstAppendPointerSized(&Segments, 0,sizeof(OurSmudgeSegement));  oss->Resample=1;
@@ -2731,18 +2730,19 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     oss->Start=from; oss->End=to;
     if(Our->Dabs[0].ResampleSmudge){ ((OurSmudgeSegement*)Segments.pFirst)->Resample=1; }
 
-    int subroutine_count;
     if(Our->PigmentMode){
         glUseProgram(Our->CanvasPigmentProgram);
-        Our->u=&Our->uPigment; subroutine_count=1;
+        Our->u=&Our->uPigment;
     }else{
         if(Our->AlphaMode){
             glUseProgram(Our->CanvasStraightProgram);
         }else{
             glUseProgram(Our->CanvasProgram);
         }
-        Our->u=&Our->uRGBA; subroutine_count=2;
+        Our->u=&Our->uRGBA;
     }
+
+    unsigned int *uniforms=alloca(sizeof(unsigned int)*OURU->MaxSubroutineUniformLocations);
 
     glUniform1i(OURU->uBrushErasing,Our->Erasing);
     glUniform1i(OURU->uBrushMix,Our->Erasing?0:Our->BrushMix);
@@ -2754,7 +2754,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
     if(OURU->uMixRoutineSelection>=0){
         uniforms[OURU->uMixRoutineSelection]=Our->SpectralMode?OURU->RoutineDoMixSpectral:OURU->RoutineDoMixNormal;
     }
-    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
+    glUniformSubroutinesuiv(GL_COMPUTE_SHADER,OURU->MaxSubroutineUniformLocations,uniforms);
 #endif
     glUniform1i(OURU->uCanvasType,Our->BackgroundType);
     glUniform1i(OURU->uCanvasRandom,Our->BackgroundRandom);
@@ -2766,7 +2766,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 #ifdef LA_USE_GLES
             glUniform1i(OURU->uBrushRoutineSelectionES,1);
 #else
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,OURU->MaxSubroutineUniformLocations,uniforms);
 #endif
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
             float ssize=(usize>15)?(usize+1.5):(usize*1.1); if(ssize<3) ssize=3;
@@ -2787,7 +2787,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 #ifdef LA_USE_GLES
             glUniform1i(OURU->uBrushRoutineSelectionES,0);
 #else
-            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,subroutine_count,uniforms);
+            glUniformSubroutinesuiv(GL_COMPUTE_SHADER,OURU->MaxSubroutineUniformLocations,uniforms);
 #endif
             glUniform1i(OURU->uBrushErasing,Our->Erasing);
         }
@@ -4943,6 +4943,8 @@ void ourGetUniforms(int CanvasProgram, int CompositionProgram){
     OURU->uBlendMode=glGetUniformLocation(CompositionProgram,"uBlendMode");
     OURU->uAlphaTop=glGetUniformLocation(CompositionProgram,"uAlphaTop");
     OURU->uAlphaBottom=glGetUniformLocation(CompositionProgram,"uAlphaBottom");
+
+    glGetIntegerv(GL_MAX_SUBROUTINE_UNIFORM_LOCATIONS, &OURU->MaxSubroutineUniformLocations);
 }
 
 int ourInit(){
