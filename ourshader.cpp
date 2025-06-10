@@ -408,20 +408,20 @@ R"(
 
 #define GetImgPixel(tex, uv, p) \
 { \
-    uvec4 c0=imageLoad(tex,uv); \
-    uvec4 c1=imageLoad(tex,ivec2(uv.x,uv.y+1)); \
-    uvec4 c2=imageLoad(tex,ivec2(uv.x+1,uv.y)); \
-    uvec4 c3=imageLoad(tex,ivec2(uv.x+1,uv.y+1)); \
+    PixType c0=loadpix(tex,uv); \
+    PixType c1=loadpix(tex,ivec2(uv.x,uv.y+1)); \
+    PixType c2=loadpix(tex,ivec2(uv.x+1,uv.y)); \
+    PixType c3=loadpix(tex,ivec2(uv.x+1,uv.y+1)); \
     setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p); \
 }
 
 #define WriteImgPixel(tex, uv, p) \
 { \
-    uvec4 c0=getRL(p); uvec4 c1=getRH(p); uvec4 c2=getAL(p); uvec4 c3=getAH(p); \
-    imageStore(tex,uv,c0); \
-    imageStore(tex,ivec2(uv.x,uv.y+1),c1); \
-    imageStore(tex,ivec2(uv.x+1,uv.y),c2); \
-    imageStore(tex,ivec2(uv.x+1,uv.y+1),c3); \
+    PixType c0=getRL(p); PixType c1=getRH(p); PixType c2=getAL(p); PixType c3=getAH(p); \
+    imageStore(tex,uv,packpix(c0)); \
+    imageStore(tex,ivec2(uv.x,uv.y+1),packpix(c1)); \
+    imageStore(tex,ivec2(uv.x+1,uv.y),packpix(c2)); \
+    imageStore(tex,ivec2(uv.x+1,uv.y+1),packpix(c3)); \
 }
 
 int dab_pigment(float d, vec2 fpx, PigmentData color, float size, float hardness,
@@ -572,14 +572,6 @@ float safepow(float a, float b){
 #define safepow pow
 #endif
 
-#define PREC_FIX (0.5/255.)
-
-#define l8f(a) (float(((a)&0x00ffu)>>0)/255.)
-#define h8f(a) (float(((a)&0xff00u)>>8)/255.)
-#define lh16f(a)  (float(a)/65535.)
-#define fl16(l,h) (clamp((uint((l+PREC_FIX)*255.)),0u,255u)|(clamp((uint((h+PREC_FIX)*255.)),0u,255u)<<8))
-#define fl16w(a)  (uint(a*65535.))
-
 #define OUR_SPECTRAL_SLICES 14
 
 struct PigmentData{ float r[16]; float a[16]; };
@@ -590,6 +582,116 @@ const PigmentData PIGMENT_WHITE=
     PigmentData(float[16](1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.,1.),float[16](0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.));
 const PigmentData PIGMENT_BLACK=
     PigmentData(float[16](0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.),float[16](0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.));
+
+#ifdef OUR_GLES
+
+#define PixType uint
+#define PREC_FIX (0.25/15.)
+#define fetchpix(tex,uv,level) texelFetch(tex,uv,level).x
+#define loadpix(tex,uv) imageLoad(tex,uv).x
+#define packpix(c) uvec4(c)
+#define l8f(a) (float((uint(a)&0x0fu)>>0)/15.)
+#define h8f(a) (float((uint(a)&0xf0u)>>4)/15.)
+#define lh16f(a)  (float(a)/255.)
+#define fl16(l,h) (clamp((uint((l+PREC_FIX)*15.)),0u,15u)|(clamp((uint((h+PREC_FIX)*15.)),0u,15u)<<4))
+#define fl16w(a)  (uint(a*255.))
+uvec4 pixunpack(PixType c_){
+    return uvec4((uint(c_)&0xffu),(uint(c_>>8)&0xffu),(uint(c_>>16)&0xffu),(uint(c_>>24)&0xffu));
+}
+PixType pixpack(uvec4 c){
+    return uint(((c[0])&0xffu)|(((c[1])&0xffu)<<8)|(((c[2])&0xffu)<<16)|(((c[3])&0xffu)<<24));
+}
+
+void setRL(PixType c_, inout PigmentData p){
+    uvec4 c=pixunpack(c_);
+    p.r[0]=l8f(c[0]); p.r[1]=h8f(c[0]); p.r[2]=l8f(c[1]); p.r[3]=h8f(c[1]);
+    p.r[4]=l8f(c[2]); p.r[5]=h8f(c[2]); p.r[6]=l8f(c[3]); p.r[7]=h8f(c[3]);
+}
+void setRH(PixType c_, inout PigmentData p){
+    uvec4 c=pixunpack(c_);
+    p.r[8]= l8f(c[0]); p.r[9] =h8f(c[0]); p.r[10]=l8f(c[1]); p.r[11]=h8f(c[1]);
+    p.r[12]=l8f(c[2]); p.r[13]=h8f(c[2]); p.r[14]=0.; p.r[15]=lh16f(c[3]); //p.r[14]=l8f(c[3]); p.r[15]=h8f(c[3]);
+}
+void setAL(PixType c_, inout PigmentData p){
+    uvec4 c=pixunpack(c_);
+    p.a[0]=l8f(c[0]); p.a[1]=h8f(c[0]); p.a[2]=l8f(c[1]); p.a[3]=h8f(c[1]);
+    p.a[4]=l8f(c[2]); p.a[5]=h8f(c[2]); p.a[6]=l8f(c[3]); p.a[7]=h8f(c[3]);
+}
+void setAH(PixType c_, inout PigmentData p){
+    uvec4 c=pixunpack(c_);
+    p.a[8]= l8f(c[0]); p.a[9] =h8f(c[0]); p.a[10]=l8f(c[1]); p.a[11]=h8f(c[1]);
+    p.a[12]=l8f(c[2]); p.a[13]=h8f(c[2]); p.a[14]=0.; p.a[15]=lh16f(c[3]); //p.a[14]=l8f(c[3]); p.a[15]=h8f(c[3]);
+}
+PixType getRL(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.r[0],p.r[1]); c[1]=fl16(p.r[2],p.r[3]);
+    c[2]=fl16(p.r[4],p.r[5]); c[3]=fl16(p.r[6],p.r[7]); return pixpack(c);
+}
+PixType getRH(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.r[8],p.r[9]); c[1]=fl16(p.r[10],p.r[11]);
+    c[2]=fl16(p.r[12],p.r[13]); c[3]=fl16w(p.r[15]); //c[3]=fl16(p.r[14],p.r[15]);
+    return pixpack(c);
+}
+PixType getAL(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.a[0],p.a[1]); c[1]=fl16(p.a[2],p.a[3]);
+    c[2]=fl16(p.a[4],p.a[5]); c[3]=fl16(p.a[6],p.a[7]); return pixpack(c);
+}
+PixType getAH(PigmentData p){ uvec4 c;
+    c[0]=fl16(p.a[8],p.a[9]); c[1]=fl16(p.a[10],p.a[11]);
+    c[2]=fl16(p.a[12],p.a[13]); c[3]=fl16w(p.a[15]); //c[3]=fl16(p.a[14],p.a[15]);
+    return pixpack(c);
+}
+
+PixType PixelAvg2(PixType a_, PixType b_){
+    uvec4 a=pixunpack(a_); uvec4 b=pixunpack(b_);
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
+    r[3]=(((a[3]&0xffu)+(b[3]&0xffu))/2u)|((((a[3]&0xff00u)+(b[3]&0xff00u))/2u)&0xff00u);
+    return pixpack(r);
+}
+PixType PixelAvg2H(PixType a_, PixType b_){
+    uvec4 a=pixunpack(a_); uvec4 b=pixunpack(b_);
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
+    r[3]=(a[3]+b[3])/2u;
+    return pixpack(r);
+}
+PixType PixelAvg4(PixType a_, PixType b_, PixType c_, PixType d_){
+    uvec4 a=pixunpack(a_); uvec4 b=pixunpack(b_);
+    uvec4 c=pixunpack(c_); uvec4 d=pixunpack(d_);
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu)+(c[2]&0xffu)+(d[2]&0xffu))/4u)|((((a[2]&0xff00u)+(b[2]&0xff00u)+(c[2]&0xff00u)+(d[2]&0xff00u))/4u)&0xff00u);
+    r[3]=(((a[3]&0xffu)+(b[3]&0xffu)+(c[3]&0xffu)+(d[3]&0xffu))/4u)|((((a[3]&0xff00u)+(b[3]&0xff00u)+(c[3]&0xff00u)+(d[3]&0xff00u))/4u)&0xff00u);
+    return pixpack(r);
+}
+PixType PixelAvg4H(PixType a_, PixType b_, PixType c_, PixType d_){
+    uvec4 a=pixunpack(a_); uvec4 b=pixunpack(b_);
+    uvec4 c=pixunpack(c_); uvec4 d=pixunpack(d_);
+    uvec4 r;
+    r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
+    r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
+    r[2]=(((a[2]&0xffu)+(b[2]&0xffu)+(c[2]&0xffu)+(d[2]&0xffu))/4u)|((((a[2]&0xff00u)+(b[2]&0xff00u)+(c[2]&0xff00u)+(d[2]&0xff00u))/4u)&0xff00u);
+    r[3]=(a[3]+b[3]+c[3]+d[3])/4u;
+    return pixpack(r);
+}
+
+#else // gles / desktop gl
+
+#define PixType uvec4
+#define PREC_FIX (0.25/255.)
+#define fetchpix texelFetch
+#define packpix(c) c
+#define loadpix imageLoad
+#define l8f(a) (float(((a)&0x00ffu)>>0)/255.)
+#define h8f(a) (float(((a)&0xff00u)>>8)/255.)
+#define lh16f(a)  (float(a)/65535.)
+#define fl16(l,h) (clamp((uint((l+PREC_FIX)*255.)),0u,255u)|(clamp((uint((h+PREC_FIX)*255.)),0u,255u)<<8))
+#define fl16w(a)  (uint(a*65535.))
 
 void setRL(uvec4 c, inout PigmentData p){
     p.r[0]=l8f(c[0]); p.r[1]=h8f(c[0]); p.r[2]=l8f(c[1]); p.r[3]=h8f(c[1]);
@@ -625,23 +727,24 @@ uvec4 getAH(PigmentData p){ uvec4 c;
     c[2]=fl16(p.a[12],p.a[13]); c[3]=fl16w(p.a[15]); //c[3]=fl16(p.a[14],p.a[15]);
     return c;
 }
-uvec4 PixelAvg2(uvec4 a, uvec4 b){
-    uvec4 r;
+
+PixType PixelAvg2(PixType a, PixType b){
+    PixType r;
     r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
     r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
     r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
     r[3]=(((a[3]&0xffu)+(b[3]&0xffu))/2u)|((((a[3]&0xff00u)+(b[3]&0xff00u))/2u)&0xff00u);
     return r;
 }
-uvec4 PixelAvg2H(uvec4 a, uvec4 b){
-    uvec4 r;
+PixType PixelAvg2H(PixType a, PixType b){
+    PixType r;
     r[0]=(((a[0]&0xffu)+(b[0]&0xffu))/2u)|((((a[0]&0xff00u)+(b[0]&0xff00u))/2u)&0xff00u);
     r[1]=(((a[1]&0xffu)+(b[1]&0xffu))/2u)|((((a[1]&0xff00u)+(b[1]&0xff00u))/2u)&0xff00u);
     r[2]=(((a[2]&0xffu)+(b[2]&0xffu))/2u)|((((a[2]&0xff00u)+(b[2]&0xff00u))/2u)&0xff00u);
     r[3]=(a[3]+b[3])/2u;
     return r;
 }
-uvec4 PixelAvg4(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
+PixType PixelAvg4(PixType a, PixType b, PixType c, PixType d){
     uvec4 r;
     r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
     r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
@@ -649,7 +752,7 @@ uvec4 PixelAvg4(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
     r[3]=(((a[3]&0xffu)+(b[3]&0xffu)+(c[3]&0xffu)+(d[3]&0xffu))/4u)|((((a[3]&0xff00u)+(b[3]&0xff00u)+(c[3]&0xff00u)+(d[3]&0xff00u))/4u)&0xff00u);
     return r;
 }
-uvec4 PixelAvg4H(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
+PixType PixelAvg4H(PixType a, PixType b, PixType c, PixType d){
     uvec4 r;
     r[0]=(((a[0]&0xffu)+(b[0]&0xffu)+(c[0]&0xffu)+(d[0]&0xffu))/4u)|((((a[0]&0xff00u)+(b[0]&0xff00u)+(c[0]&0xff00u)+(d[0]&0xff00u))/4u)&0xff00u);
     r[1]=(((a[1]&0xffu)+(b[1]&0xffu)+(c[1]&0xffu)+(d[1]&0xffu))/4u)|((((a[1]&0xff00u)+(b[1]&0xff00u)+(c[1]&0xff00u)+(d[1]&0xff00u))/4u)&0xff00u);
@@ -657,79 +760,81 @@ uvec4 PixelAvg4H(uvec4 a, uvec4 b, uvec4 c, uvec4 d){
     r[3]=(a[3]+b[3]+c[3]+d[3])/4u;
     return r;
 }
-uvec4 GetSubPixelH2(highp usampler2D tex, ivec2 uv, int offset){
-    if(uv.x>=textureSize(tex,0).x-offset) return texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
-    if(uv.x<=offset) return texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
-    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+
+#endif // desktop gl
+
+PixType GetSubPixelH2(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return fetchpix(tex,ivec2(uv.x-offset,uv.y),0);
+    if(uv.x<=offset) return fetchpix(tex,ivec2(uv.x+offset,uv.y),0);
+    PixType a=fetchpix(tex,ivec2(uv.x-offset,uv.y),0);
+    PixType b=fetchpix(tex,ivec2(uv.x+offset,uv.y),0);
     return PixelAvg2(a,b);
 }
-uvec4 GetSubPixelH2H(highp usampler2D tex, ivec2 uv, int offset){
-    if(uv.x>=textureSize(tex,0).x-offset) return texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
-    if(uv.x<=offset) return texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
-    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x+offset,uv.y),0);
+PixType GetSubPixelH2H(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.x>=textureSize(tex,0).x-offset) return fetchpix(tex,ivec2(uv.x-offset,uv.y),0);
+    if(uv.x<=offset) return fetchpix(tex,ivec2(uv.x+offset,uv.y),0);
+    PixType a=fetchpix(tex,ivec2(uv.x-offset,uv.y),0);
+    PixType b=fetchpix(tex,ivec2(uv.x+offset,uv.y),0);
     return PixelAvg2H(a,b);
 }
-uvec4 GetSubPixelV2(highp usampler2D tex, ivec2 uv, int offset){
-    if(uv.y>=textureSize(tex,0).y-offset) return texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
-    if(uv.y<=offset) return texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
-    uvec4 a=texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+PixType GetSubPixelV2(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.y>=textureSize(tex,0).y-offset) return fetchpix(tex,ivec2(uv.x,uv.y-offset),0);
+    if(uv.y<=offset) return fetchpix(tex,ivec2(uv.x,uv.y+offset),0);
+    PixType a=fetchpix(tex,ivec2(uv.x,uv.y-offset),0);
+    PixType b=fetchpix(tex,ivec2(uv.x,uv.y+offset),0);
     return PixelAvg2(a,b);
 }
-uvec4 GetSubPixelV2H(highp usampler2D tex, ivec2 uv, int offset){
-    if(uv.y>=textureSize(tex,0).y-offset) return texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
-    if(uv.y<=offset) return texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
-    uvec4 a=texelFetch(tex,ivec2(uv.x,uv.y-offset),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x,uv.y+offset),0);
+PixType GetSubPixelV2H(highp usampler2D tex, ivec2 uv, int offset){
+    if(uv.y>=textureSize(tex,0).y-offset) return fetchpix(tex,ivec2(uv.x,uv.y-offset),0);
+    if(uv.y<=offset) return fetchpix(tex,ivec2(uv.x,uv.y+offset),0);
+    PixType a=fetchpix(tex,ivec2(uv.x,uv.y-offset),0);
+    PixType b=fetchpix(tex,ivec2(uv.x,uv.y+offset),0);
     return PixelAvg2H(a,b);
 }
-uvec4 GetSubPixelX4(highp usampler2D tex, ivec2 uv, int offset){
+PixType GetSubPixelX4(highp usampler2D tex, ivec2 uv, int offset){
     if(uv.x>=textureSize(tex,0).x-offset) return GetSubPixelV2(tex,ivec2(uv.x-offset,uv.y),offset);
     if(uv.y>=textureSize(tex,0).y-offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y-offset),offset);
     if(uv.x<=offset) return GetSubPixelV2(tex,ivec2(uv.x+offset,uv.y),offset);
     if(uv.y<=offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y+offset),offset);
-    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y-offset),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x-offset,uv.y+offset),0);
-    uvec4 c=texelFetch(tex,ivec2(uv.x+offset,uv.y-offset),0);
-    uvec4 d=texelFetch(tex,ivec2(uv.x+offset,uv.y+offset),0);
+    PixType a=fetchpix(tex,ivec2(uv.x-offset,uv.y-offset),0);
+    PixType b=fetchpix(tex,ivec2(uv.x-offset,uv.y+offset),0);
+    PixType c=fetchpix(tex,ivec2(uv.x+offset,uv.y-offset),0);
+    PixType d=fetchpix(tex,ivec2(uv.x+offset,uv.y+offset),0);
     return PixelAvg4(a,b,c,d);
 }
-uvec4 GetSubPixelX4H(highp usampler2D tex, ivec2 uv, int offset){
+PixType GetSubPixelX4H(highp usampler2D tex, ivec2 uv, int offset){
     if(uv.x>=textureSize(tex,0).x-offset) return GetSubPixelV2(tex,ivec2(uv.x-offset,uv.y),offset);
     if(uv.y>=textureSize(tex,0).y-offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y-offset),offset);
     if(uv.x<=offset) return GetSubPixelV2(tex,ivec2(uv.x+offset,uv.y),offset);
     if(uv.y<=offset) return GetSubPixelH2(tex,ivec2(uv.x,uv.y+offset),offset);
-    uvec4 a=texelFetch(tex,ivec2(uv.x-offset,uv.y-offset),0);
-    uvec4 b=texelFetch(tex,ivec2(uv.x-offset,uv.y+offset),0);
-    uvec4 c=texelFetch(tex,ivec2(uv.x+offset,uv.y-offset),0);
-    uvec4 d=texelFetch(tex,ivec2(uv.x+offset,uv.y+offset),0);
+    PixType a=fetchpix(tex,ivec2(uv.x-offset,uv.y-offset),0);
+    PixType b=fetchpix(tex,ivec2(uv.x-offset,uv.y+offset),0);
+    PixType c=fetchpix(tex,ivec2(uv.x+offset,uv.y-offset),0);
+    PixType d=fetchpix(tex,ivec2(uv.x+offset,uv.y+offset),0);
     return PixelAvg4H(a,b,c,d);
 }
 PigmentData GetPixelDebayer(highp usampler2D tex, ivec2 uv, int offset){
-    uvec4 c[4]; int s=(uv.x%2)*2+uv.y%2;
-    c[0]=uvec4(0);
+    PixType c[4]; int s=(uv.x%2)*2+uv.y%2;
     if(s==0){
-        c[0]=texelFetch(tex,uv,0); 
+        c[0]=fetchpix(tex,uv,0); 
         c[1]=GetSubPixelV2H(tex,uv,offset);
         c[2]=GetSubPixelH2(tex,uv,offset);
         c[3]=GetSubPixelX4H(tex,uv,offset);
     }else if(s==1){
         c[0]=GetSubPixelV2(tex,uv,offset);
-        c[1]=texelFetch(tex,uv,0); 
+        c[1]=fetchpix(tex,uv,0); 
         c[2]=GetSubPixelX4(tex,uv,offset);
         c[3]=GetSubPixelH2H(tex,uv,offset);
     }else if(s==2){
         c[0]=GetSubPixelH2(tex,uv,offset);
         c[1]=GetSubPixelX4H(tex,uv,offset);
-        c[2]=texelFetch(tex,uv,0);
+        c[2]=fetchpix(tex,uv,0);
         c[3]=GetSubPixelV2H(tex,uv,offset);
     }else{
         c[0]=GetSubPixelX4(tex,uv,offset);
         c[1]=GetSubPixelH2H(tex,uv,offset);
         c[2]=GetSubPixelV2(tex,uv,offset);
-        c[3]=texelFetch(tex,uv,0);
+        c[3]=fetchpix(tex,uv,0);
     }
     PigmentData p;
     setRL(c[0],p); setRH(c[1],p); setAL(c[2],p); setAH(c[3],p);
@@ -737,30 +842,30 @@ PigmentData GetPixelDebayer(highp usampler2D tex, ivec2 uv, int offset){
 }
 const uvec4 DB[4]=uvec4[4](uvec4(0,1,2,3),uvec4(1,0,3,2),uvec4(2,3,0,1),uvec4(3,2,1,0));
 PigmentData GetPixelQuick(highp usampler2D tex, ivec2 uv){
-    uvec4 c[4];
-    c[0]=texelFetch(tex,uv,0); 
-    c[1]=texelFetch(tex,ivec2(uv.x,uv.y+1),0);
-    c[2]=texelFetch(tex,ivec2(uv.x+1,uv.y),0);
-    c[3]=texelFetch(tex,ivec2(uv.x+1,uv.y+1),0);
+    PixType c[4];
+    c[0]=fetchpix(tex,uv,0); 
+    c[1]=fetchpix(tex,ivec2(uv.x,uv.y+1),0);
+    c[2]=fetchpix(tex,ivec2(uv.x+1,uv.y),0);
+    c[3]=fetchpix(tex,ivec2(uv.x+1,uv.y+1),0);
     int s=uv.x%2*2+uv.y%2;
     PigmentData p;
     setRL(c[DB[s][0]],p); setRH(c[DB[s][1]],p); setAL(c[DB[s][2]],p); setAH(c[DB[s][3]],p);
     return p;
 }
 PigmentData GetPixel(highp usampler2D tex, ivec2 uv){
-    uvec4 c0=texelFetch(tex,uv,0); 
-    uvec4 c1=texelFetch(tex,ivec2(uv.x,uv.y+1),0);
-    uvec4 c2=texelFetch(tex,ivec2(uv.x+1,uv.y),0);
-    uvec4 c3=texelFetch(tex,ivec2(uv.x+1,uv.y+1),0);
+    PixType c0=fetchpix(tex,uv,0); 
+    PixType c1=fetchpix(tex,ivec2(uv.x,uv.y+1),0);
+    PixType c2=fetchpix(tex,ivec2(uv.x+1,uv.y),0);
+    PixType c3=fetchpix(tex,ivec2(uv.x+1,uv.y+1),0);
     PigmentData p;
     setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p);
     return p;
 }
-uvec4 PackPixel(PigmentData p, int choose){
+PixType PackPixel(PigmentData p, int choose){
     switch(choose){
         case 0: return getRL(p); case 1: return getRH(p);
         case 2: return getAL(p); case 3: return getAH(p);
-        default: return uvec4(65535,0,65535,65535);
+        default: return PixType(0u);
     }
 }
 void PigmentMixSlices(float a[16], inout float b[16], float factor){
@@ -876,7 +981,9 @@ vec3 PigmentToRGB(PigmentData pd, PigmentData light){
 )";
 
 const char OUR_PIGMENT_TEXTURE_MIX_SHADER[]=R"(
+#ifndef OUR_GLES
 #extension GL_ARB_shading_language_420pack : enable // uniform sampler binding
+#endif
 precision highp float;
 precision highp int;
 layout (binding=2) uniform highp usampler2D TexColorUI0;
@@ -897,13 +1004,15 @@ void main(){
     PigmentData result = PigmentOver(p0,p1);
 
     int choose = xof*2+yof;
-    uvec4 pixel = PackPixel(result,choose);
+    uvec4 pixel = packpix(PackPixel(result,choose));
     outColor=pixel;
 }
 )";
 
 const char OUR_PIGMENT_TEXTURE_DISPLAY_SHADER[]=R"(
+#ifndef OUR_GLES
 #extension GL_ARB_shading_language_420pack : enable // uniform sampler binding
+#endif
 precision highp float;
 precision highp int;
 layout (binding=2) uniform highp usampler2D TexColorUI;
@@ -926,7 +1035,7 @@ void main(){
     ivec2 iuv=ivec2(gl_FragCoord.xy)+frag_offset;
     //ivec2(fUV*vec2(display_size)); //int xof=iuv.x%2; int yof=iuv.y%2; iuv.x-=xof; iuv.y-=yof;
 
-    int offset=int(texture_scale/2)*2+1;
+    int offset=int(texture_scale/2.)*2+1;
     PigmentData p0;
     if(display_mode==0){
         p0=GetPixelQuick(TexColorUI,iuv);

@@ -1159,7 +1159,7 @@ void our_CanvasDrawInit(laUiItem* ui){
     logPrint("GPU max local work group invocations %i\n", work_grp_inv);
 }
 void our_CanvasEnsureDrawBuffers(OurCanvasDraw* ocd, int W, int H){ laCanvasExtra*e=&ocd->Base;
-    int format = Our->PigmentMode?GL_RGBA16UI:GL_RGBA16F; int RealW=W,RealH=H,texscale=1;
+    int format = Our->PigmentMode?OUR_CANVAS_GL_PIX:GL_RGBA16F; int RealW=W,RealH=H,texscale=1;
     if(Our->PigmentMode){
         glDisable(GL_BLEND); glDisable(GL_DITHER); if(Our->PigmentDisplayMethod>=2){ W*=2; H*=2; texscale=2; }
     }
@@ -2317,7 +2317,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
             }
             for(int row=0;row<Our->ImageH;row++){
                 for(int col=0;col<Our->ImageW;col++){ uint8_t* p=&NewImage[((int64_t)row*Our->ImageW+col)*4]; uint16_t* p0=&Our->ImageBuffer[((int64_t)row*Our->ImageW+col)*4];
-                    p[0]=((real)p0[0])/256; p[1]=((real)p0[1])/256; p[2]=((real)p0[2])/256; p[3]=((real)p0[3])/256;
+                    p[0]=((real)p0[0])/257; p[1]=((real)p0[1])/257; p[2]=((real)p0[2])/257; p[3]=((real)p0[3])/257;
                 }
             }
         }
@@ -2742,14 +2742,13 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         Our->u=&Our->uRGBA;
     }
 
-    unsigned int *uniforms=alloca(sizeof(unsigned int)*OURU->SubroutineUniformLocations);
-
     glUniform1i(OURU->uBrushErasing,Our->Erasing);
     glUniform1i(OURU->uBrushMix,Our->Erasing?0:Our->BrushMix);
 #ifdef LA_USE_GLES
     glUniform1i(OURU->uBrushRoutineSelectionES,0);
     glUniform1i(OURU->uMixRoutineSelectionES,Our->SpectralMode?1:0);
 #else
+    unsigned int *uniforms=alloca(sizeof(unsigned int)*OURU->SubroutineUniformLocations);
     uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
     if(OURU->uMixRoutineSelection>=0){
         uniforms[OURU->uMixRoutineSelection]=Our->SpectralMode?OURU->RoutineDoMixSpectral:OURU->RoutineDoMixNormal;
@@ -2762,10 +2761,10 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 
     while(oss=lstPopItem(&Segments)){
         if(oss->Resample || Our->CurrentBrush->SmudgeRestart){
-            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoSample;
 #ifdef LA_USE_GLES
             glUniform1i(OURU->uBrushRoutineSelectionES,1);
 #else
+            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoSample;
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,OURU->SubroutineUniformLocations,uniforms);
 #endif
             int x=Our->Dabs[oss->Start].X, y=Our->Dabs[oss->Start].Y; float usize=Our->Dabs[oss->Start].Size;
@@ -2783,10 +2782,10 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
                 }
             }
             Our->CurrentBrush->SmudgeRestart=0;
-            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
 #ifdef LA_USE_GLES
             glUniform1i(OURU->uBrushRoutineSelectionES,0);
 #else
+            uniforms[OURU->uBrushRoutineSelection]=OURU->RoutineDoDabs;
             glUniformSubroutinesuiv(GL_COMPUTE_SHADER,OURU->SubroutineUniformLocations,uniforms);
 #endif
             glUniform1i(OURU->uBrushErasing,Our->Erasing);
@@ -4099,7 +4098,11 @@ int ourfilter_BrushInPage(void* Unused, OurBrush* b){
     return 0;
 }
 void ourset_ShowSketch(void* unused, int c){ Our->SketchMode=c; laNotifyUsers("our.canvas_notify"); }
-void ourset_PigmentMode(void* unused, int a){ Our->PigmentMode=a; laNotifyUsers("our"); }
+void ourset_PigmentMode(void* unused, int a){
+    if(a){ if(Our->CanvasPigmentProgram==0xffff) Our->PigmentMode=0; else Our->PigmentMode=a; }
+    else{ Our->PigmentMode=0; }
+    laNotifyUsers("our");
+}
 void ourset_UsePigmentPigment(OurUsePigment* up, OurPigment* p){ memAssignRef(up,&up->pigment,p); laNotifyInstanceUsers(up); }
 void ourget_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ data[i]=pd->Reflectance[i]; } }
 void ourset_Reflectance(OurPigmentData* pd, real* data){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ pd->Reflectance[i]=data[i]; } our_PigmentToPreviewSelf(pd); }
@@ -4905,6 +4908,7 @@ static void android_ensure_asset_to_public_dir(char* asset_file){
 #endif
 
 void ourGetUniforms(int CanvasProgram, int CompositionProgram){
+    if(CanvasProgram<0 || CompositionProgram<0) return;
     OURU->uCanvasType=glGetUniformLocation(CanvasProgram,"uCanvasType");
     OURU->uCanvasRandom=glGetUniformLocation(CanvasProgram,"uCanvasRandom");
     OURU->uCanvasFactor=glGetUniformLocation(CanvasProgram,"uCanvasFactor");
@@ -4944,7 +4948,9 @@ void ourGetUniforms(int CanvasProgram, int CompositionProgram){
     OURU->uAlphaTop=glGetUniformLocation(CompositionProgram,"uAlphaTop");
     OURU->uAlphaBottom=glGetUniformLocation(CompositionProgram,"uAlphaBottom");
 
+#ifndef LA_USE_GLES
     glGetProgramStageiv(CanvasProgram,GL_COMPUTE_SHADER,GL_ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS, &OURU->SubroutineUniformLocations);
+#endif
 }
 
 int ourInit(){
@@ -4976,9 +4982,9 @@ int ourInit(){
     glShaderSource(Our->CanvasShader, 3, sources1rgb, NULL);                 glCompileShader(Our->CanvasShader);
     glShaderSource(Our->CanvasStraightShader, 3, sources1rgbstraight, NULL); glCompileShader(Our->CanvasStraightShader);
     glShaderSource(Our->CanvasPigmentShader, 3, sources1pigment, NULL);      glCompileShader(Our->CanvasPigmentShader);
-    if(!tnsCheckShaderCompileStatus(Our->CanvasShader,"Canvas RGB"))                  exit(0);
-    if(!tnsCheckShaderCompileStatus(Our->CanvasStraightShader,"Canvas RGB Straight")) exit(0);
-    if(!tnsCheckShaderCompileStatus(Our->CanvasPigmentShader,"Canvas Pigment"))       exit(0);
+    tnsCheckShaderCompileStatus(Our->CanvasShader,"Canvas RGB");
+    tnsCheckShaderCompileStatus(Our->CanvasStraightShader,"Canvas RGB Straight");
+    tnsCheckShaderCompileStatus(Our->CanvasPigmentShader,"Canvas Pigment");
     if(source1){free(source1);}
 
     Our->CanvasProgram =         glCreateProgram();
@@ -4989,7 +4995,7 @@ int ourInit(){
     glAttachShader(Our->CanvasPigmentProgram, Our->CanvasPigmentShader);   glLinkProgram(Our->CanvasPigmentProgram);
     tnsCheckProgramLinkStatus(Our->CanvasProgram,"Canvas");
     tnsCheckProgramLinkStatus(Our->CanvasStraightProgram,"Canvas Straight");
-    tnsCheckProgramLinkStatus(Our->CanvasPigmentProgram,"Canvas Pigment");
+    if(!tnsCheckProgramLinkStatus(Our->CanvasPigmentProgram,"Canvas Pigment"));// Our->CanvasPigmentProgram=0xffff;
 
     Our->uboBrushPigmentLocation=glGetUniformBlockIndex(Our->CanvasPigmentProgram, "BrushPigmentBlock");
     glUniformBlockBinding(Our->CanvasPigmentProgram, Our->uboBrushPigmentLocation, 0);
@@ -5017,7 +5023,7 @@ int ourInit(){
     const GLchar* source3 = strSub(OUR_PIGMENT_TEXTURE_MIX_SHADER,"#with OUR_PIGMENT_COMMON",OUR_PIGMENT_COMMON);
     const GLchar* sources3[]={versionstr, source3};
     glShaderSource(Our->PigmentLayeringShader, 2, sources3, NULL); glCompileShader(Our->PigmentLayeringShader);
-    if(!tnsCheckShaderCompileStatus(Our->PigmentLayeringShader,"Pigment Layering")) exit(0);
+    if(!tnsCheckShaderCompileStatus(Our->PigmentLayeringShader,"Pigment Layering"))
     if(source3){free(source3);}
 
     Our->PigmentLayeringProgramT = tnsNewShaderProgram(T->immShader->vtShaderID,Our->PigmentLayeringShader,-1);
@@ -5035,8 +5041,8 @@ int ourInit(){
     Our->uboCanvasPigmentLocation=glGetUniformBlockIndex(pid, "CanvasPigmentBlock");
     glUniformBlockBinding(pid, Our->uboCanvasPigmentLocation, 0);
     Our->uPigmentTextureScale=glGetUniformLocation(pid, "texture_scale");
-    Our->uPigmentDisplayMode=glGetUniformLocation(pid, "display_mode");
-    Our->uPigmentFragOffset=glGetUniformLocation(pid, "frag_offset");
+    Our->uPigmentDisplayMode= glGetUniformLocation(pid, "display_mode");
+    Our->uPigmentFragOffset=  glGetUniformLocation(pid, "frag_offset");
 
     glGenBuffers(1, &Our->uboBrushPigment);
     glGenBuffers(1, &Our->uboCanvasPigment);
