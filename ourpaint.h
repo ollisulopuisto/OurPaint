@@ -539,6 +539,7 @@ STRUCTURE(OurPaint){
     int MixModeOnHeader;
     int ToolsOnHeader;
     int UndoOnHeader;
+    int LightsOnHeader;
     int SketchMode;
     int SegmentedWrite;
     int PigmentDisplayMethod;
@@ -560,8 +561,8 @@ STRUCTURE(OurPaint){
     BrushUniforms *u,uRGBA,uRGBStraightA,uPigment;
     int AlphaMode;
 
-    OurCanvasSurface CanvasSurface;
-    OurLight         CanvasLight;
+    OurCanvasSurface *CanvasSurface; // not ptr to list
+    OurLight         *CanvasLight;
     OurPigmentData   PickedPigment;
     OurPigmentData   MixedPigment;
     laListHandle     UsePigments;

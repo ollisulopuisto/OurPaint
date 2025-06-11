@@ -61,9 +61,6 @@ int main(int argc, char *argv[]){
         laManagedUDF* m; laUDF* udf = laOpenUDF(file, 1, 0, &m);
         if(udf){ laExtractUDF(udf,m,mode); laCloseUDF(udf); anyload=1; }
     }
-    if(anyload){ laRecordEverythingAndPush(); }
-
-    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
     if(!MAIN.InputMapping->Toolboxes.pFirst){
         laInputMapping* im=laNewToolbox("Default Toolbox"); laInputMappingEntry* ime;
@@ -74,7 +71,6 @@ int main(int argc, char *argv[]){
         ime=laNewInputMappingEntry(im,0,0,0,0,"our.brush_bigger"); strSafeSet(&ime->Key,"Bigger");
     }
 
-    //laAddRootDBInst("our.tools");
     if(!MAIN.Windows.pFirst){
         laWindow* w = laDesignWindow(-1,-1,35*LA_RH,25*LA_RH);
         laLayout* l = laDesignLayout(w, "Our Paint");
@@ -104,6 +100,10 @@ int main(int argc, char *argv[]){
     }
 
     ourFinalize();
+
+    if(anyload){ laRecordEverythingAndPush(); }
+    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
+
     our_EnableSplashPanel();
     laMainLoop();
 }
