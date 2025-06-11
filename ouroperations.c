@@ -2441,7 +2441,7 @@ void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer){
     our_XYZ2RGBFunc func;
     if(ToColorSpace==OUR_EXPORT_COLOR_MODE_SRGB){ func=tnsXYZ2sRGB; }
     elif(ToColorSpace==OUR_EXPORT_COLOR_MODE_D65_P3){ func=tnsXYZ2D65P3; }
-    else{ func==tnsXYZ2Clay; }
+    else{ func=tnsXYZ2Clay; }
     for(int i=0;i<threads;i++){
         pcd[i].RowStart=i*RowsPerThread; pcd[i].RowCount=RowsPerThread;
         pcd[i].cols=cols; pcd[i].ImageConversionBuffer=ImageConversionBuffer;
@@ -2463,6 +2463,11 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
     cmsHTRANSFORM cmsTransform = NULL;
     cmsHPROFILE input_buffer_profile=NULL, output_buffer_profile=NULL;
 
+    if(Our->PigmentMode){
+        our_PigmentConvertForExport(BitDepth,ColorProfile,PigmentConversionMethod);
+        return;
+    }
+
     if(!Our->AlphaMode){
         /* unpremultiply */
         uint16_t* image_buffer=Our->ImageBuffer;
@@ -2476,11 +2481,6 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
                 }
             }
         }
-    }
-
-    if(Our->PigmentMode){
-        our_PigmentConvertForExport(BitDepth,ColorProfile,PigmentConversionMethod);
-        return;
     }
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
@@ -3038,33 +3038,70 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     real r = (real)(TNS_MAX2(w,h))/400.0f;
     int use_w=w/r, use_h=h/r;
 
-    tnsOffscreen* off1 = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
-    tnsOffscreen* off2 = tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
+    int pixformat = Our->PigmentMode?OUR_CANVAS_GL_PIX:GL_RGBA;
+
+    if(Our->PigmentMode){ glDisable(GL_BLEND); }
+
+    tnsOffscreen* off1 = tnsCreate2DOffscreen(pixformat,use_w,use_h,0,0,0);
+    tnsOffscreen* off2 = tnsCreate2DOffscreen(pixformat,use_w,use_h,0,0,0);
     tnsDrawToOffscreen(off1,1,0);
     tnsViewportWithScissor(0, 0, use_w, use_h);
     tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
     tnsOrtho(x,x+w,y+h,y,-100,100);
-    tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
+    if(Our->PigmentMode){
+        uint32_t val[4]={0};
+        glClearBufferuiv(GL_COLOR, 0,val);
+        tnsEnableShaderv(Our->PigmentLayeringProgramT);
+    }else{
+      tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
+      tnsUseImmShader(); tnsEnableShaderv(T->immShader);
+    }
     our_CanvasDrawTextures(off1, off2);
+
+    tnsOffscreen* readoff = off1;
+    tnsOffscreen* off3 = 0;
+    if(Our->PigmentMode){
+        off3=tnsCreate2DOffscreen(GL_RGBA,use_w,use_h,0,0,0);
+        tnsDrawToOffscreen(off3,1,0);
+        tnsEnableShaderv(Our->PigmentDisplayProgramT);
+
+        OurPigmentData140 pd140; our_ToPigmentData140(&Our->CanvasLight->Emission,&Our->CanvasSurface->Reflectance,&pd140);
+        glBindBufferBase(GL_UNIFORM_BUFFER, Our->uboCanvasPigmentLocation, Our->uboCanvasPigment);
+        glBindBuffer(GL_UNIFORM_BUFFER, Our->uboCanvasPigment);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(OurPigmentData140), &pd140);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glUniform2i(Our->uPigmentFragOffset,0,0);
+        glUniform1f(Our->uPigmentTextureScale,1.0f);
+        glUniform1i(Our->uPigmentDisplayMode,0);
+
+        tnsViewportWithScissor(0, 0, use_w, use_h);
+        tnsResetViewMatrix();tnsResetModelMatrix();tnsResetProjectionMatrix();
+        tnsOrtho(0,use_w,0,use_h,-100,100);
+        tnsDraw2DTextureDirectly(off1->pColor[0], 0, 0, use_w, use_h);
+        tnsFlush(); glEnable(GL_BLEND);
+        readoff = off3;
+    }
 
     if(Our->ImageBuffer){ free(Our->ImageBuffer); }
     int bufsize=use_w*use_h*OUR_CANVAS_PIXEL_SIZE;
     Our->ImageBuffer=malloc(bufsize);
-    tnsBindTexture(off1->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    tnsBindTexture(readoff->pColor[0]); glPixelStorei(GL_PACK_ALIGNMENT, 1);
 #ifdef LA_USE_GLES
     int readtype=GL_UNSIGNED_BYTE;
 #else
     int readtype=GL_UNSIGNED_SHORT;
 #endif
-    tnsGet2DTextureSubImage(off1->pColor[0], 0, 0, use_w, use_h, GL_RGBA, readtype, bufsize, Our->ImageBuffer);
+    tnsGet2DTextureSubImage(readoff->pColor[0], 0, 0, use_w, use_h, GL_RGBA, readtype, bufsize, Our->ImageBuffer);
 
     tnsDrawToScreen();
     tnsDelete2DOffscreen(off1);
     tnsDelete2DOffscreen(off2);
+    if(off3) tnsDelete2DOffscreen(off3);
 
-    Our->ImageW = use_w; Our->ImageH = use_h;
+    Our->ImageW = use_w; Our->ImageH = use_h; int p=Our->PigmentMode; Our->PigmentMode=0;
     our_ImageBufferFromNative();
     our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY,0);
+    use_w=Our->ImageW; use_h=Our->ImageH; Our->PigmentMode=p;
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     png_infop info_ptr = png_create_info_struct(png_ptr);
