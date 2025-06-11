@@ -586,7 +586,7 @@ const PigmentData PIGMENT_BLACK=
 #ifdef OUR_GLES
 
 #define PixType uint
-#define PREC_FIX (0.25/15.)
+#define PREC_FIX (0.0/15.)
 #define fetchpix(tex,uv,level) texelFetch(tex,uv,level).x
 #define loadpix(tex,uv) imageLoad(tex,uv).x
 #define packpix(c) uvec4(c)
