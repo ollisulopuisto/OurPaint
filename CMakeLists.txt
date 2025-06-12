@@ -25,7 +25,6 @@ set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-no-pie")
 
 find_package(lagui REQUIRED)
 find_package(PNG REQUIRED)
-find_package(LCMS2 REQUIRED)
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/std:c11>")
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
@@ -93,7 +92,6 @@ target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_HASH=\"${OURPAINT_GI
 target_link_libraries(OurPaint
     ${LAGUI_SHARED_LIBS}
     ${PNG_LIBRARY}
-    ${LCMS2_LIBRARIES}
 )
 
 SET(INSTALL_EXTRAS

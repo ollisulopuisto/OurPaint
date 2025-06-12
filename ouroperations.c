@@ -190,34 +190,7 @@ void our_InitRGBProfile(int Linear,cmsCIExyYTRIPLE* primaries_pre_quantized, voi
 void our_cmsErrorLogger(cmsContext ContextID,cmsUInt32Number ErrorCode,const char *Text){
     logPrintNew("[LCMS] %s\n",Text);
 }
-void our_InitProofLUT(void** lut, cmsHPROFILE cmyk_profile, cmsHPROFILE rgb_profile){
-    real data[OUR_PROOF_PIXCOUNT*3];
-    real cmyk8[OUR_PROOF_PIXCOUNT*4];
-    int prec=OUR_PROOF_PRECISION;
-    for(int i=0;i<prec;i++){
-        int counti=i*prec*prec;
-        for(int j=0;j<prec;j++){
-            int countj=j*prec;
-            for(int k=0;k<prec;k++){
-                real* p=&data[(counti+countj+k)*3];
-                p[0]=((real)i)/OUR_PROOF_VAL; p[1]=((real)j)/OUR_PROOF_VAL; p[2]=((real)k)/OUR_PROOF_VAL;
-            }
-        }
-    }
 
-    *lut=malloc(sizeof(char)*3*OUR_PROOF_PIXCOUNT);
-    char* table = *lut;
-    
-    cmsHTRANSFORM htransform=cmsCreateProofingTransform(rgb_profile,TYPE_RGB_DBL,rgb_profile,TYPE_RGB_8,cmyk_profile,
-        INTENT_ABSOLUTE_COLORIMETRIC,INTENT_ABSOLUTE_COLORIMETRIC,cmsFLAGS_HIGHRESPRECALC|cmsFLAGS_SOFTPROOFING|cmsFLAGS_NOOPTIMIZE);
-    cmsDoTransform(htransform,data,table,OUR_PROOF_PIXCOUNT);
-}
-void our_WriteProofingTable(const char* name,void* data){
-    char buf[256]; sprintf(buf,"soft_proof_table_%s.lagui.lut",name);
-    FILE* fp=fopen(buf,"wb");
-    fwrite(data,sizeof(char)*3*OUR_PROOF_PIXCOUNT,1,fp);
-    fclose(fp);
-}
 void our_InitColorProfiles(){
     cmsSetLogErrorHandler(our_cmsErrorLogger);
 
@@ -233,25 +206,6 @@ void our_InitColorProfiles(){
     manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
     our_InitRGBProfile(1,&d65_p3_primaries_prequantized,&Our->icc_LinearD65P3,&Our->iccsize_LinearD65P3,"Copyright Yiming 2022.",manu,"Yiming's Linear D65 P3 icc profile.");
     our_InitRGBProfile(0,&d65_p3_primaries_prequantized,&Our->icc_D65P3,&Our->iccsize_D65P3,"Copyright Yiming 2022.",manu,"Yiming's D65 P3 icc profile.");
-
-#if 0 // Use this to generate soft proof lut
-
-    char path[4096]; getcwd(path,4096); strcat(path,"/SWOP2006_Coated3v2.icc");
-    cmsHPROFILE cmyk = cmsOpenProfileFromFile(path,"r");
-    cmsHPROFILE srgb = cmsOpenProfileFromMem(Our->icc_sRGB,Our->iccsize_sRGB);
-    cmsHPROFILE clay = cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay);
-    cmsHPROFILE d65p3 = cmsOpenProfileFromMem(Our->icc_D65P3,Our->iccsize_D65P3);
-    our_InitProofLUT(&Our->ProofTablesRGB,cmyk,srgb);
-    our_InitProofLUT(&Our->ProofTableClay,cmyk,clay);
-    our_InitProofLUT(&Our->ProofTableD65,cmyk,d65p3);
-    our_WriteProofingTable("sRGB",Our->ProofTablesRGB);
-    our_WriteProofingTable("Clay",Our->ProofTableClay);
-    our_WriteProofingTable("D65P3",Our->ProofTableD65);
-    laSetProofingLut(Our->ProofTablesRGB, 0);
-    laSetProofingLut(Our->ProofTableClay, 1);
-    laSetProofingLut(Our->ProofTableD65, 2);
-
-#endif //soft proof
 }
 
 void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -273,8 +227,8 @@ void ourui_CanvasPropertiesPanel(laUiList *uil, laPropPack *This, laPropPack *De
     laShowSeparator(uil,c);
 
     b3=laOnConditionThat(uil,c,laPropExpression(&pigui->PP,""));{
-        laShowItemWithLabel(uil,cl,cr,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
+        laShowItemWithLabel(uil,cl,cr,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
 
     }laElse(uil,b3);{
         laShowItemWithLabel(uil,cl,cr,0,"our.canvas.color_interpretation",0,0,0,0,0,0,0);
@@ -333,7 +287,9 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b1);
         laShowItem(uil,cl,0,"our.canvas.current_layer.transparency");
-        laShowItem(uil,cr,0,"our.canvas.current_layer.blend_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+        laUiItem* bpig=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.canvas.pigment_mode")));{
+            laShowItem(uil,cr,0,"our.canvas.current_layer.blend_mode")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+        }laEndCondition(uil,bpig);
     }laElse(uil,b);{
         laShowItem(uil,c,0,"OUR_new_layer")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
@@ -538,10 +494,10 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laEndRow(uil,b1);
             laShowLabel(uil,c,"Brush Settings:",0,0);
             laShowItem(uil,c,&cb->PP,"name")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
-            laShowItem(uil,cl,&cb->PP,"use_nodes")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            laShowItem(uil,cl,&cb->PP,"use_nodes")->Flags|=LA_UI_FLAGS_NO_CONFIRM|LA_UI_FLAGS_CHECKBOX;
 
             laUiItem* b3=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));{
-                laShowItemFull(uil,cr,0,"LA_panel_activator",0,"text=Edit;panel_id=panel_brush_nodes",0,0);
+                laShowItemFull(uil,cr,0,"LA_panel_activator",0,"text=Edit Nodes;panel_id=panel_brush_nodes",0,0);
             }laEndCondition(uil,b3);
 
             OUR_BR laShowItem(uil,c,&cb->PP,"size_offset")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
@@ -554,25 +510,29 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,c,&cb->PP,"smudge_resample_length");
             laShowItem(uil,c,&cb->PP,"gunkyness");
             OUR_BR laShowItem(uil,c,&cb->PP,"force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
-            laShowSeparator(uil,c);
-            laShowItem(uil,c,&cb->PP,"smoothness");
-            laShowSeparator(uil,c);
-            b2=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));
-                laShowItem(uil,cl,&cb->PP,"c1");
-                laShowItem(uil,cr,&cb->PP,"c1_name");
-                laShowItem(uil,cl,&cb->PP,"c2");
-                laShowItem(uil,cr,&cb->PP,"c2_name");
-            laEndCondition(uil,b2);
-            laShowSeparator(uil,c);
-            laShowLabel(uil,c,"Visual Offset:",0,0);
-            OUR_BR laShowItem(uil,c,&cb->PP,"visual_offset")->Expand=1;
-            b3=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"offset_follow_pen_tilt")));{
-                laShowItem(uil,c,&cb->PP,"visual_offset_angle");
-            }laEndCondition(uil,b3);
-            laShowItemFull(uil,c,&cb->PP,"offset_follow_pen_tilt",0,"text=🖍",0,0);
-            OUR_ER
-            laShowSeparator(uil,c);
-            laShowItem(uil,c,&cb->PP,"default_as_eraser");
+
+            laUiItem*badv=laOnConditionToggle(uil,c,0,0,0,0,0);{ strSafeSet(&badv->ExtraInstructions,"text=Advanced...");
+                laShowSeparator(uil,c);
+                laShowItem(uil,c,&cb->PP,"smoothness");
+                laShowSeparator(uil,c);
+                laShowItem(uil,c,&cb->PP,"default_as_eraser")->Flags|=LA_UI_FLAGS_CHECKBOX|LA_UI_FLAGS_NO_CONFIRM;
+                laShowSeparator(uil,c);
+                b2=laOnConditionThat(uil,c,laPropExpression(&cb->PP,"use_nodes"));
+                    laShowItem(uil,cl,&cb->PP,"c1");
+                    laShowItem(uil,cr,&cb->PP,"c1_name");
+                    laShowItem(uil,cl,&cb->PP,"c2");
+                    laShowItem(uil,cr,&cb->PP,"c2_name");
+                laEndCondition(uil,b2);
+                laShowSeparator(uil,c);
+                laShowLabel(uil,c,"Visual Offset:",0,0);
+                OUR_BR laShowItem(uil,c,&cb->PP,"visual_offset")->Expand=1;
+                b3=laOnConditionThat(uil,c,laNot(laPropExpression(&cb->PP,"offset_follow_pen_tilt")));{
+                    laShowItem(uil,c,&cb->PP,"visual_offset_angle");
+                }laEndCondition(uil,b3);
+                laShowItemFull(uil,c,&cb->PP,"offset_follow_pen_tilt",0,"text=🖍",0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+                OUR_ER
+            }laEndCondition(uil,badv);
+
         }laEndCondition(uil,b);
     }laEndCondition(uil,bt);
 
@@ -609,14 +569,6 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,cr,0,"our.canvas.ref_middle_margin");
         }laEndCondition(uil,b);
     }laEndCondition(uil,bt);
-
-    laShowSeparator(uil,c);
-    laShowLabel(uil,c,"Display:",0,0);
-    laShowItem(uil,c,0,"our.preferences.enable_brush_circle");
-    laUiItem*b =laBeginRow(uil,c,1,0);
-    laShowItem(uil,c,0,"our.preferences.show_stripes");
-    laShowItem(uil,c,0,"our.preferences.show_grid");
-    laEndRow(uil,b);
 }
 void ourui_BrushesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* b1, *b2;
@@ -687,36 +639,41 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
 }
 void ourui_PallettesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laUiItem* b,*b1,*b2;
-    b=laBeginRow(uil,c,0,0);
-    laShowItemFull(uil,c,0,"our.tools.pallettes",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
-    laUiItem* ui=laShowInvisibleItem(uil,c,0,"our.tools.current_pallette");
-    b1=laOnConditionThat(uil,c,laPropExpression(&ui->PP,""));{
-        laUiItem* name=laShowItem(uil,c,&ui->PP,"name");name->Flags|=LA_UI_FLAGS_NO_DECAL; name->Expand=1;
-        laShowItem(uil,c,0,"OUR_new_pallette")->Flags|=LA_UI_FLAGS_ICON;
-        laEndRow(uil,b);
-        laShowItemFull(uil,c,0,"our.tools.current_pallette",LA_WIDGET_COLLECTION_SINGLE,0,ourui_Pallette,0);
-        b2=laBeginRow(uil,c,0,0);
-        laShowItem(uil,c,0,"OUR_pallette_new_color")->Expand=1;
-        laUiList* muil=laMakeMenuPage(uil,c,"☰"); laColumn* mc=laFirstColumn(muil);{
-            laShowItem(muil,mc,0,"OUR_remove_pallette");
-        }
-        laEndRow(uil,b2);
-    }laElse(uil,b1);{
-        laShowItem(uil,c,0,"OUR_new_pallette")->Expand=1;
-        laEndRow(uil,b);
-    }laEndCondition(uil,b1);
+    laUiItem* bpig=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.pigment_mode"));{
+        
+    }laElse(uil,bpig);{
+        b=laBeginRow(uil,c,0,0);
+        laShowItemFull(uil,c,0,"our.tools.pallettes",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
+        laUiItem* ui=laShowInvisibleItem(uil,c,0,"our.tools.current_pallette");
+        b1=laOnConditionThat(uil,c,laPropExpression(&ui->PP,""));{
+            laUiItem* name=laShowItem(uil,c,&ui->PP,"name");name->Flags|=LA_UI_FLAGS_NO_DECAL; name->Expand=1;
+            laShowItem(uil,c,0,"OUR_new_pallette")->Flags|=LA_UI_FLAGS_ICON;
+            laEndRow(uil,b);
+            laShowItemFull(uil,c,0,"our.tools.current_pallette",LA_WIDGET_COLLECTION_SINGLE,0,ourui_Pallette,0);
+            b2=laBeginRow(uil,c,0,0);
+            laShowItem(uil,c,0,"OUR_pallette_new_color")->Expand=1;
+            laUiList* muil=laMakeMenuPage(uil,c,"☰"); laColumn* mc=laFirstColumn(muil);{
+                laShowItem(muil,mc,0,"OUR_remove_pallette");
+            }
+            laEndRow(uil,b2);
+        }laElse(uil,b1);{
+            laShowItem(uil,c,0,"OUR_new_pallette")->Expand=1;
+            laEndRow(uil,b);
+        }laEndCondition(uil,b1);
+    }laEndCondition(uil,bpig);
 }
 void ourui_BrushPage(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
-    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,15);cr=laRightColumn(c,0);
-    
+    laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.5); cl=laLeftColumn(c,12);cr=laRightColumn(c,0);
+
     laUiItem*row=laBeginRow(uil,cr,0,0);
     laShowSeparator(uil,cr)->Expand=1;
     laShowItemFull(uil, cr, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintnodeshelp;text=Nodes Help", 0, 0);
     laEndRow(uil,row);
 
-    laShowItemFull(uil,cl,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+    laUiItem* uicb=laShowItemFull(uil,cl,0,"our.tools.current_brush",LA_WIDGET_COLLECTION_SELECTOR,0,laui_IdentifierOnly,0);
+        uicb->Flags|=LA_UI_FLAGS_NO_CONFIRM;
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.tools.current_brush"));{
-        laShowItemFull(uil,c,0,"our.tools.current_brush.rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_CONFIRM;
+        laShowItemFull(uil,c,&uicb->PP,"rack_page",LA_WIDGET_COLLECTION_SINGLE,0,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
 }
 void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -770,7 +727,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laUiItem* b,*uiitem;
 
     laShowLabel(uil,c,"Generic:",0,0);
-    laShowItemFull(uil,cr,0,"our.preferences.spectral_mode",0,"text=Spectral Mixing in RGB",0,0)->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItemFull(uil,cr,0,"our.preferences.spectral_mode",0,"text=Spectral Mixing (RGBA Canvas only)",0,0)->Flags|=LA_UI_FLAGS_CHECKBOX;
     uiitem=laShowItem(uil,cr,0,"our.preferences.enable_brush_circle");uiitem->Flags|=LA_UI_FLAGS_CHECKBOX;
     b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
     laShowItemWithLabel(uil,cl,cr,0,"our.preferences.brush_circle_tilt_mode",0,0,0,0,"Show brush direction",0,c)->Flags|=LA_UI_FLAGS_EXPAND;
@@ -800,7 +757,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,crr,0,"our.preferences.tools_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,crl,0,"our.preferences.mix_mode_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,crr,0,"our.preferences.brush_numbers_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
-    laShowItem(uil,crl,0,"our.preferences.lights_on_header")->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laShowItemFull(uil,cr,0,"our.preferences.lights_on_header",0,"text=Light & Surface (Pigment canvas only)",0,0)->Flags|=LA_UI_FLAGS_CHECKBOX;
 
     laShowSeparator(uil,c);
 
@@ -834,6 +791,12 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 }
 void ourui_OurPreferencePigments(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c = laFirstColumn(uil),*cl,*cr; laSplitColumn(uil,c,0.5);cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
+
+    laUiItem* bpig=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.canvas.pigment_mode"))); {
+        laShowLabel(uil,c,"Current canvas is not in pigment mode,\nyou can still configure lights and surfaces.",0,0)
+            ->Flags|=LA_TEXT_LINE_WRAP|LA_TEXT_USE_NEWLINE;
+        laShowSeparator(uil,c);
+    }laEndCondition(uil,bpig);
 
     laUiItem* b=laBeginRow(uil,c,0,0);
     laShowLabel(uil,c,"Light Source Spectrums:",0,0)->Expand=1;
@@ -3538,6 +3501,9 @@ int ourinv_RemoveUsePigment(laOperator* a, laEvent* e){
 void ourset_ChooseCanvasSurface(void* unsed, OurCanvasSurface* cs);
 void ourset_ChooseLight(void* unsed, OurLight* l);
 
+int ourchk_UseLightOrSurface(laPropPack *This, laStringSplitor *ss){
+    if(Our->PigmentMode){ return 1; } return 0;
+}
 int ourinv_UseLight(laOperator* a, laEvent* e){
     OurLight* l=a->This?a->This->EndInstance:0; if(!l) return LA_CANCELED;
     ourset_ChooseLight(0,l);
@@ -4403,19 +4369,20 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         laShowItem(muil,mc,0,"OUR_clear_empty_tiles");
         laShowItemFull(muil,mc,0,"our.preferences.show_debug_tiles",LA_WIDGET_ENUM_HIGHLIGHT,"text=👁",0,0);
         laEndRow(muil,row);
-    }
-    muil = laMakeMenuPage(uil, c, "Options"); {
-        mc = laFirstColumn(muil);
         laShowLabel(muil, mc, "Settings", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_user_preferences;", 0, 0);
+    }
+    muil = laMakeMenuPage(uil, c, "About"); {
+        mc = laFirstColumn(muil);
         
+        laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_about;text=About Our Paint;", 0, 0);
+
         laShowLabel(muil, mc, "Help", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20250102221716;text=Release Notes", 0, 0);
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
         
-        laShowLabel(muil, mc, "Information", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
-        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_about;text=About;", 0, 0);
 
 #ifdef _WIN32
         laShowSeparator(muil,mc);
@@ -4439,10 +4406,10 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
 
     laUiItem* b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.pigment_mode"));{
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.lights_on_header"));{
-            laShowItemFull(uil,c,0,"our.canvas.surface.name",LA_WIDGET_STRING_PLAIN,0,0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
-            laShowItemFull(uil,c,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
             laShowItemFull(uil,c,0,"our.canvas.light.name",LA_WIDGET_STRING_PLAIN,0,0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
             laShowItemFull(uil,c,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
+            laShowItemFull(uil,c,0,"our.canvas.surface.name",LA_WIDGET_STRING_PLAIN,0,0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+            laShowItemFull(uil,c,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
             laShowSeparator(uil,c);
         }laEndCondition(uil,b1);
     }laEndCondition(uil,b);
@@ -4456,20 +4423,20 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
     }laEndCondition(uil,b1);
 
     b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.tool"),laIntExpression(0)));{
-        laUiItem* bpig=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.canvas.pigment_mode")));{
-            b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.mix_mode_on_header"));{
-                laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.mix_mode_on_header"));{
+            laShowItemFull(uil,c,0,"our.erasing",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+            laUiItem* bpig=laOnConditionThat(uil,c,laNot(laPropExpression(0,"our.canvas.pigment_mode")));{
                 b2=laOnConditionThat(uil,c,laPropExpression(0,"our.erasing"));{
                     laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_DISABLED|LA_UI_FLAGS_NO_CONFIRM;
                 }laElse(uil,b2);{
                     laShowItem(uil,c,0,"our.brush_mix")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
                 }laEndCondition(uil,b2);
-            }laEndCondition(uil,b1);
+            }laEndCondition(uil,bpig);
+        }laEndCondition(uil,b1);
 
-            b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
-                laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
-            }laEndCondition(uil,b1);
-        }laEndCondition(uil,bpig);
+        b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.brush_numbers_on_header"));{
+            laShowItem(uil,c,0,"our.preferences.brush_number")->Flags|=LA_UI_FLAGS_EXPAND;
+        }laEndCondition(uil,b1);
     }laEndCondition(uil,b);
     char str[100]; sprintf(str,"text=%s",MAIN.MenuProgramName);
     laShowItemFull(uil,c,0,"OUR_show_splash",0,str,0,0)->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_TOOLTIP|LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
@@ -4646,13 +4613,13 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_new_use_pigment","New Use Pigment","Reference a new pigment",0,0,0,ourinv_NewUsePigment,0,'+',0);
     laCreateOperatorType("OUR_remove_use_pigment","Remove Use Pigment","Remove this pigment reference",0,0,0,ourinv_RemoveUsePigment,0,U'🗴',0);
 
-    laCreateOperatorType("OUR_use_light","Use Light","Use this light",0,0,0,ourinv_UseLight,0,U'🡪',0);
+    laCreateOperatorType("OUR_use_light","Use Light","Use this light",ourchk_UseLightOrSurface,0,0,ourinv_UseLight,0,U'🡪',0);
     laCreateOperatorType("OUR_new_light","New Light","Create a new light",0,0,0,ourinv_NewLight,0,'+',0);
     laCreateOperatorType("OUR_remove_light","Remove Light","Remove this light",0,0,0,ourinv_RemoveLight,ourmod_RemoveLight,U'🗴',0);
     laCreateOperatorType("OUR_duplicate_light","Duplicate Light","Duplicate this light",0,0,0,ourinv_DuplicateLight,0,U'⎘',0);
     laCreateOperatorType("OUR_move_light","Move Light","Remove this light",0,0,0,ourinv_MoveLight,0,0,0);
 
-    laCreateOperatorType("OUR_use_canvas_surface","Use Canvas Surface","Use this canvas surface",0,0,0,ourinv_UseCanvasSurface,0,U'🡪',0);
+    laCreateOperatorType("OUR_use_canvas_surface","Use Canvas Surface","Use this canvas surface",ourchk_UseLightOrSurface,0,0,ourinv_UseCanvasSurface,0,U'🡪',0);
     laCreateOperatorType("OUR_new_canvas_surface","New Canvas Surface","Create a new canvas surface",0,0,0,ourinv_NewCanvasSurface,0,'+',0);
     laCreateOperatorType("OUR_remove_canvas_surface","Remove Canvas Surface","Remove this canvas surface",0,0,0,ourinv_RemoveCanvasSurface,ourmod_RemoveCanvasSurface,U'🗴',0);
     laCreateOperatorType("OUR_duplicate_canvas_surface","Duplicate Canvas Surface","Duplicate this canvas surface",0,0,0,ourinv_DuplicateCanvasSurface,0,U'⎘',0);
@@ -4709,7 +4676,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_canvas_properties", "Canvas Properties", ourui_CanvasPropertiesPanel,0,0,"Customizations",0,15,15);
     laRegisterUiTemplate("panel_pigments", "Pigments", ourui_PigmentsPreviewPanel, 0, 0,0, GL_RGBA16F,20,25);
     laRegisterUiTemplate("panel_pallettes", "Pallettes", ourui_PallettesPanel, 0, 0,0, GL_RGBA16F,0,0);
-    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,25,30);
+    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,230,30);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -5414,7 +5381,7 @@ void ourFinalize(){
     our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
     our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
 
-    //laAddRootDBInst("our.tools");
+    laAddRootDBInst("our.tools");
     laAddRootDBInst("our.canvas");
 }
 
