@@ -206,11 +206,6 @@ void our_InitColorProfiles(){
     manu="ClayRGB chromaticities as given in Adobe RGB (1998) Color Image Encoding, Version 2005-05, https://www.adobe.com/digitalimag/pdfs/AdobeRGB1998.pdf";
     our_InitRGBProfile(1,&d65_p3_primaries_prequantized,&Our->icc_LinearD65P3,&Our->iccsize_LinearD65P3,"Copyright Yiming 2022.",manu,"Yiming's Linear D65 P3 icc profile.");
     our_InitRGBProfile(0,&d65_p3_primaries_prequantized,&Our->icc_D65P3,&Our->iccsize_D65P3,"Copyright Yiming 2022.",manu,"Yiming's D65 P3 icc profile.");
-
-    if(!MAIN.ProofingLUTs.pFirst){
-        laLoadProofingICC("profiles/ISOcoated_v2_300_bas.icc");
-        laLoadProofingICC("profiles/GenericCMYK.icm");
-    }
 }
 
 void ourui_NotesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -5385,6 +5380,11 @@ void ourFinalize(){
     our_SetActiveLight(Our->Lights.pFirst);
     our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
     our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
+
+    if(!MAIN.ProofingLUTs.pFirst){
+        laLoadProofingICC("profiles/ISOcoated_v2_300_bas.icc");
+        laLoadProofingICC("profiles/GenericCMYK.icm");
+    }
 
     laAddRootDBInst("our.tools");
     laAddRootDBInst("our.canvas");
