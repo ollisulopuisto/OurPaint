@@ -42,6 +42,7 @@ extern const char OUR_MIME[];
 extern const char OUR_THUMBNAILER[];
 extern const char OUR_DESKTOP[];
 extern const char OUR_PIGMENT_TEXTURE_MIX_SHADER[];
+extern const char OUR_PIGMENT_COMPOSITION_SHADER[];
 extern const char OUR_PIGMENT_TEXTURE_DISPLAY_SHADER[];
 extern const char OUR_PIGMENT_COMMON[];
 #ifdef __cplusplus
@@ -98,6 +99,8 @@ extern const char OUR_PIGMENT_COMMON[];
 
 extern laWidget* OUR_WIDGET_PIGMENT;
 extern laUiType* _OUR_UI_PIGMENT;
+
+#define OUR_COLOR_PAD_PIGMENT_DATA LA_UI_FLAGS_KNOB
 
 #define OURU Our->u
 
@@ -325,13 +328,14 @@ STRUCTURE(OurCanvasSurface){
     OurPigmentData Reflectance;
 };
 
-NEED_STRUCTURE(OurColorPallette);
+NEED_STRUCTURE(OurColorPalette);
 STRUCTURE(OurColorItem){
     laListItem Item;
-    tnsVector3d Color;
-    OurColorPallette* Parent;
+    OurPigmentData Pigment;
+    int IsPigment;
+    OurColorPalette* Parent;
 };
-STRUCTURE(OurColorPallette){
+STRUCTURE(OurColorPalette){
     laListItem Item;
     laSafeString* Name;
     laListHandle Colors;
@@ -468,6 +472,7 @@ STRUCTURE(BrushUniforms){
     GLint uAlphaTop;
     GLint uAlphaBottom;
     GLsizei SubroutineUniformLocations;
+    GLint uMixingTop;
 };
 
 STRUCTURE(OurPaint){
@@ -481,8 +486,8 @@ STRUCTURE(OurPaint){
     tnsImage* SplashImage;
     tnsImage* SplashImageHigh;
 
-    laListHandle Pallettes;
-    OurColorPallette* CurrentPallette;
+    laListHandle Palettes;
+    OurColorPalette* CurrentPalette;
 
     laListHandle Layers;
     OurLayer*    CurrentLayer;
@@ -539,6 +544,8 @@ STRUCTURE(OurPaint){
     int SketchMode;
     int SegmentedWrite;
     int PigmentDisplayMethod;
+    int PaletteInColorsPanel;
+    int DefaultCanvasType;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;         GLuint CanvasProgram;
@@ -548,6 +555,7 @@ STRUCTURE(OurPaint){
     GLuint CompositionStraightShader; GLuint CompositionStraightProgram;
     GLuint LayerShader;          GLuint LayerProgram;
     GLuint DisplayShader;        GLuint DisplayProgram;
+    GLuint PigmentCompositionShader; GLuint PigmentCompositionProgram;
     GLuint PigmentLayeringShader; tnsShader* PigmentLayeringProgramT;
     GLuint PigmentDisplayShader; tnsShader* PigmentDisplayProgramT;
     GLuint uPigmentFragOffset,uPigmentTextureScale,uPigmentDisplayMode;
@@ -556,12 +564,15 @@ STRUCTURE(OurPaint){
 
     BrushUniforms *u,uRGBA,uRGBStraightA,uPigment;
     int AlphaMode;
+    int ReorderPigmnets;
 
     OurCanvasSurface *CanvasSurface; // not ptr to list
     OurLight         *CanvasLight;
     OurPigmentData   PickedPigment;
     OurPigmentData   MixedPigment;
     laListHandle     UsePigments;
+    OurPigment*   UseWhite;
+    OurPigment*   UseBlack;
 
     real CurrentColor[3];
     real BackgroundColor[3];

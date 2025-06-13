@@ -406,24 +406,6 @@ void DoSample(){
 R"(
 #ifdef OUR_CANVAS_MODE_PIGMENT //========================================================================================
 
-#define GetImgPixel(tex, uv, p) \
-{ \
-    PixType c0=loadpix(tex,uv); \
-    PixType c1=loadpix(tex,ivec2(uv.x,uv.y+1)); \
-    PixType c2=loadpix(tex,ivec2(uv.x+1,uv.y)); \
-    PixType c3=loadpix(tex,ivec2(uv.x+1,uv.y+1)); \
-    setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p); \
-}
-
-#define WriteImgPixel(tex, uv, p) \
-{ \
-    PixType c0=getRL(p); PixType c1=getRH(p); PixType c2=getAL(p); PixType c3=getAH(p); \
-    imageStore(tex,uv,packpix(c0)); \
-    imageStore(tex,ivec2(uv.x,uv.y+1),packpix(c1)); \
-    imageStore(tex,ivec2(uv.x+1,uv.y),packpix(c2)); \
-    imageStore(tex,ivec2(uv.x+1,uv.y+1),packpix(c3)); \
-}
-
 int dab_pigment(float d, vec2 fpx, PigmentData color, float size, float hardness,
                 float smudge, PigmentData smudge_color, PigmentData last_color, out PigmentData final){
     PigmentData cc=(uBrushErasing!=0)?PIGMENT_BLANK:color;
@@ -978,6 +960,24 @@ vec3 PigmentToRGB(PigmentData pd, PigmentData light){
     vec3 xyz=Spectral2XYZ(slices); vec3 rgb=XYZ2sRGB(xyz); return rgb;
 }
 
+#define GetImgPixel(tex, uv, p) \
+{ \
+    PixType c0=loadpix(tex,uv); \
+    PixType c1=loadpix(tex,ivec2(uv.x,uv.y+1)); \
+    PixType c2=loadpix(tex,ivec2(uv.x+1,uv.y)); \
+    PixType c3=loadpix(tex,ivec2(uv.x+1,uv.y+1)); \
+    setRL(c0,p); setRH(c1,p); setAL(c2,p); setAH(c3,p); \
+}
+
+#define WriteImgPixel(tex, uv, p) \
+{ \
+    PixType c0=getRL(p); PixType c1=getRH(p); PixType c2=getAL(p); PixType c3=getAH(p); \
+    imageStore(tex,uv,packpix(c0)); \
+    imageStore(tex,ivec2(uv.x,uv.y+1),packpix(c1)); \
+    imageStore(tex,ivec2(uv.x+1,uv.y),packpix(c2)); \
+    imageStore(tex,ivec2(uv.x+1,uv.y+1),packpix(c3)); \
+}
+
 )";
 
 const char OUR_PIGMENT_TEXTURE_MIX_SHADER[]=R"(
@@ -988,6 +988,7 @@ precision highp float;
 precision highp int;
 layout (binding=2) uniform highp usampler2D TexColorUI0;
 layout (binding=5) uniform highp usampler2D TexColorUI1;
+uniform float MixingTop;
 
 in vec2 fUV;
 
@@ -1001,11 +1002,46 @@ void main(){
 
     PigmentData p0 = GetPixel(TexColorUI0,iuv);
     PigmentData p1 = GetPixel(TexColorUI1,iuvscr);
+    p0.r[15]*=MixingTop; p0.a[15]*=MixingTop;
     PigmentData result = PigmentOver(p0,p1);
 
     int choose = xof*2+yof;
     uvec4 pixel = packpix(PackPixel(result,choose));
     outColor=pixel;
+}
+)";
+
+const char OUR_PIGMENT_COMPOSITION_SHADER[] = R"(
+layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#ifdef OUR_GLES
+precision highp uimage2D;
+precision highp float;
+precision highp int;
+layout(r32ui, binding = 0) uniform uimage2D top;
+layout(r32ui, binding = 1) uniform uimage2D bottom;
+#else
+layout(rgba16ui, binding = 0) uniform uimage2D top;
+layout(rgba16ui, binding = 1) uniform uimage2D bottom;
+#endif
+uniform float uAlphaTop;
+uniform float uAlphaBottom;
+
+#with OUR_PIGMENT_COMMON
+
+void main() {
+    ivec2 px=ivec2(gl_GlobalInvocationID.xy)*2;
+
+    PigmentData p0; GetImgPixel(top, px, p0);
+    PigmentData p1; GetImgPixel(bottom, px, p1);
+
+    float afac=uAlphaTop/uAlphaBottom;
+    if(afac==0.){ return; }
+
+    p0.r[15]*=afac; p0.a[15]*=afac;
+
+    PigmentData result=PigmentOver(p0,p1);
+
+    WriteImgPixel(bottom,px,result);
 }
 )";
 
