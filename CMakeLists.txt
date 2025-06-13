@@ -97,6 +97,8 @@ target_link_libraries(OurPaint
 SET(INSTALL_EXTRAS
     README.md default_brushes.udf default_pallettes.udf COPYING COPYING_CC_BY_NC)
 
+FILE(GLOB INSTALL_PROFILES profiles/*)
+
 SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to find lagui fonts")
 
 if (NOT DEFINED ${LAGUI_FONT_CUSTOM_PATH})
@@ -122,3 +124,4 @@ install(RUNTIME_DEPENDENCY_SET runtime_deps
 endif()
 install(DIRECTORY "${LAGUI_FONT_CUSTOM_PATH}/" DESTINATION ${INSTALL_PATH_BIN}/fonts PATTERN "*.*")
 install(FILES ${INSTALL_EXTRAS} DESTINATION ${INSTALL_PATH_BIN})
+install(FILES ${INSTALL_PROFILES} DESTINATION ${INSTALL_PATH_BIN}/profiles)
