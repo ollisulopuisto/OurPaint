@@ -71,7 +71,11 @@ const real PigmentCMF[3][14]={
 {0.00359930259090909,0.0236005122727273,0.0565472954545455,0.114833071818182,0.236568031818182,0.535090640909091,0.876579286363636,0.992233536363636,0.923666477272727,0.708120895454545,0.419073681818182,0.178679336363636,0.0541232845454545,0.0124627878181818},
 {0.171746535909091,1.15671911363636,1.84186645454545,1.32759531363636,0.488183445454546,0.12631411,0.0225265765,0.00293351760909091,0.000351412640909091,4.70501886363636E-05,3.51041136363636E-06,0,0,0},
 };
-const real PigmentCMFNormalize=5.13517814086364; // Sum(PigmentCMF[1]) 
+const real PigmentCMFNormalize=5.13517814086364; // Sum(PigmentCMF[1])
+
+static inline real safepow(real a, real b){
+    if(a<DBL_EPSILON){ return 1.0f; } return pow(a+DBL_EPSILON,b);
+}
 
 void our_Spectral2XYZ(real spec[16],real XYZ[3]){
     real xyz[3]={0};
@@ -98,13 +102,14 @@ void our_ToPigmentData140(OurPigmentData* pd,OurPigmentData* paper, OurPigmentDa
     pd140->Absorption[15*4]=0.0f;
     pd140->PaperAbsorption[15*4]=0.0f;
 }
-void our_ToBrushData140(OurBrushData140* b140, real transparency){
-    for(int i=0;i<16;i++){
-        b140->Absorption[i*4]=Our->MixedPigment.Absorption[i];
+void our_ToBrushData140(OurBrushData140* b140, real transparency,real AccumulationStrength){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        b140->Absorption[i*4]=(Our->MixedPigment.Absorption[i]<DBL_EPSILON)?Our->MixedPigment.Absorption[i]:
+            safepow(Our->MixedPigment.Absorption[i],AccumulationStrength);
         b140->Reflectance[i*4]=Our->MixedPigment.Reflectance[i];
     }
-    b140->Absorption[15*4]*=transparency;
-    b140->Reflectance[15*4]*=transparency;
+    b140->Absorption[15*4]=Our->MixedPigment.Absorption[15]*transparency;
+    b140->Reflectance[15*4]=Our->MixedPigment.Reflectance[15]*transparency;
 }
 
 
@@ -362,7 +367,7 @@ void ourui_PigmentDetails(laUiList *uil, laPropPack *This, laPropPack *DetachedP
     laShowItemFull(uil,c,This,"pigment",OUR_WIDGET_PIGMENT_PREVIEW,0,0,0);
     laShowItemFull(uil,c,This,"pigment.info",LA_WIDGET_STRING_MONO_PLAIN,0,0,0)->Flags|=LA_TEXT_LINE_WRAP;
     laShowLabel(uil,cl,"Reflectance",0,0)->Flags|=LA_TEXT_ALIGN_CENTER;
-    laShowLabel(uil,cr,"Absorption",0,0)->Flags|=LA_TEXT_ALIGN_CENTER;
+    laShowLabel(uil,cr,"Transmittance",0,0)->Flags|=LA_TEXT_ALIGN_CENTER;
     laShowItem(uil,cl,This,"pigment.reflectance")->Flags|=LA_UI_FLAGS_TRANSPOSE;
     laShowItem(uil,cl,This,"pigment.reflectance_density");
     laShowItem(uil,cr,This,"pigment.absorption")->Flags|=LA_UI_FLAGS_TRANSPOSE;
@@ -511,6 +516,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,&cb->PP,"size_offset")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
+            laShowItem(uil,c,&cb->PP,"accumulation");
             laShowItem(uil,c,&cb->PP,"slender");
             OUR_BR laShowItem(uil,c,&cb->PP,"angle")->Expand=1; OUR_TWIST("twist_angle") OUR_ER;
             laShowItem(uil,c,&cb->PP,"dabs_per_size");
@@ -1363,17 +1369,16 @@ void our_PigmentToPreviewSelf(OurPigmentData* pd);
 void our_PigmentClear(OurPigmentData* pd){
     memset(pd,0,sizeof(OurPigmentData)); our_PigmentToPreviewSelf(pd);
 }
-static inline real safepow(real a, real b){
-    real ae=TNS_MAX2(1e-9,a); return pow(ae,b);
-}
 void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor){
     real afac=factor*source->Absorption[15], afac1=(1.0f-afac)*target->Absorption[15];
     real rfac=factor*source->Reflectance[15], rfac1=(1.0f-rfac)*target->Reflectance[15];
     real ascale=1.0f/(afac1+afac+DBL_EPSILON), rscale=1.0f/(rfac1+rfac+DBL_EPSILON); 
     afac*=ascale; afac1*=ascale; rfac*=rscale;rfac1*=rscale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        target->Absorption[i]=1.0f-safepow(1.0f-target->Absorption[i],afac1)*safepow(1.0f-source->Absorption[i],afac);
-        target->Reflectance[i]=safepow(target->Reflectance[i],rfac1)*safepow(source->Reflectance[i],rfac);
+        target->Absorption[i]=(afac1<DBL_EPSILON)?source->Absorption[i]:(afac<DBL_EPSILON?target->Absorption[i]:
+            (safepow(target->Absorption[i],afac1)*safepow(source->Absorption[i],afac)));
+        target->Reflectance[i]=(rfac1<DBL_EPSILON)?source->Reflectance[i]:(rfac<DBL_EPSILON?target->Reflectance[i]:
+            (safepow(target->Reflectance[i],rfac1)*safepow(source->Reflectance[i],rfac)));
     }
     target->Absorption[15]=tnsInterpolate(target->Absorption[15],source->Absorption[15],factor);
     target->Reflectance[15]=tnsInterpolate(target->Reflectance[15],source->Reflectance[15],factor);
@@ -1393,10 +1398,10 @@ int our_PigmentOver(OurPigmentData* top, OurPigmentData* bottom, real factor){
     }
     real afac=factor*top->Absorption[15];
     if(afac){ real afac1=bottom->Absorption[15];
-        bottom->Absorption[15]=1.0f-(1.0f-afac)*(1.0f-afac1);
+        bottom->Absorption[15]=afac*afac1;
         for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-            float pre=1.0f-bottom->Absorption[i]*afac1; float mult=pre*(1.0f-top->Absorption[i]*afac);
-            bottom->Absorption[i]=(1.0f-mult)/bottom->Absorption[15]; //TNS_CLAMP(bottom->Absorption[i],0.0f,1.0f);
+            float pre=bottom->Absorption[i]*afac1; float mult=pre*(top->Absorption[i]*afac);
+            bottom->Absorption[i]=(mult)/bottom->Absorption[15]; //TNS_CLAMP(bottom->Absorption[i],0.0f,1.0f);
         }
         res|=2;
     }
@@ -1407,7 +1412,7 @@ void our_PigmentToXYZ(OurPigmentData* pd, OurPigmentData* bkg, real* xyz){
     OurPigmentData temp={0}; memcpy(&temp,bkg,sizeof(OurPigmentData));
     our_PigmentMix(&temp, pd, 1.0f);
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        real absfac=1.0f-temp.Absorption[i]*pow(temp.Absorption[15],1.0f); if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
+        real absfac=1.0f-(1.0f-temp.Absorption[i])*(temp.Absorption[15]); if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
         slices[i]*= Our->CanvasLight->Emission.Reflectance[i];
         //TNS_CLAMP(slices[i],0.0f,1.0f);
     }
@@ -1416,7 +1421,7 @@ void our_PigmentToXYZ(OurPigmentData* pd, OurPigmentData* bkg, real* xyz){
 void our_PigmentToXYZDirect(OurPigmentData* pd, real* xyz){
     real slices[OUR_SPECTRAL_SLICES];
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        real absfac=1.0f-pd->Absorption[i]*pow(pd->Absorption[15],1.0f); if(absfac<0)absfac=0; slices[i]=pd->Reflectance[i]*absfac;
+        real absfac=1.0f-(1.0f-pd->Absorption[i])*(pd->Absorption[15]); if(absfac<0)absfac=0; slices[i]=pd->Reflectance[i]*absfac;
         slices[i]*= Our->CanvasLight->Emission.Reflectance[i];
     }
     our_Spectral2XYZ(slices,xyz);
@@ -2838,7 +2843,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     real bsize=OUR_BRUSH_ACTUAL_SIZE(b);
     b->EvalSize=bsize; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
-    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness;
+    b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness; b->EvalAccumulation=b->Accumulation;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
@@ -2864,7 +2869,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
             tnsVectorSet3v(od->Color,b->EvalColor);             od->Force=b->EvalForce*pfac(b->PressureForce);
     #undef pfac;
-            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender;
+            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender; od->Accumulation=b->EvalAccumulation;
             od->Angle=b->EvalAngle; if(b->TwistAngle){ od->Angle=tnsInterpolate(last_twist,Twist,r); }
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
@@ -2920,7 +2925,7 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(OURU->uBrushGunkyness,d->Gunkyness);
     glUniform1f(OURU->uBrushRecentness,d->Recentness);
     if(Our->PigmentMode){
-        OurBrushData140 b140; our_ToBrushData140(&b140,d->Color[3]);
+        OurBrushData140 b140; our_ToBrushData140(&b140,d->Color[3],d->Accumulation*d->Accumulation/Our->CurrentBrush->DabsPerSize);
         glBindBufferBase(GL_UNIFORM_BUFFER, Our->uboBrushPigmentLocation, Our->uboBrushPigment);
         glBindBuffer(GL_UNIFORM_BUFFER, Our->uboBrushPigment);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(OurBrushData140), &b140);
@@ -3060,7 +3065,10 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
         for(int i=0;i<8;i++) {
             pd.Reflectance[i]=pigment[i]/255.0f; pd.Absorption[i]=pigment[i+8]/255.0f;
             pd.Reflectance[i+8]=pigment[i+16]/255.0f; pd.Absorption[i+8]=pigment[i+24]/255.0f;
-        } 
+        }
+        printf("\nread:\n");
+        for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
+        for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
         our_PigmentToPreviewSelf(&pd);
         memcpy(&Our->MixedPigment,&pd,sizeof(OurPigmentData));
     }else{
@@ -4439,7 +4447,7 @@ void ourset_ChooseLight(void* unsed, OurLight* l){ if(!l){ return; }
     our_SetActiveLight(l); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set light",0);
 }
 
-int ourget_CanvasVersion(void* unused){
+int ourget_AssetVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
 }
 void ourpost_Canvas(void* unused){
@@ -4448,6 +4456,10 @@ void ourpost_Canvas(void* unused){
     LA_ACQUIRE_GLES_CONTEXT;
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
+void ourpost_Brush(OurBrush* brush){
+    if(brush->Version<50){ brush->Accumulation=3; }
+}
+
 
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
@@ -4925,9 +4937,9 @@ void ourRegisterEverything(){
     static const char* wavelengths="400nm,,,,,510,,,,,620,,,"; 
     pc=laAddPropertyContainer("our_pigment_data","Our Pigment Data","OurPaint pigment data",0,0,sizeof(OurPigmentData),0,0,LA_PROP_OTHER_ALLOC);
     laAddFloatProperty(pc,"reflectance","Reflectance","Spectral reflectance of the pigment",0,wavelengths,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Reflectance,0,0,0);
-    laAddFloatProperty(pc,"absorption","Absorption","Spectral absorption of the pigment",0,wavelengths,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Absorption,0,0,0);
+    laAddFloatProperty(pc,"absorption","Transmittance","Spectral transmittance of the pigment",0,wavelengths,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption),0,0,OUR_SPECTRAL_SLICES,0,0,0,0,ourset_Absorption,0,0,0);
     laAddFloatProperty(pc,"reflectance_density","Density","Spectral reflectance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Reflectance[15]),0,ourset_ReflectanceDensity,0,0,0,0,0,0,0,0,0);
-    laAddFloatProperty(pc,"absorption_density","Density","Spectral absorption of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,ourset_AbsorptionDensity,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"absorption_density","Density","Spectral transmittance of the pigment",0,0,0,1,0,0.05,0.5,0,offsetof(OurPigmentData,Absorption[15]),0,ourset_AbsorptionDensity,0,0,0,0,0,0,0,0,0);
     laAddStringProperty(pc,"info","Info","Information of this pigment",0,0,0,0,0,0,0,ourget_PigmentInfo,0,0,LA_UDF_IGNORE|LA_READ_ONLY);
 
     pc=laAddPropertyContainer("our_pigment","Our Pigment","OurPaint pigment",0,0,sizeof(OurPigment),0,0,2);
@@ -4958,8 +4970,9 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate surface","OUR_duplicate_canvas_surface",U'⎘',0);
     laAddOperatorProperty(pc,"use","Use","Use this canvas surface","OUR_use_canvas_surface",0,0);
 
-    pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),0,0,2);
+    pc=laAddPropertyContainer("our_brush","Our Brush","OurPaint brush",0,0,sizeof(OurBrush),ourpost_Brush,0,2);
     laAddStringProperty(pc,"name","Name","Name of the brush",0,0,0,0,1,offsetof(OurBrush,Name),0,0,0,0,LA_AS_IDENTIFIER);
+    laAddIntProperty(pc,"version","Version","Version of the brush",0,0,0,0,0,0,0,0,offsetof(OurBrush,Version),ourget_AssetVersion,0,0,0,0,0,0,0,0,0,0);
     laAddIntProperty(pc,"__move","Move Slider","Move Slider",LA_WIDGET_HEIGHT_ADJUSTER,0,0,0,0,0,0,0,0,0,ourset_BrushMove,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddIntProperty(pc,"binding","Binding","Keyboard binding for shortcut access of the brush",0,0,0,9,-1,1,0,0,offsetof(OurBrush,Binding),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"size_offset","Size Offset","Base size(radius) offset of the brush, in 2^n px",0,0,0,5,-5,0.05,0,0,offsetof(OurBrush,SizeOffset),0,0,0,0,0,0,0,0,0,0,0);
@@ -4973,6 +4986,7 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of the brush",0,0, 0,1,0,0.05,0,0,offsetof(OurBrush,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"force","Force","How hard the brush is pushed against canvas texture",0,0,0,1,0,0.05,0,0,offsetof(OurBrush,Force),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"gunkyness","Gunkyness","How will the brush stick to the canvas texture",0,0, 0,1,-1,0.05,0,0,offsetof(OurBrush,Gunkyness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"accumulation","Accumulation","How fast pigments accumulate",0,0,0,5,0,0.05,3,0,offsetof(OurBrush,Accumulation),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"c1","C1","Custom brush input 1",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom1),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"c2","C2","Custom brush input 2",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom2),0,0,0,0,0,0,0,0,0,0,0);
     laAddStringProperty(pc,"c1_name","C1 Name","Custom input 1 name",0,0,0,0,1,offsetof(OurBrush,Custom1Name),0,0,0,0,0);
@@ -5030,7 +5044,7 @@ void ourRegisterEverything(){
     Our->CanvasSaverDummyProp=laPropContainerManageable(pc, offsetof(OurPaint,CanvasSaverDummyList));
     laAddStringProperty(pc,"identifier","Identifier","Canvas identifier placeholder",0,0,0,0,0,0,0,ourget_CanvasIdentifier,0,0,0);
     laAddStringProperty(pc,"notes","Notes","Notes of this painting",LA_WIDGET_STRING_MULTI,0,0,0,1,offsetof(OurPaint,Notes),0,0,0,0,0);
-    laAddIntProperty(pc,"canvas_version","Canvas Version",0,0,0,0,0,0,0,0,0,offsetof(OurPaint,CanvasVersion),ourget_CanvasVersion,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
+    laAddIntProperty(pc,"canvas_version","Canvas Version",0,0,0,0,0,0,0,0,0,offsetof(OurPaint,CanvasVersion),ourget_AssetVersion,0,0,0,0,0,0,0,0,0,LA_READ_ONLY);
     p=laAddEnumProperty(pc,"pigment_mode","Pigment Canvas","Interpret canvas as pigment data",0,0,0,0,0,offsetof(OurPaint,PigmentMode),0,ourset_PigmentMode,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"RGBA","RGBA","Canvas stores regular RGBA data",0,0);
     laAddEnumItemAs(p,"PIGMENT","Pigment","Canvas stores pigment data",1,0);
@@ -5494,7 +5508,7 @@ int ourInit(){
     Our->FileRegistered = our_FileAssociationsRegistered();
 
     Our->SegmentedWrite = 1;
-    Our->CanvasVersion=ourget_CanvasVersion(0);
+    Our->CanvasVersion=ourget_AssetVersion(0);
     Our->AlphaMode=1;
 
     Our->CanvasLight=memAcquireHyper(sizeof(OurLight));

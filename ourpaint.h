@@ -193,6 +193,7 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* Slender;      real rSlender;
     laNodeOutSocket* Angle;        real rAngle;
     laNodeOutSocket* Gunkyness;    real rGunkyness;
+    laNodeOutSocket* Accumulation; real rAccumulation;
     laNodeOutSocket* Force;        real rForce;
     laNodeOutSocket* Color;
     laNodeOutSocket* Iteration;    int  rIteration;
@@ -212,6 +213,7 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* Angle;
     laNodeInSocket* Color;
     laNodeInSocket* Gunkyness;
+    laNodeInSocket* Accumulation;
     laNodeInSocket* Force;
     laNodeInSocket* Repeats;
     laNodeInSocket* Discard;
@@ -231,7 +233,7 @@ STRUCTURE(OurBrushDeviceNode){
 
 STRUCTURE(OurBrush){
     laListItem Item;
-    laSafeString* Name;
+    laSafeString* Name; int Version;
     real SizeOffset;
     real DabsPerSize;
     real Hardness;
@@ -244,6 +246,7 @@ STRUCTURE(OurBrush){
     real Smoothness;
     real MaxStrokeLength;
     real Custom1,Custom2; laSafeString *Custom1Name,*Custom2Name;
+    real Accumulation;
     int Iteration;
     int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,TwistAngle; // the simple way
 
@@ -270,6 +273,7 @@ STRUCTURE(OurBrush){
     real EvalSlender;
     real EvalAngle;
     real EvalForce, EvalGunkyness;
+    real EvalAccumulation;
 
     real EvalSpeed;
     real EvalStrokeLength;
@@ -296,6 +300,7 @@ STRUCTURE(OurDab){
     float Force;
     float Gunkyness;
     float Recentness;
+    float Accumulation;
 };
 STRUCTURE(OurPigmentData){
     real Reflectance[16];
