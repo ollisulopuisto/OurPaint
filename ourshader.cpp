@@ -548,7 +548,7 @@ const char OUR_PIGMENT_COMMON[]=R"(
 #define USE_SAFE_POW 1
 
 #if USE_SAFE_POW
-float safepow(float a, float b){ a=clamp(a,POW_EPS,1.-POW_EPS); //b=clamp(b,POW_EPS,1.-POW_EPS);
+float safepow(float a, float b){ a=clamp(a,POW_EPS,1.); //b=clamp(b,POW_EPS,1.-POW_EPS);
     return pow(a,b);
 }
 #else

@@ -74,7 +74,7 @@ const real PigmentCMF[3][14]={
 const real PigmentCMFNormalize=5.13517814086364; // Sum(PigmentCMF[1])
 
 static inline real safepow(real a, real b){
-    if(a<DBL_EPSILON){ return 1.0f; } return pow(a+DBL_EPSILON,b);
+    if(a<DBL_EPSILON){ return (b<DBL_EPSILON)?1.0f:0.0f; } return pow(a,b);
 }
 
 void our_Spectral2XYZ(real spec[16],real XYZ[3]){
@@ -1369,42 +1369,44 @@ void our_PigmentToPreviewSelf(OurPigmentData* pd);
 void our_PigmentClear(OurPigmentData* pd){
     memset(pd,0,sizeof(OurPigmentData)); our_PigmentToPreviewSelf(pd);
 }
-void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor){
-    real afac=factor*source->Absorption[15], afac1=(1.0f-afac)*target->Absorption[15];
-    real rfac=factor*source->Reflectance[15], rfac1=(1.0f-rfac)*target->Reflectance[15];
-    real ascale=1.0f/(afac1+afac+DBL_EPSILON), rscale=1.0f/(rfac1+rfac+DBL_EPSILON); 
-    afac*=ascale; afac1*=ascale; rfac*=rscale;rfac1*=rscale;
+void our_PigmentMixSlice(real* target, real* source, real factor){
+    real afac=factor*source[15], afac1=(1.0f-afac)*target[15];
+    //if(afac<DBL_EPSILON){ return; }
+    if(afac1<DBL_EPSILON){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ target[i]=source[i]; } target[15]=afac; return; }
+    real ascale=1.0f/(afac1+afac); afac*=ascale; afac1*=ascale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        target->Absorption[i]=(afac1<DBL_EPSILON)?source->Absorption[i]:(afac<DBL_EPSILON?target->Absorption[i]:
-            (safepow(target->Absorption[i],afac1)*safepow(source->Absorption[i],afac)));
-        target->Reflectance[i]=(rfac1<DBL_EPSILON)?source->Reflectance[i]:(rfac<DBL_EPSILON?target->Reflectance[i]:
-            (safepow(target->Reflectance[i],rfac1)*safepow(source->Reflectance[i],rfac)));
+        target[i]=safepow(target[i],afac1)*safepow(source[i],afac);
     }
-    target->Absorption[15]=tnsInterpolate(target->Absorption[15],source->Absorption[15],factor);
-    target->Reflectance[15]=tnsInterpolate(target->Reflectance[15],source->Reflectance[15],factor);
+    target[15]=tnsInterpolate(target[15],source[15],factor);
 }
-int our_PigmentOver(OurPigmentData* top, OurPigmentData* bottom, real factor){
+void our_PigmentMix(OurPigmentData* target, OurPigmentData* source, real factor){
+    our_PigmentMixSlice(target->Reflectance,source->Reflectance,factor);
+    our_PigmentMixSlice(target->Absorption,source->Absorption,factor);
+}
+int our_PigmentOverSlices(real a[16], real b[16]){
+    real fac=a[15]; real fac1=(1.0f-fac)*b[15]; if(fac==0.) return 0;
+    real scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+    }
+    return 1;
+}
+int our_PigmentMultiplySlices(real a[16], real b[16], real factor){
+    real fac=a[15]*factor; real fac1=b[15]; if(fac==0.) return 0;
+    if(fac1==0.0f){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ b[i]=a[i]; } b[15]=fac; }
+    b[15]=1.0f-(1.0-fac1)*(1.0f-fac);
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        real pre=1.-(1.0f-b[i])*fac1; real mult=pre*(1.-(1.0f-a[i])*fac);
+        b[i]=1.0f-(1.-mult)/b[15];
+    }
+    return 1;
+}
+int our_PigmentOver(OurPigmentData* p0, OurPigmentData* p1, real alpha){
     int res=0;
-    real rfac=factor*top->Reflectance[15];
-    if(rfac){ real rfac1=(1.0f-rfac)*bottom->Reflectance[15];
-        bottom->Absorption[15]=tnsInterpolate(rfac,0.0f,safepow(rfac,2.0f));
-        real rscale=1.0f/(rfac1+rfac);
-        bottom->Reflectance[15]=rfac+rfac1; rfac*=rscale;rfac1*=rscale;
-        for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-            bottom->Reflectance[i]=safepow(top->Reflectance[i],rfac)*safepow(bottom->Reflectance[i],rfac1);
-            //TNS_CLAMP(bottom->Reflectance[i],0.0f,1.0f);
-        }
-        res|=1;
-    }
-    real afac=factor*top->Absorption[15];
-    if(afac){ real afac1=bottom->Absorption[15];
-        bottom->Absorption[15]=afac*afac1;
-        for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-            float pre=bottom->Absorption[i]*afac1; float mult=pre*(top->Absorption[i]*afac);
-            bottom->Absorption[i]=(mult)/bottom->Absorption[15]; //TNS_CLAMP(bottom->Absorption[i],0.0f,1.0f);
-        }
-        res|=2;
-    }
+    p0->Reflectance[15]*=alpha; p0->Absorption[15]*=alpha;
+    float rfac=p0->Reflectance[15]; p1->Absorption[15]=tnsInterpolate(p1->Absorption[15],0.,rfac*rfac);
+    if(our_PigmentOverSlices(p0->Reflectance,p1->Reflectance)) res|=1;
+    if(our_PigmentMultiplySlices(p0->Absorption,p1->Absorption,1.0f)) res|=2;
     return res;
 }
 void our_PigmentToXYZ(OurPigmentData* pd, OurPigmentData* bkg, real* xyz){
