@@ -74,7 +74,8 @@ const real PigmentCMF[3][14]={
 const real PigmentCMFNormalize=5.13517814086364; // Sum(PigmentCMF[1])
 
 static inline real safepow(real a, real b){
-    if(a<DBL_EPSILON){ return (b<DBL_EPSILON)?1.0f:0.0f; } return pow(a,b);
+    if(a<DBL_EPSILON){ a=DBL_EPSILON; }
+    return pow(a,b);
 }
 
 void our_Spectral2XYZ(real spec[16],real XYZ[3]){
@@ -234,25 +235,24 @@ void ourui_CanvasPropertiesPanel(laUiList *uil, laPropPack *This, laPropPack *De
     b3=laOnConditionThat(uil,c,laPropExpression(&pigui->PP,""));{
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
-
     }laElse(uil,b3);{
         laShowItemWithLabel(uil,cl,cr,0,"our.canvas.color_interpretation",0,0,0,0,0,0,0);
         laShowItemWithLabel(uil,cl,cr,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0,0,0,0);
-        
-        laShowLabel(uil,cl,"Pattern",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
-        b=laBeginRow(uil,cr,0,0);
-        laUiItem* sel=laShowItemFull(uil,cr,0,"our.canvas.background_type",0,0,0,0);
-            sel->Flags|=LA_UI_FLAGS_NO_CONFIRM; sel->Expand=1;
-        laShowItemFull(uil,cr,0,"our.canvas.background_factor",0,0,0,0)->Flags|=LA_UI_FLAGS_KNOB;
-        laEndRow(uil,b);
-        
-        laShowItemFull(uil,cr,0,"our.canvas.background_random",0,0,0,0);
-        
-        laShowSeparator(uil,c);
-
-        laShowItemWithLabel(uil,cl,cr,0,"our.canvas.alpha_mode",0,0,0,0,0,0,0);
     }laEndCondition(uil,b3);
 
+    laShowSeparator(uil,c);
+    laShowLabel(uil,cl,"Pattern",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+    b=laBeginRow(uil,cr,0,0);
+    laUiItem* sel=laShowItemFull(uil,cr,0,"our.canvas.background_type",0,0,0,0);
+        sel->Flags|=LA_UI_FLAGS_NO_CONFIRM; sel->Expand=1;
+    laShowItemFull(uil,cr,0,"our.canvas.background_factor",0,0,0,0)->Flags|=LA_UI_FLAGS_KNOB;
+    laEndRow(uil,b);
+    laShowItemFull(uil,cr,0,"our.canvas.background_random",0,0,0,0);
+
+    b3=laOnConditionThat(uil,c,laNot(laPropExpression(&pigui->PP,"")));{
+        laShowSeparator(uil,c);
+        laShowItemWithLabel(uil,cl,cr,0,"our.canvas.alpha_mode",0,0,0,0,0,0,0);
+    }laEndCondition(uil,b3);
 }
 void ourui_ThumbnailPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil);
@@ -798,8 +798,8 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,crr,0,"our.preferences.show_grid")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,cr,0,"our.preferences.multithread_write")->Flags|=LA_UI_FLAGS_CHECKBOX;
     laShowItem(uil,cr,0,"our.preferences.canvas_default_scale");
-    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.default_canvas_type",0,0,0,0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
-    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.pigment_display_method",0,0,0,0,0,0,c)->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.default_canvas_type",0,0,0,0,0,0,c)->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItemWithLabel(uil,cl,cr,0,"our.preferences.pigment_display_method",0,0,0,0,0,0,0)->Flags|=LA_UI_FLAGS_EXPAND;
     
     laShowSeparator(uil,c);
 
@@ -1951,21 +1951,21 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
 #define OUR_PX_FL(p,pf) \
-    { (pf)[0]=((p[0]&0xff)/255.0f); (pf)[1]=((p[0]>>8)/255.0f); (pf)[2]=((p[1]&0xff)/255.0f); (pf)[3]=((p[1]>>8)/255.0f); \
-      (pf)[4]=((p[2]&0xff)/255.0f); (pf)[5]=((p[2]>>8)/255.0f); (pf)[6]=((p[3]&0xff)/255.0f); (pf)[7]=((p[3]>>8)/255.0f); }
+    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=(pow((p[3]&0xff)/255.0f,2.2)); (pf)[7]=(pow((p[3]>>8)/255.0f,2.2)); }
 #define OUR_PX_FH(p,pf) \
-    { (pf)[0]=((p[0]&0xff)/255.0f); (pf)[1]=((p[0]>>8)/255.0f); (pf)[2]=((p[1]&0xff)/255.0f); (pf)[3]=((p[1]>>8)/255.0f); \
-      (pf)[4]=((p[2]&0xff)/255.0f); (pf)[5]=((p[2]>>8)/255.0f); (pf)[6]=0; (pf)[7]=(p[3]/65535.0f); }
+    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/65535.0f); }
 #define OUR_PX_FL4(p,pf) \
-    { (pf)[0]=((p[0]&0xff)/15.0f); (pf)[1]=((p[0]>>4)/15.0f); (pf)[2]=((p[1]&0xff)/15.0f); (pf)[3]=((p[1]>>4)/15.0f); \
-      (pf)[4]=((p[2]&0xff)/15.0f); (pf)[5]=((p[2]>>4)/15.0f); (pf)[6]=((p[3]&0xff)/15.0f); (pf)[7]=((p[3]>>4)/15.0f); }
+    { (pf)[0]=(pow((p[0]&0xff)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=(pow((p[3]&0xff)/15.0f,2.2)); (pf)[7]=(pow((p[3]>>4)/15.0f,2.2)); }
 #define OUR_PX_FH4(p,pf) \
-    { (pf)[0]=((p[0]&0xff)/15.0f); (pf)[1]=((p[0]>>4)/15.0f); (pf)[2]=((p[1]&0xff)/15.0f); (pf)[3]=((p[1]>>4)/15.0f); \
-      (pf)[4]=((p[2]&0xff)/15.0f); (pf)[5]=((p[2]>>4)/15.0f); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
+    { (pf)[0]=(pow((p[0]&0xff)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
 #define OUR_FL_2PX(pf) \
-    ((((uint16_t)((pf)[1]*255.0f))<<8)|(((uint16_t)((pf)[0]*255.0f))&0xff))
+    ((((uint16_t)(round(pow((pf)[1],1.0/2.2)*255.0f)))<<8)|(((uint16_t)(round(pow((pf)[0],1.0/2.2)*255.0f)))&0xff))
 #define OUR_FL_2PX4(pf) \
-    ((((uint8_t)((pf)[1]*15.0f))<<4)|(((uint8_t)((pf)[0]*15.0f))&0xf))
+    ((((uint8_t)(round(pow((pf)[1],1.0/2.2)*15.0f)))<<4)|(((uint8_t)(round(pow((pf)[0],1.0/2.2)*15.0f)))&0xf))
 #define OUR_FL_1PX(pf) \
     ((uint16_t)((pf)[1]*65535.0f))
 #define OUR_FL_1PX4(pf) \
@@ -2127,6 +2127,7 @@ void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ tnsXYZ2D65P3(xyz,bk); tns2LogsRGB(bk); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ tnsXYZ2sRGB(xyz,bk); }
         TNS_CLAMP(bk[0],0,1);TNS_CLAMP(bk[1],0,1);TNS_CLAMP(bk[2],0,1);
+        bk[0]=pow(bk[0],2.2);bk[1]=pow(bk[1],2.2);bk[2]=pow(bk[2],2.2);
         OUR_SET_GLOBAL_BCOLORS
     }else{
         real xyz[3]={0}; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1; int itp=0;
@@ -2499,12 +2500,12 @@ void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer){
     Our->X/=DebayerFac; Our->Y/=DebayerFac;
     Our->W/=DebayerFac; Our->H/=DebayerFac;
 }
-void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod){
+void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod, int IgnorePigmentPath){
     uint8_t* NewImage;
     cmsHTRANSFORM cmsTransform = NULL;
     cmsHPROFILE input_buffer_profile=NULL, output_buffer_profile=NULL;
 
-    if(Our->PigmentMode){
+    if(Our->PigmentMode && (!IgnorePigmentPath)){
         our_PigmentConvertForExport(BitDepth,ColorProfile,PigmentConversionMethod);
         return;
     }
@@ -2526,11 +2527,13 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
-    input_buffer_profile=(Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
-        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
-        ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
-            cmsOpenProfileFromMem(Our->icc_LinearD65P3,Our->iccsize_LinearD65P3):
-            cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB));
+    input_buffer_profile=IgnorePigmentPath?
+        cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay):
+        (Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
+            cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
+            ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
+                cmsOpenProfileFromMem(Our->icc_LinearD65P3,Our->iccsize_LinearD65P3):
+                cmsOpenProfileFromMem(Our->icc_LinearsRGB,Our->iccsize_LinearsRGB));
 
     NewImage=calloc(Our->ImageW*sizeof(uint8_t),Our->ImageH*4);
     if(NewImage){
@@ -3053,20 +3056,22 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     if(Our->PigmentMode){
+#ifndef LA_USE_GLES
         int texscale=1; if(Our->PigmentDisplayMethod>=2){ texscale=2; }
         u8bit pigment[32]={0}; x/=2;x*=2; y/=2; y*=2;
         glReadPixels(x*texscale,y*texscale,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
 
         OurPigmentData pd;
         for(int i=0;i<8;i++) {
-            pd.Reflectance[i]=pigment[i]/255.0f; pd.Absorption[i]=pigment[i+8]/255.0f;
-            pd.Reflectance[i+8]=pigment[i+16]/255.0f; pd.Absorption[i+8]=pigment[i+24]/255.0f;
+            pd.Reflectance[i]=pow(pigment[i]/255.0f,2.2f); pow(pd.Absorption[i]=pigment[i+8]/255.0f,2.2f);
+            pd.Reflectance[i+8]=pow(pigment[i+16]/255.0f,2.2f); pow(pd.Absorption[i+8]=pigment[i+24]/255.0f,2.2f);
         }
-        printf("\nread:\n");
-        for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
-        for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
+        //printf("\nread:\n");
+        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
+        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
         our_PigmentToPreviewSelf(&pd);
         memcpy(&Our->MixedPigment,&pd,sizeof(OurPigmentData));
+#endif
     }else{
         float color[4]; real rcolor[3],xyz[3];
         glReadPixels(x,y,1,1, GL_RGBA, GL_FLOAT, color);
@@ -3148,10 +3153,10 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
     tnsDelete2DOffscreen(off2);
     if(off3) tnsDelete2DOffscreen(off3);
 
-    Our->ImageW = use_w; Our->ImageH = use_h; int p=Our->PigmentMode; Our->PigmentMode=0;
+    Our->ImageW = use_w; Our->ImageH = use_h;
     our_ImageBufferFromNative();
-    our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY,0);
-    use_w=Our->ImageW; use_h=Our->ImageH; Our->PigmentMode=p;
+    our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY,0,1);
+    use_w=Our->ImageW; use_h=Our->ImageH;;
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
     png_infop info_ptr = png_create_info_struct(png_ptr);
@@ -3491,7 +3496,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 }
                 our_ImageBufferFromNative();
                 our_ExportSaveCropping(ex);
-                our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile, ex->PigmentConversionMethod);
+                our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile, ex->PigmentConversionMethod,0);
                 if(!Our->ImageBuffer){ our_ShowAllocationError(e); fclose(fp); our_ExportRestoreCropping(ex); return LA_FINISHED; }
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile,0,0);
                 if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
@@ -3512,11 +3517,11 @@ void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     laUiItem* b;
 
     laShowLabel(uil,c,"Select the exporting behavior:",0,0);
-    laShowLabel(uil,cl,"Bit Depth:",0,0);  laShowItem(uil,cl,Operator,"bit_depth");
+    laShowLabel(uil,cl,"Bit Depth",0,0);  laShowItem(uil,cl,Operator,"bit_depth");
     b=laOnConditionThat(uil,c,laEqual(laPropExpression(Operator,"bit_depth"),laIntExpression(OUR_EXPORT_BIT_DEPTH_16)));{
         laShowLabel(uil,c,"16 bit images would be exported in the same linear color space as the canvas",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP;
     }laElse(uil,b);{
-        laShowLabel(uil,cr,"Color Space:",0,0); laShowItem(uil,cr,Operator,"color_profile");
+        laShowLabel(uil,cr,"Color Space",0,0); laShowItem(uil,cr,Operator,"color_profile");
     }laEndCondition(uil,b);
 
     laShowLabel(uil,cl,"Canvas Current:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT; laShowItem(uil,cr,0,"our.canvas.color_interpretation");

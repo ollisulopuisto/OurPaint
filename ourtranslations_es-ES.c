@@ -28,6 +28,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Pigment Conversion Method:","以何种方式将颜料转换为像素：",
+"Pixel Binning","像素合并",
 "See list of Sponsors", "查看赞助者列表",
 "Support", "支持",
 "Quality", "质量",
@@ -197,7 +199,7 @@ static const char *entries[]={
 "Bit Depth","Profundidad de Bit",
 "Our Paint v0.1c","Our Paint v0.1c",
 "New Layer","Nueva Capa",
-"Color Space:","Espacio de Color:",
+"Color Space","Espacio de Color",
 "Our Paint","Our Paint",
 "Dabs Per Size","Pinceladas por tamaño",
 "Paintable","Pintable",

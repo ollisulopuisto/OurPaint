@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Pigment Conversion Method:","以何种方式将颜料转换为像素：",
+"Pixel Binning","像素合并",
 "See list of Sponsors", "查看赞助者列表",
 "Support", "支持",
 "Quality", "质量",
@@ -32,7 +34,7 @@ static const char *entries[]={
 "Customizations", "自定义",
 "About Our Paint", "关于好得涂",
 "New", "新增",
-"Water 💦", "加水",
+"Water 💦", "加水 💦",
 "🧹 Clear", "🧹 擦干",
 "Edit Nodes", "编辑节点",
 "New Pigment", "新增颜料",
@@ -199,7 +201,7 @@ static const char *entries[]={
 "Bit Depth","位深度",
 "Our Paint v0.1c","好得涂 v0.1c",
 "New Layer","新图层",
-"Color Space:","色彩空间：",
+"Color Space","色彩空间",
 "Our Paint","好得涂",
 "Dabs Per Size","每半径的笔触点数",
 "Paintable","可绘图",
