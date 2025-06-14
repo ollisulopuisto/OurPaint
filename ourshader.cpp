@@ -1031,8 +1031,8 @@ uniform float uAlphaBottom;
 void main() {
     ivec2 px=ivec2(gl_GlobalInvocationID.xy)*2;
 
-    PigmentData p0; GetImgPixel(top, px, p0);
-    PigmentData p1; GetImgPixel(bottom, px, p1);
+    PigmentData p0=PIGMENT_BLANK; GetImgPixel(top, px, p0);
+    PigmentData p1=PIGMENT_BLANK; GetImgPixel(bottom, px, p1);
 
     float afac=uAlphaTop/uAlphaBottom;
     if(afac==0.){ return; }

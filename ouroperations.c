@@ -1234,16 +1234,13 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
 
     tnsUseImmShader(); 
-    if(Our->PigmentMode){
-        tnsLineWidth(2);
-    }else{
-
-    }
+    if(Our->PigmentMode){ tnsLineWidth(2); tnsUseHalftone(1.0f); }
+    else{ glEnable(GL_BLEND); }
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
     if(Our->ShowRef){ our_CanvasDrawReferenceBlock(ocd); }
     tnsFlush();
-    tnsLineWidth(1); glEnable(GL_BLEND);
+    tnsLineWidth(1); tnsUseHalftone(0.0f); glEnable(GL_BLEND);
 }
 void our_CanvasGetFragOffset(laUiItem* ui,int *x,int* y){
     if(!x || !y) return; *x=0;*y=0;
@@ -3058,9 +3055,14 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
         int texscale=1; if(Our->PigmentDisplayMethod>=2){ texscale=2; }
         u8bit pigment[32]={0}; x/=2;x*=2; y/=2; y*=2;
         glReadPixels(x*texscale,y*texscale,2,2, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pigment);
-        printf("read:\n");
-        for(int i=0;i<16;i++) { printf("%03d ", pigment[i]); } printf("\n");
-        for(int i=16;i<32;i++){ printf("%03d ", pigment[i]); } printf("\n");
+
+        OurPigmentData pd;
+        for(int i=0;i<8;i++) {
+            pd.Reflectance[i]=pigment[i]/255.0f; pd.Absorption[i]=pigment[i+8]/255.0f;
+            pd.Reflectance[i+8]=pigment[i+16]/255.0f; pd.Absorption[i+8]=pigment[i+24]/255.0f;
+        } 
+        our_PigmentToPreviewSelf(&pd);
+        memcpy(&Our->MixedPigment,&pd,sizeof(OurPigmentData));
     }else{
         float color[4]; real rcolor[3],xyz[3];
         glReadPixels(x,y,1,1, GL_RGBA, GL_FLOAT, color);
@@ -3895,7 +3897,7 @@ int ourmod_Action(laOperator* a, laEvent* e){
 int ourinv_PickColor(laOperator* a, laEvent* e){
     OurLayer* l=Our->CurrentLayer; OurCanvasDraw *ex = a->This?a->This->EndInstance:0; OurBrush* ob=Our->CurrentBrush; if(!l||!ex||!ob) return LA_CANCELED;
     laUiItem* ui=ex->Base.ParentUi;  ex->HideBrushCircle=1;
-    our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color");
+    our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color"); laNotifyUsers("our.mixed_pigment"); 
     return LA_RUNNING;
 }
 int ourmod_PickColor(laOperator* a, laEvent* e){
@@ -3905,7 +3907,7 @@ int ourmod_PickColor(laOperator* a, laEvent* e){
     if(e->type==LA_R_MOUSE_UP || e->type==LA_L_MOUSE_UP || (e->type == LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){  ex->HideBrushCircle=0; return LA_FINISHED; }
 
     if(e->type==LA_MOUSEMOVE||e->type==LA_R_MOUSE_DOWN){
-        our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color");
+        our_ReadWidgetColor(ex, e->x-ui->L, ui->B-e->y); laNotifyUsers("our.current_color"); laNotifyUsers("our.mixed_pigment"); 
     }
 
     return LA_RUNNING;
@@ -5498,8 +5500,6 @@ int ourInit(){
     Our->CanvasLight=memAcquireHyper(sizeof(OurLight));
     Our->CanvasSurface=memAcquireHyper(sizeof(OurCanvasSurface));
 
-    Our->PigmentMode=Our->DefaultCanvasType;
-
     for(int i=0;i<5;i++) our_NewUsePigment(0);
 
 #ifdef LAGUI_ANDROID
@@ -5523,6 +5523,8 @@ void ourFinalize(){
     our_SetActiveLight(Our->Lights.pFirst);
     our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
     our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
+
+    Our->PigmentMode=Our->DefaultCanvasType;
 
     if(!MAIN.ProofingLUTs.pFirst){
         laLoadProofingICC("profiles/ISOcoated_v2_300_bas.icc");
