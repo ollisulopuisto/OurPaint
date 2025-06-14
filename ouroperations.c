@@ -650,7 +650,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
         }laEndCondition(uil,bc);
         laShowItemFull(uil, cr, 0, "our.canvas.use_pigments",0,0,ourui_UsePigmentItem,0)->Flags|=LA_UI_FLAGS_NO_DECAL;
         laUiItem* bedit=laOnConditionThat(uil,cr,laPropExpression(0,"our.preferences.reorder_pigments"));{
-            laShowItemFull(uil, cr, 0, "OUR_new_use_pigment", 0, "text=new;",0,0)->Expand=1;
+            laShowItemFull(uil, cr, 0, "OUR_new_use_pigment", 0, "text=New;",0,0)->Expand=1;
         }laEndCondition(uil,bedit);
 
         laUiItem* uishowpalette;
@@ -748,13 +748,7 @@ void ourui_AboutAuthor(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
     }
     g = laMakeGroup(uil, c, "Credits to Sponsors", 0);
     gu = g->Page;{ gc = laFirstColumn(gu);
-        laShowLabel(gu,gc,"- Deathblood",0,0);
-        laShowLabel(gu,gc,"- Leone Arturo",0,0);
-        laShowLabel(gu,gc,"- 贵州混混",0,0);
-        laShowLabel(gu,gc,"- Louis Lithium",0,0);
-        laShowLabel(gu,gc,"- Nayeli Lafeuille",0,0);
-        laShowLabel(gu,gc,"- Ibrahim Lawai",0,0);
-        laShowLabel(gu,gc,"- Jacob Curtis",0,0);
+        laShowItemFull(gu, gc, 0, "LA_open_internet_link", 0, "icon=★;text=See list of Sponsors;link=http://www.ChengduLittleA.com/sponsor", 0, 0);
     }
 }
 void ourui_AboutVersion(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
@@ -877,7 +871,7 @@ void ourui_SplashPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laShowImage(uil,c,Our->SplashImage,5)->Flags|=LA_UI_IMAGE_FULL_W;
     }
     laUiItem* b=laBeginRow(uil,cl,0,0); laShowLabel(uil,cl,OUR_PAINT_NAME_STRING,0,0);
-    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20250102221716;text=Release Notes", 0, 0);
+    laShowItemFull(uil, cl, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20250614122439;text=Release Notes", 0, 0);
     laEndRow(uil,b);
     laShowLabel(uil,cl,"Our Paint is a free application.",0,0)->Flags|=LA_UI_FLAGS_DISABLED|LA_TEXT_LINE_WRAP|LA_UI_MIN_WIDTH;
     b=laBeginRow(uil,cl,0,0);
@@ -1370,8 +1364,8 @@ void our_PigmentClear(OurPigmentData* pd){
     memset(pd,0,sizeof(OurPigmentData)); our_PigmentToPreviewSelf(pd);
 }
 void our_PigmentMixSlice(real* target, real* source, real factor){
+    if(factor<DBL_EPSILON){ return; }
     real afac=factor*source[15], afac1=(1.0f-afac)*target[15];
-    //if(afac<DBL_EPSILON){ return; }
     if(afac1<DBL_EPSILON){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ target[i]=source[i]; } target[15]=afac; return; }
     real ascale=1.0f/(afac1+afac); afac*=ascale; afac1*=ascale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
@@ -1610,8 +1604,8 @@ void our_PigmentMixerDraw(laUiItem* ui, int h){
 
     int middle=(ui->R+ui->L)/2;
 
-    tnsDrawStringAuto("🧹 Clear",laThemeColor(bt,LA_BT_TEXT),ui->L+LA_M,middle-LA_M,ui->U,LA_TEXT_ALIGN_LEFT|LA_TEXT_SHADOW);
-    tnsDrawStringAuto("Water 💦",laThemeColor(bt,LA_BT_TEXT),middle+LA_M,ui->R-LA_M,ui->U,LA_TEXT_ALIGN_RIGHT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto(transLate("🧹 Clear"),laThemeColor(bt,LA_BT_TEXT),ui->L+LA_M,middle-LA_M,ui->U,LA_TEXT_ALIGN_LEFT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto(transLate("Water 💦"),laThemeColor(bt,LA_BT_TEXT),middle+LA_M,ui->R-LA_M,ui->U,LA_TEXT_ALIGN_RIGHT|LA_TEXT_SHADOW);
     tnsDrawStringAuto("⋮",laThemeColor(bt,LA_BT_TEXT),middle-LA_RH,middle+LA_RH,ui->U,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
 
     tnsDrawStringAuto("◿",laThemeColor(bt,LA_BT_BORDER),ui->R-LA_RH,ui->R,ui->B-LA_RH,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
@@ -4490,13 +4484,13 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         mc = laFirstColumn(muil); laui_DefaultMenuButtonsEditEntries(muil,pp,actinst,extracol,0);
         laShowSeparator(muil,mc);
         laShowLabel(muil,mc,"Canvas",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
-        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=panel_canvas_properties;", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "text=Canvas Properties;panel_id=panel_canvas_properties;", 0, 0);
         laUiItem* row=laBeginRow(muil,mc,0,0);
         laShowItem(muil,mc,0,"OUR_clear_empty_tiles");
         laShowItemFull(muil,mc,0,"our.preferences.show_debug_tiles",LA_WIDGET_ENUM_HIGHLIGHT,"text=👁",0,0);
         laEndRow(muil,row);
         laShowLabel(muil, mc, "Settings", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
-        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "panel_id=LAUI_user_preferences;", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "text=User Preferences;panel_id=LAUI_user_preferences;", 0, 0);
     }
     muil = laMakeMenuPage(uil, c, "About"); {
         mc = laFirstColumn(muil);
@@ -4506,7 +4500,7 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
 
         laShowLabel(muil, mc, "Help", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=📖;link=http://www.ChengduLittleA.com/ourpaintmanual;text=User Manual", 0, 0);
-        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20250102221716;text=Release Notes", 0, 0);
+        laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=★;link=https://www.wellobserve.com/index.php?post=20250614122439;text=Release Notes", 0, 0);
         laShowItemFull(muil, mc, 0, "LA_open_internet_link", 0, "icon=🐞;link=https://www.wellobserve.com/repositories/chengdulittlea/OurPaint/issues;text=Report a Bug", 0, 0);
         
 
