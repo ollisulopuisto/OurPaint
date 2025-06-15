@@ -28,6 +28,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Depletion Speed","耗尽速度",
+"Mixing Speed","混合速度",
 "Pigment Conversion Method:","以何种方式将颜料转换为像素：",
 "Pixel Binning","像素合并",
 "See list of Sponsors", "查看赞助者列表",
@@ -197,7 +199,6 @@ static const char *entries[]={
 "Canvas Scale","Escala de Lienzo",
 "Others","Otros",
 "Bit Depth","Profundidad de Bit",
-"Our Paint v0.1c","Our Paint v0.1c",
 "New Layer","Nueva Capa",
 "Color Space","Espacio de Color",
 "Our Paint","Our Paint",

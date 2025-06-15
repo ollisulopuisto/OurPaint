@@ -124,7 +124,7 @@ STRUCTURE(OurCanvasDraw){
 
 #define OUR_SPECTRAL_SLICES 14
 
-#define OUR_MIXING_SPEED 0.05f
+#define OUR_MIXING_SPEED (Our->MixingSpeed/10.0f)
 
 #define OUR_TILE_W 1024
 #define OUR_TILES_PER_ROW 100
@@ -194,6 +194,7 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* Angle;        real rAngle;
     laNodeOutSocket* Gunkyness;    real rGunkyness;
     laNodeOutSocket* Accumulation; real rAccumulation;
+    laNodeOutSocket* DepletionSpeed;real rDepletionSpeed;
     laNodeOutSocket* Force;        real rForce;
     laNodeOutSocket* Color;
     laNodeOutSocket* Iteration;    int  rIteration;
@@ -214,6 +215,7 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* Color;
     laNodeInSocket* Gunkyness;
     laNodeInSocket* Accumulation;
+    laNodeInSocket* DepletionSpeed;
     laNodeInSocket* Force;
     laNodeInSocket* Repeats;
     laNodeInSocket* Discard;
@@ -247,8 +249,9 @@ STRUCTURE(OurBrush){
     real MaxStrokeLength;
     real Custom1,Custom2; laSafeString *Custom1Name,*Custom2Name;
     real Accumulation;
+    real DepletionSpeed;
     int Iteration;
-    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,TwistAngle; // the simple way
+    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,TwistAngle,PressureDepletion; // the simple way
 
     int Binding,DefaultAsEraser;
     int ShowInPages;
@@ -274,6 +277,7 @@ STRUCTURE(OurBrush){
     real EvalAngle;
     real EvalForce, EvalGunkyness;
     real EvalAccumulation;
+    real EvalDepletionSpeed, PigmentLoading;
 
     real EvalSpeed;
     real EvalStrokeLength;
@@ -510,6 +514,7 @@ STRUCTURE(OurPaint){
     laSafeString* Notes;
 
     real Smoothness,Hardness;
+    real MixingSpeed;
     real LastX, LastY;
 
     real CurrentScale;

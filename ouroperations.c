@@ -31,12 +31,15 @@ extern tnsMain* T;
 
 laWidget _OUR_WIDGET_PIGMENT_MIXER={0};
 laWidget _OUR_WIDGET_PIGMENT_PREVIEW={0};
+laWidget _OUR_WIDGET_PIGMENT_LOADER={0};
 laWidget _OUR_WIDGET_COLOR_PAD={0};
 laWidget* OUR_WIDGET_PIGMENT_MIXER=&_OUR_WIDGET_PIGMENT_MIXER;
 laWidget* OUR_WIDGET_PIGMENT_PREVIEW=&_OUR_WIDGET_PIGMENT_PREVIEW;
+laWidget* OUR_WIDGET_PIGMENT_LOADER=&_OUR_WIDGET_PIGMENT_LOADER;
 laWidget *OUR_WIDGET_COLOR_PAD=&_OUR_WIDGET_COLOR_PAD;
 laUiType* _OUR_UI_PIGMENT_MIXER;
 laUiType* _OUR_UI_PIGMENT_PREVIEW;
+laUiType* _OUR_UI_PIGMENT_LOADER;
 laUiType* _OUR_UI_COLOR_PAD;
 
 OurPigmentData _OUR_PIGMENT_D65={{0.574,0.703,0.916,1.000,0.974,0.923,0.923,0.877,0.832,0.877,0.794,0.737,0.716,0.730,0.718,1.000},{0},{0}};
@@ -524,6 +527,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,c,&cb->PP,"smudge_resample_length");
             laShowItem(uil,c,&cb->PP,"gunkyness");
             OUR_BR laShowItem(uil,c,&cb->PP,"force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
+            OUR_BR laShowItem(uil,c,&cb->PP,"depletion_speed")->Expand=1;  OUR_PRESSURE("pressure_depletion") OUR_ER
 
             laUiItem*badv=laOnConditionToggle(uil,c,0,0,0,0,0);{ strSafeSet(&badv->ExtraInstructions,"text=Advanced...");
                 laShowSeparator(uil,c);
@@ -635,6 +639,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
     laColumn *cll=laLeftColumn(cl,0),*clr=laRightColumn(cl,0);
 
     laUiItem* pigb=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.pigment_mode"));{
+        laShowItemFull(uil,cl,0,"our.tools.current_brush.pigment_loading",OUR_WIDGET_PIGMENT_LOADER,0,0,0);
         laUiItem* mixui=laShowItemFull(uil,cl,0,"our.mixed_pigment",OUR_WIDGET_PIGMENT_MIXER,0,0,0); mixui->Extent=4;
         laUiItem* bc=laOnConditionThat(uil,cll,laAnd(laPropExpression(0,"our.canvas.set_use_white"),laNot(laPropExpression(0,"our.preferences.reorder_pigments"))));{
             laShowItemFull(uil,cll,0,"our.canvas.use_white",LA_WIDGET_COLLECTION_SINGLE,0,ourui_PigmentOnlyPad,0)
@@ -678,6 +683,7 @@ void ourui_ColorPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
         b=laOnConditionThat(uil,c,laEqual(laPropExpression(0,"our.canvas.color_interpretation"),laIntExpression(OUR_CANVAS_INTERPRETATION_D65_P3)));{
             laShowItemFull(uil,c,0,"our.current_color",LA_WIDGET_FLOAT_COLOR_HCY,0,0,0)->Flags|=LA_UI_FLAGS_COLOR_SPACE_D65_P3|LA_UI_FLAGS_NO_CONFIRM;
         }laEndCondition(uil,b);
+        laShowItemFull(uil,c,0,"our.tools.current_brush.pigment_loading",OUR_WIDGET_PIGMENT_LOADER,0,0,0);
         b=laBeginRow(uil,c,0,0);
         uishowpalette=laShowItemFull(uil,cl,0,"our.preferences.palette_in_colors_panel",LA_WIDGET_ENUM_HIGHLIGHT,"text=Show Palette",0,0); uishowpalette->Expand=1;
         laUiItem* uispect=laShowItem(uil,c,0,"our.preferences.spectral_mode"); uispect->Flags|=LA_UI_FLAGS_NO_CONFIRM; uispect->Expand=1;
@@ -790,6 +796,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.bad_event_tolerance");
     laShowItem(uil,cr,0,"our.preferences.smoothness");
     laShowItem(uil,cr,0,"our.preferences.hardness");
+    laShowItem(uil,cr,0,"our.preferences.mixing_speed");
 
     laShowSeparator(uil,c);
 
@@ -1557,6 +1564,52 @@ void our_ColorPadDraw(laUiItem *ui, int h){
     tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
 }
 
+int ourmod_PigmentLoader(laOperator* a, laEvent* e){
+    laUiItem *ui = a->Instance;
+    laBoxedTheme *bt = (*ui->Type->Theme);
+
+    if (!laIsInUiItem(ui, a, e->x, e->y) && ui->State==LA_UI_NORMAL){
+        return LA_FINISHED_PASS;
+    }
+
+    OurBrush*b=ui->PP.LastPs?ui->PP.LastPs->UseInstance:0;
+    if(!b){ return LA_RUNNING; }
+
+    if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_UI_ACTIVE; }
+    if(ui->State==LA_UI_ACTIVE && (e->type&LA_MOUSE_EVENT)){
+        if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN){ ui->State=LA_UI_NORMAL; laRedrawCurrentPanel(); return LA_RUNNING; }
+        real fac=(1.0f-OUR_MIXING_SPEED)*e->Pressure; b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsersPP(&ui->PP);
+    }
+
+    return LA_RUNNING;
+}
+void our_PigmentLoaderDraw(laUiItem *ui, int h){
+    laBoxedTheme *bt = (*ui->Type->Theme);
+    OurBrush*b=ui->PP.LastPs?ui->PP.LastPs->UseInstance:0;
+    real UseColor[4]; UseColor[3]=0.3;
+    real* color;
+    if(Our->PigmentMode){ color=Our->MixedPigment.PreviewColor[0]; }
+    else{ color=Our->CurrentColor; } tnsVectorSet3v(UseColor,color);
+    
+    int L=ui->L,R=ui->R,U=ui->U,B=ui->B;
+
+    int sw=la_GetBoxOffset(bt,ui->State);
+    tnsUseNoTexture();
+    la_DrawBoxAutoFill(ui->L,ui->R,ui->U,ui->B,bt,ui->State,UseColor);
+
+    if (b){
+        int R1=tnsInterpolate(L,R,b->PigmentLoading);
+        tnsColor4d(LA_COLOR3(color),1.0);
+        tnsVertex2d(L-sw, U-sw); tnsVertex2d(R1-sw, U-sw);
+        tnsVertex2d(R1-sw, B-sw); tnsVertex2d(L-sw, B-sw);
+        tnsPackAs(GL_TRIANGLE_FAN);
+    }
+
+    la_DrawBoxAutoBorder(ui->L,ui->R,ui->U,ui->B,bt,ui->State);
+
+}
+
+
 int our_PigmentMixerDetectPosition(laUiItem* ui, int x, int y){
     int h = (ui->B-ui->U)/2; if(h>LA_RH) h=LA_RH; h+=ui->U;
     if(y<h){ int middle = (ui->R-ui->L)/2; if(x<=middle) return 2; return 3; }
@@ -1579,14 +1632,21 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
         if(e->type==LA_L_MOUSE_DOWN){
             es->On=our_PigmentMixerDetectPosition(ui,e->x,e->y);
             if(es->On==4){ es->LastX=e->x;es->LastY=e->y;es->TargetVali=ui->Extent; es->Dragging=1; }
-            if(es->On==2){ our_PigmentClear(pd); laNotifyUsers("our.mixed_pigment"); return LA_RUNNING;  }
+            elif(es->On==2){ our_PigmentClear(pd); laNotifyUsers("our.mixed_pigment"); return LA_RUNNING;  }
+            elif(es->On==1){ if(Our->CurrentBrush) ui->State=LA_UI_ACTIVE; }
         }
     }
     if(es->On){
-        if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->Extra->On=0; es->Dragging=0; return LA_RUNNING; }
+        if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){
+            ui->Extra->On=0; es->Dragging=0; laRedrawCurrentPanel(); ui->State=LA_UI_NORMAL; return LA_RUNNING;
+        }
         if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure);
             our_PigmentToPreviewSelf(&Our->MixedPigment); laNotifyUsers("our.mixed_pigment"); }
-        if(es->On==4){ int d=e->y-es->LastY; int h=es->TargetVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
+        elif(es->On==4){ int d=e->y-es->LastY; int h=es->TargetVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
+        elif(es->On==1 && e->type&LA_MOUSE_EVENT){ OurBrush* b=Our->CurrentBrush; if(!b){ return LA_RUNNING; }
+            real fac=(1.0f-OUR_MIXING_SPEED)*e->Pressure; b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsers("our.tools.current_brush.pigment_loading");
+            laRedrawCurrentPanel(); es->TargetValf=e->Pressure;
+        }
     }
 
     return LA_RUNNING;
@@ -1594,21 +1654,24 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
 void our_PigmentMixerDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
     OurPigmentData* pd=ui->PP.EndInstance;
+    laGeneralUiExtraData *es = ui->Extra;
     tnsUseNoTexture();
+    int L=ui->L,R=ui->R,U=ui->U,B=ui->B;
+    if(ui->State==LA_UI_ACTIVE){ int sw=LA_SHADOW_W*es->TargetValf; L+=sw;R+=sw;U+=sw;B+=sw; }
 
-    our_PigmentDrawPreview(ui->L,ui->R,ui->U,ui->B,pd,bt);
+    our_PigmentDrawPreview(L,R,U,B,pd,bt);
 
     real bkg[4]; tnsVectorCopy4d(laThemeColor(bt,LA_BT_NORMAL),bkg);
-    tnsColor4d(LA_COLOR3(bkg),bkg[3]*0.5); la_DrawBox(ui->L,ui->R,ui->U,ui->U+LA_RH);
-    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(ui->L,ui->R,ui->U,ui->B);
+    tnsColor4d(LA_COLOR3(bkg),bkg[3]*0.5); la_DrawBox(L,R,U,U+LA_RH);
+    tnsColor4dv(laThemeColor(bt,LA_BT_BORDER)); la_DrawBorder(L,R,U,B);
 
     int middle=(ui->R+ui->L)/2;
 
-    tnsDrawStringAuto(transLate("🧹 Clear"),laThemeColor(bt,LA_BT_TEXT),ui->L+LA_M,middle-LA_M,ui->U,LA_TEXT_ALIGN_LEFT|LA_TEXT_SHADOW);
-    tnsDrawStringAuto(transLate("Water 💦"),laThemeColor(bt,LA_BT_TEXT),middle+LA_M,ui->R-LA_M,ui->U,LA_TEXT_ALIGN_RIGHT|LA_TEXT_SHADOW);
-    tnsDrawStringAuto("⋮",laThemeColor(bt,LA_BT_TEXT),middle-LA_RH,middle+LA_RH,ui->U,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
+    tnsDrawStringAuto(transLate("🧹 Clear"),laThemeColor(bt,LA_BT_TEXT),L+LA_M,middle-LA_M,U,LA_TEXT_ALIGN_LEFT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto(transLate("Water 💦"),laThemeColor(bt,LA_BT_TEXT),middle+LA_M,R-LA_M,U,LA_TEXT_ALIGN_RIGHT|LA_TEXT_SHADOW);
+    tnsDrawStringAuto("⋮",laThemeColor(bt,LA_BT_TEXT),middle-LA_RH,middle+LA_RH,U,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
 
-    tnsDrawStringAuto("◿",laThemeColor(bt,LA_BT_BORDER),ui->R-LA_RH,ui->R,ui->B-LA_RH,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
+    tnsDrawStringAuto("◿",laThemeColor(bt,LA_BT_BORDER),R-LA_RH,R,B-LA_RH,LA_TEXT_ALIGN_CENTER|LA_TEXT_SHADOW);
 }
 void our_PigmentPreviewDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
@@ -1795,7 +1858,7 @@ OurBrush* our_NewBrush(char* name, real SizeOffset, real Hardness, real DabsPerS
     OurBrush* b=memAcquireHyper(sizeof(OurBrush)); strSafeSet(&b->Name,name); lstAppendItem(&Our->Brushes, b);
     b->SizeOffset=SizeOffset; b->Hardness=Hardness; b->DabsPerSize=DabsPerSize; b->Transparency=Transparency; b->Smudge=Smudge;
     b->PressureHardness=PressureHardness; b->PressureSize=PressureSize; b->PressureTransparency=PressureTransparency; b->PressureSmudge=PressureSmudge;
-    b->SmudgeResampleLength = SmudgeResampleLength;
+    b->SmudgeResampleLength = SmudgeResampleLength; b->PressureDepletion=PressureTransparency||PressureSmudge||PressureSize;
     memAssignRef(Our, &Our->CurrentBrush, b);
     b->Rack=memAcquire(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     b->Binding=-1;
@@ -2391,7 +2454,7 @@ static int ourthread_PigmentConversionSimple16(OurPigmentConversionData* pcd){
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataSimple(row*2,col*2,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*16);
+            memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
@@ -2408,12 +2471,12 @@ static int ourthread_PigmentConversionSimple8(OurPigmentConversionData* pcd){
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataSimple(row*2,col*2,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*16);
+            memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=rgb[0]*255.0f; pix[1]=rgb[1]*255.0f; pix[2]=rgb[2]*255.0f; pix[3]=255;
+            pix[0]=round(rgb[0]*255.0f); pix[1]=round(rgb[1]*255.0f); pix[2]=round(rgb[2]*255.0f); pix[3]=255;
         }
     }
     return 0;
@@ -2425,7 +2488,7 @@ static int ourthread_PigmentConversionDebayer16(OurPigmentConversionData* pcd){
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataDebayer(row,col,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*16);
+            memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
@@ -2442,12 +2505,12 @@ static int ourthread_PigmentConversionDebayer8(OurPigmentConversionData* pcd){
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataDebayer(row,col,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*16);
+            memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=rgb[0]*255.0f; pix[1]=rgb[1]*255.0f; pix[2]=rgb[2]*255.0f; pix[3]=255;
+            pix[0]=round(rgb[0]*255.0f); pix[1]=round(rgb[1]*255.0f); pix[2]=round(rgb[2]*255.0f); pix[3]=255;
         }
     }
     return 0;
@@ -2818,7 +2881,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     if (isnan(x)||isnan(y)||isnan(xto)||isnan(yto)||isinf(x)||isinf(y)||isinf(xto)||isinf(yto)){
         printf("brush input coordinates has nan or inf.\n"); return 0;
     }
-    Our->NextDab=0;
+    Our->NextDab=0; int drained=0;
     if(!b->EvalDabsPerSize) b->EvalDabsPerSize=b->DabsPerSize;
     real smfac=(1-b->Smoothness/1.1); xto=tnsLinearItp(x,xto,smfac); yto=tnsLinearItp(y,yto,smfac);  *r_xto=xto; *r_yto=yto;
     real dd=our_PaintGetDabStepDistance(b->EvalSize, b->EvalDabsPerSize); real len=tnsDistIdv2(x,y,xto,yto); real rem=b->BrushRemainingDist;
@@ -2829,6 +2892,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     b->EvalSize=bsize; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
     b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness; b->EvalAccumulation=b->Accumulation;
+    b->EvalDepletionSpeed=b->DepletionSpeed; real drain_delta;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
@@ -2853,6 +2917,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
             tnsVectorSet3v(od->Color,b->EvalColor);             od->Force=b->EvalForce*pfac(b->PressureForce);
+            if(b->Iteration==0){ drain_delta=b->EvalDepletionSpeed/b->EvalDabsPerSize/100.0f*pfac(b->PressureDepletion); }
     #undef pfac;
             od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender; od->Accumulation=b->EvalAccumulation;
             od->Angle=b->EvalAngle; if(b->TwistAngle){ od->Angle=tnsInterpolate(last_twist,Twist,r); }
@@ -2860,6 +2925,8 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
             if(od->Size>1e-1 && (!b->EvalDiscard)) Our->NextDab++;
         }
+        b->PigmentLoading-=drain_delta; if(b->PigmentLoading<0) b->PigmentLoading=0; if(drain_delta){ drained=1; }
+        if(!b->UseNodes) od->Color[3]*=b->PigmentLoading;
         step=our_PaintGetDabStepDistance(od->Size, b->EvalDabsPerSize);
         b->EvalStrokeLength+=step/bsize; b->EvalStrokeLengthAccum+=step/bsize; if(b->EvalStrokeLengthAccum>1e6){b->EvalStrokeLengthAccum-=1e6;}
         od->ResampleSmudge=0;
@@ -2872,6 +2939,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     if(this_angle>TNS_PI*2){ this_angle-=(TNS_PI*2); }
     b->LastAngle=this_angle;
     b->BrushRemainingDist=alllen-uselen;
+    if(drained){ laNotifyInstanceUsers(b); }
     if(Our->NextDab) {
         our_LayerEnsureTiles(l,xmin,xmax,ymin,ymax,0,tl,tr,tu,tb);
         int pxw=Our->PigmentMode?1:0;
@@ -4325,7 +4393,7 @@ void ourset_CurrentBrush(void* unused, OurBrush* b){
         if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->SaveEraserSize)Our->BrushSize=Our->SaveEraserSize; }
         else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->SaveBrushSize)Our->BrushSize=Our->SaveBrushSize; }
     }
-    Our->ShowBrushName = 1; Our->ShowBrushNumber=1;
+    Our->ShowBrushName = 1; Our->ShowBrushNumber=1; b->PigmentLoading=1;
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
 void ourset_CurrentPigment(void* unused, OurPigment* p){
@@ -4863,6 +4931,7 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"SHOWN","Shown","Show light and surface chooser on header",1,0);
     laAddFloatProperty(pc,"smoothness","Smoothness","Smoothness of global brush input",0,0, 0,1,0,0.05,0,0,offsetof(OurPaint,Smoothness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"hardness","Strength","Pressure strength of global brush input",0,0, 0,1,-1,0.05,0,0,offsetof(OurPaint,Hardness),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"mixing_speed","Mixing Speed","Speed to mix pigments on the ui",0,0, 0,5,0,0.05,0,0,offsetof(OurPaint,MixingSpeed),0,0,0,0,0,0,0,0,0,0,0);
     p=laAddEnumProperty(pc,"show_stripes","Ref Stripes","Whether to show visual reference stripes",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ShowStripes),0,ourset_ShowStripes,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't show visual reference stripes",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Show visual reference stripes at the top and bottom of the canvas",1,0);
@@ -4974,6 +5043,8 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"force","Force","How hard the brush is pushed against canvas texture",0,0,0,1,0,0.05,0,0,offsetof(OurBrush,Force),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"gunkyness","Gunkyness","How will the brush stick to the canvas texture",0,0, 0,1,-1,0.05,0,0,offsetof(OurBrush,Gunkyness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"accumulation","Accumulation","How fast pigments accumulate",0,0,0,5,0,0.05,3,0,offsetof(OurBrush,Accumulation),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"depletion_speed","Depletion Speed","How fast pigments left the brush",0,0,0,1,0,0.05,3,0,offsetof(OurBrush,DepletionSpeed),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"pigment_loading","Pigment Loading","How much paint is on the brush",OUR_WIDGET_PIGMENT_LOADER,0,0,1,0,0.05,1,0,offsetof(OurBrush,PigmentLoading),0,0,0,0,0,0,0,0,0,0,LA_UDF_IGNORE);
     laAddFloatProperty(pc,"c1","C1","Custom brush input 1",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom1),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"c2","C2","Custom brush input 2",0,0, 0,0,0,0.05,0,0,offsetof(OurBrush,Custom2),0,0,0,0,0,0,0,0,0,0,0);
     laAddStringProperty(pc,"c1_name","C1 Name","Custom input 1 name",0,0,0,0,1,offsetof(OurBrush,Custom1Name),0,0,0,0,0);
@@ -4987,6 +5058,8 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"pressure_smudge","Pressure Smudge","Use pen pressure to control smudging",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSmudge),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_force","Pressure Force","Use pen pressure to control dab force",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureForce),0,0,0,0,0,0,0,0,0,0);
+    OUR_ADD_PRESSURE_SWITCH(p);
+    p=laAddEnumProperty(pc,"pressure_depletion","Pressure Depletion","Use pen pressure to control depletion speed",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureDepletion),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"twist_angle","Twist Angle","Use pen twist to control dab angle",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,TwistAngle),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NONE","None","Not using twist",0,0);
@@ -5124,12 +5197,15 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"SKETCH","Sketch","Layer is a sketch layer",1,U'🖉');
 
     laCreateOperatorType("OUR_UIOP_pigment_mixer","Pigment Mixer","Pigment display widget operator",0,0,0,OPINV_UiItem,ourmod_PigmentMixer,0,LA_EXTRA_TO_PANEL);
+    laCreateOperatorType("OUR_UIOP_pigment_loader","Pigment Loader","For loading pigment onto brush when they run out",0,0,0,OPINV_UiItem,ourmod_PigmentLoader,0,LA_EXTRA_TO_PANEL);
     laCreateOperatorType("OUR_UIOP_color_pad","Color Pad","UI operator for color pads that mixes color",0,0,0,OPINV_UiItem,ourmod_ColorPad,0,LA_EXTRA_TO_PANEL);
 
     OUR_WIDGET_PIGMENT_MIXER->Type=
     _OUR_UI_PIGMENT_MIXER = la_RegisterUiType("OUR_UI_pigment_mixer", 0, "OUR_UIOP_pigment_mixer", &_LA_THEME_VALUATOR, our_PigmentMixerDraw, 0, la_GeneralUiInit, la_GeneralUiDestroy);
     OUR_WIDGET_PIGMENT_PREVIEW->Type=
     _OUR_UI_PIGMENT_PREVIEW = la_RegisterUiType("OUR_UI_pigment_preview", 0, 0, &_LA_THEME_VALUATOR, our_PigmentPreviewDraw, 0, 0, 0);
+    OUR_WIDGET_PIGMENT_LOADER->Type=
+    _OUR_UI_PIGMENT_LOADER = la_RegisterUiType("OUR_UI_pigment_loader", 0, "OUR_UIOP_pigment_loader", &_LA_THEME_VALUATOR, our_PigmentLoaderDraw, 0, 0, 0);
     OUR_WIDGET_COLOR_PAD->Type=
     _OUR_UI_COLOR_PAD = la_RegisterUiType("OUR_UI_color_pad", 0, "OUR_UIOP_color_pad", &_LA_THEME_VALUATOR, our_ColorPadDraw, 0, 0, 0);
 
@@ -5497,6 +5573,7 @@ int ourInit(){
     Our->SegmentedWrite = 1;
     Our->CanvasVersion=ourget_AssetVersion(0);
     Our->AlphaMode=1;
+    Our->MixingSpeed=0.5;
 
     Our->CanvasLight=memAcquireHyper(sizeof(OurLight));
     Our->CanvasSurface=memAcquireHyper(sizeof(OurCanvasSurface));
