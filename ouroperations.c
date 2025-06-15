@@ -1398,7 +1398,7 @@ int our_PigmentMultiplySlices(real a[16], real b[16], real factor){
 int our_PigmentOver(OurPigmentData* p0, OurPigmentData* p1, real alpha){
     int res=0;
     p0->Reflectance[15]*=alpha; p0->Absorption[15]*=alpha;
-    float rfac=p0->Reflectance[15]; p1->Absorption[15]=tnsInterpolate(p1->Absorption[15],0.,rfac*rfac);
+    real rfac=p0->Reflectance[15]; p1->Absorption[15]=tnsInterpolate(p1->Absorption[15],0.,rfac*rfac);
     if(our_PigmentOverSlices(p0->Reflectance,p1->Reflectance)) res|=1;
     if(our_PigmentMultiplySlices(p0->Absorption,p1->Absorption,1.0f)) res|=2;
     return res;
@@ -1957,15 +1957,15 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
       (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/65535.0f); }
 #define OUR_PX_FL4(p,pf) \
-    { (pf)[0]=(pow((p[0]&0xff)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0xff)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=(pow((p[3]&0xff)/15.0f,2.2)); (pf)[7]=(pow((p[3]>>4)/15.0f,2.2)); }
+    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=(pow((p[3]&0x0f)/15.0f,2.2)); (pf)[7]=(pow((p[3]>>4)/15.0f,2.2)); }
 #define OUR_PX_FH4(p,pf) \
-    { (pf)[0]=(pow((p[0]&0xff)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0xff)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
+    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
 #define OUR_FL_2PX(pf) \
     ((((uint16_t)(round(pow((pf)[1],1.0/2.2)*255.0f)))<<8)|(((uint16_t)(round(pow((pf)[0],1.0/2.2)*255.0f)))&0xff))
 #define OUR_FL_2PX4(pf) \
-    ((((uint8_t)(round(pow((pf)[1],1.0/2.2)*15.0f)))<<4)|(((uint8_t)(round(pow((pf)[0],1.0/2.2)*15.0f)))&0xf))
+    ((((uint8_t)(round(pow((pf)[1],1.0/2.2)*15.0f)))<<4)|(((uint8_t)(round(pow((pf)[0],1.0/2.2)*15.0f)))&0x0f))
 #define OUR_FL_1PX(pf) \
     ((uint16_t)((pf)[1]*65535.0f))
 #define OUR_FL_1PX4(pf) \
@@ -2114,8 +2114,8 @@ void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
     uint16_t BColorU16[4]; uint8_t BColorU8[4];
 
 #define OUR_SET_BCOLORS \
-    { BColorU16[0]=bk[0]*65535;  BColorU16[1]=bk[1]*65535;  BColorU16[2]=bk[2]*65535;  BColorU16[3]=65535; \
-      BColorU8[0]=0.5+bk[0]*255; BColorU8[1]=0.5+bk[1]*255; BColorU8[2]=0.5+bk[2]*255; BColorU8[3]=255; }
+    { BColorU16[0]=bk[0]*65535;  BColorU16[1]=bk[1]*65535;  BColorU16[2]=bk[2]*65535;  BColorU16[3]=round(bk[3]*65535); \
+      BColorU8[0]=0.5+bk[0]*255; BColorU8[1]=0.5+bk[1]*255; BColorU8[2]=0.5+bk[2]*255; BColorU8[3]=round(bk[3]*255); }
 #define OUR_SET_GLOBAL_BCOLORS \
     { Our->BColorU16[0]=bk[0]*65535;  Our->BColorU16[1]=bk[1]*65535;  Our->BColorU16[2]=bk[2]*65535;  Our->BColorU16[3]=65535; \
       Our->BColorU8[0]=0.5+bk[0]*255; Our->BColorU8[1]=0.5+bk[1]*255; Our->BColorU8[2]=0.5+bk[2]*255; Our->BColorU8[3]=255; }
@@ -2127,8 +2127,9 @@ void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_D65_P3){ tnsXYZ2D65P3(xyz,bk); tns2LogsRGB(bk); }
         elif(ColorProfile==OUR_EXPORT_COLOR_MODE_FLAT){ tnsXYZ2sRGB(xyz,bk); }
         TNS_CLAMP(bk[0],0,1);TNS_CLAMP(bk[1],0,1);TNS_CLAMP(bk[2],0,1);
-        bk[0]=pow(bk[0],2.2);bk[1]=pow(bk[1],2.2);bk[2]=pow(bk[2],2.2);
         OUR_SET_GLOBAL_BCOLORS
+        bk[0]=bk[1]=bk[2]=bk[3]=0;
+        OUR_SET_BCOLORS
     }else{
         real xyz[3]={0}; tnsVectorSet3v(bk,Our->BackgroundColor); bk[3]=1; int itp=0;
         if(ColorProfile!=OUR_EXPORT_COLOR_MODE_FLAT){
@@ -2148,45 +2149,14 @@ void our_CanvasFillImageBufferBackground(int ColorProfile, int transparent){
     if(transparent){ return; } // it should already be 0,0,0,0.
 
     OUR_PIX_COMPACT* image_buffer = Our->ImageBuffer;
-    if(Our->PigmentMode){
-        OurPigmentData* pd=&Our->CanvasSurface->Reflectance; pd->Reflectance[15]=1;
-        for(int row=0;row<Our->ImageH;row+=2){
-            for(int col=0;col<Our->ImageW;col+=2){
-                OUR_PIX_COMPACT* s0=&image_buffer[((int64_t)(row)*Our->ImageW+col)*4];
-                OUR_PIX_COMPACT* s1=&image_buffer[((int64_t)(row+1)*Our->ImageW+col)*4];
-                OUR_PIX_COMPACT* s2=&image_buffer[((int64_t)(row)*Our->ImageW+(col+1))*4];
-                OUR_PIX_COMPACT* s3=&image_buffer[((int64_t)(row+1)*Our->ImageW+(col+1))*4];
+    int64_t count=Our->ImageW*Our->ImageH;
+    for(int64_t i=0;i<count;i++){
+        OUR_PIX_COMPACT* p=&image_buffer[(int64_t)i*4];
 #ifdef LA_USE_GLES
-                s0[0]=OUR_FL_2PX4(&pd->Reflectance[0]);  s0[1]=OUR_FL_2PX4(&pd->Reflectance[2]);
-                s0[2]=OUR_FL_2PX4(&pd->Reflectance[4]);  s0[3]=OUR_FL_2PX4(&pd->Reflectance[6]);
-                s1[0]=OUR_FL_2PX4(&pd->Reflectance[8]);  s1[1]=OUR_FL_2PX4(&pd->Reflectance[10]);
-                s1[2]=OUR_FL_2PX4(&pd->Reflectance[12]); s1[3]=OUR_FL_1PX4(&pd->Reflectance[14]);
-                s2[0]=OUR_FL_2PX4(&pd->Absorption[0]);   s2[1]=OUR_FL_2PX4(&pd->Absorption[2]);
-                s2[2]=OUR_FL_2PX4(&pd->Absorption[4]);   s2[3]=OUR_FL_2PX4(&pd->Absorption[6]);
-                s3[0]=OUR_FL_2PX4(&pd->Absorption[8]);   s3[1]=OUR_FL_2PX4(&pd->Absorption[10]);
-                s3[2]=OUR_FL_2PX4(&pd->Absorption[12]);  s3[3]=OUR_FL_1PX4(&pd->Absorption[14]);
+        tnsVectorSet4v(p,BColorU8);
 #else
-                s0[0]=OUR_FL_2PX(&pd->Reflectance[0]);  s0[1]=OUR_FL_2PX(&pd->Reflectance[2]);
-                s0[2]=OUR_FL_2PX(&pd->Reflectance[4]);  s0[3]=OUR_FL_2PX(&pd->Reflectance[6]);
-                s1[0]=OUR_FL_2PX(&pd->Reflectance[8]);  s1[1]=OUR_FL_2PX(&pd->Reflectance[10]);
-                s1[2]=OUR_FL_2PX(&pd->Reflectance[12]); s1[3]=OUR_FL_1PX(&pd->Reflectance[14]);
-                s2[0]=OUR_FL_2PX(&pd->Absorption[0]);   s2[1]=OUR_FL_2PX(&pd->Absorption[2]);
-                s2[2]=OUR_FL_2PX(&pd->Absorption[4]);   s2[3]=OUR_FL_2PX(&pd->Absorption[6]);
-                s3[0]=OUR_FL_2PX(&pd->Absorption[8]);   s3[1]=OUR_FL_2PX(&pd->Absorption[10]);
-                s3[2]=OUR_FL_2PX(&pd->Absorption[12]);  s3[3]=OUR_FL_1PX(&pd->Absorption[14]);
+        tnsVectorSet4v(p,BColorU16);
 #endif
-            }
-        }
-    }else{
-        int64_t count=Our->ImageW*Our->ImageH;
-        for(int64_t i=0;i<count;i++){
-            OUR_PIX_COMPACT* p=&image_buffer[(int64_t)i*4];
-#ifdef LA_USE_GLES
-            tnsVectorSet4v(p,BColorU8);
-#else
-            tnsVectorSet4v(p,BColorU16);
-#endif
-        }
     }
 }
 void our_Pix16to8(uint8_t* converted, uint16_t* source){
@@ -2198,12 +2168,12 @@ void our_Pix16to8H(uint8_t* converted, uint16_t* source){
     converted[2]=((source[2]&0xff)/17)|(((source[2]>>8)/17)<<4); converted[3]=(source[3])/257;
 }
 void our_Pix8to16(uint16_t* converted, uint8_t* source){
-    converted[0]=((source[0]&0x0f)*17)|(((source[0]>>4)*17)<<8); converted[1]=((source[1]&0x0f)*17)|(((source[1]>>4)*17)<<8);
-    converted[2]=((source[2]&0x0f)*17)|(((source[2]>>4)*17)<<8); converted[3]=((source[3]&0x0f)*17)|(((source[3]>>4)*17)<<8);
+    converted[0]=(((uint16_t)source[0]&0x0f)*17)|(((uint16_t)(source[0]>>4)*17)<<8); converted[1]=(((uint16_t)source[1]&0x0f)*17)|(((uint16_t)(source[1]>>4)*17)<<8);
+    converted[2]=(((uint16_t)source[2]&0x0f)*17)|(((uint16_t)(source[2]>>4)*17)<<8); converted[3]=(((uint16_t)source[3]&0x0f)*17)|(((uint16_t)(source[3]>>4)*17)<<8);
 }
 void our_Pix8to16H(uint16_t* converted, uint8_t* source){
-    converted[0]=((source[0]&0x0f)*17)|(((source[0]>>4)*17)<<8); converted[1]=((source[1]&0x0f)*17)|(((source[1]>>4)*17)<<8);
-    converted[2]=((source[2]&0x0f)*17)|(((source[2]>>4)*17)<<8); converted[3]=(source[3])*257;
+    converted[0]=(((uint16_t)source[0]&0x0f)*17)|(((uint16_t)(source[0]>>4)*17)<<8); converted[1]=(((uint16_t)source[1]&0x0f)*17)|(((uint16_t)(source[1]>>4)*17)<<8);
+    converted[2]=(((uint16_t)source[2]&0x0f)*17)|(((uint16_t)(source[2]>>4)*17)<<8); converted[3]=((uint16_t)source[3])*257;
 }
 void our_ImageBufferFromNative(){
 #ifdef LA_USE_GLES
@@ -2416,10 +2386,14 @@ void our_GetImagePigmentDataDebayer(int row, int col, OurPigmentData* pd){ //row
 typedef int (*OurPigmentConversionFunction)(OurPigmentConversionData* pcd);
 static int ourthread_PigmentConversionSimple16(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
+    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData bkg={0};
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataSimple(row*2,col*2,&pd);
-            our_PigmentToXYZDirect(&pd,xyz);
+            memcpy(&bkg,canvas,sizeof(real)*16);
+            our_PigmentOver(&pd,&bkg,1.0f);
+            our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint16_t* pix=&pcd->ImageConversionBuffer[((int64_t)row*pcd->cols+col)*4];
             pix[0]=rgb[0]*65535; pix[1]=rgb[1]*65535; pix[2]=rgb[2]*65535; pix[3]=65535;
@@ -2429,10 +2403,14 @@ static int ourthread_PigmentConversionSimple16(OurPigmentConversionData* pcd){
 }
 static int ourthread_PigmentConversionSimple8(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
+    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData bkg={0};
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataSimple(row*2,col*2,&pd);
-            our_PigmentToXYZDirect(&pd,xyz);
+            memcpy(&bkg,canvas,sizeof(real)*16);
+            our_PigmentOver(&pd,&bkg,1.0f);
+            our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
             pix[0]=rgb[0]*255.0f; pix[1]=rgb[1]*255.0f; pix[2]=rgb[2]*255.0f; pix[3]=255;
@@ -2442,10 +2420,14 @@ static int ourthread_PigmentConversionSimple8(OurPigmentConversionData* pcd){
 }
 static int ourthread_PigmentConversionDebayer16(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
+    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData bkg={0};
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataDebayer(row,col,&pd);
-            our_PigmentToXYZDirect(&pd,xyz);
+            memcpy(&bkg,canvas,sizeof(real)*16);
+            our_PigmentOver(&pd,&bkg,1.0f);
+            our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint16_t* pix=&pcd->ImageConversionBuffer[((int64_t)row*pcd->cols+col)*4];
             pix[0]=rgb[0]*65535; pix[1]=rgb[1]*65535; pix[2]=rgb[2]*65535; pix[3]=65535;
@@ -2455,10 +2437,14 @@ static int ourthread_PigmentConversionDebayer16(OurPigmentConversionData* pcd){
 }
 static int ourthread_PigmentConversionDebayer8(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
+    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData bkg={0};
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
             our_GetImagePigmentDataDebayer(row,col,&pd);
-            our_PigmentToXYZDirect(&pd,xyz);
+            memcpy(&bkg,canvas,sizeof(real)*16);
+            our_PigmentOver(&pd,&bkg,1.0f);
+            our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
             pix[0]=rgb[0]*255.0f; pix[1]=rgb[1]*255.0f; pix[2]=rgb[2]*255.0f; pix[3]=255;
