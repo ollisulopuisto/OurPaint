@@ -103,7 +103,6 @@ int main(int argc, char *argv[]){
     ourFinalize();
 
     if(anyload){ laRecordEverythingAndPush(); }
-    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
     our_EnableSplashPanel();
     laMainLoop();

@@ -5613,6 +5613,13 @@ void ourFinalize(){
         laLoadProofingICC("profiles/GenericCMYK.icm");
     }
 
+    OurPigment* default_white=laGetInstanceViaNUID("OURPIGM_TitaniumWhite",1);
+    OurPigment* default_black=laGetInstanceViaNUID("OURPIGM_Black",1);
+    memAssignRef(Our,&Our->UseWhite,default_white);
+    memAssignRef(Our,&Our->UseWhite,default_black);
+
+    laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
+
     laAddRootDBInst("our.tools");
     laAddRootDBInst("our.canvas");
 }
