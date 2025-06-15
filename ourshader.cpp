@@ -749,6 +749,9 @@ PixType PixelAvg4H(PixType a, PixType b, PixType c, PixType d){
 
 #endif // desktop gl
 
+)"
+R"(
+
 PixType GetSubPixelH2(highp usampler2D tex, ivec2 uv, int offset){
     if(uv.x>=textureSize(tex,0).x-offset) return fetchpix(tex,ivec2(uv.x-offset,uv.y),0);
     if(uv.x<=offset) return fetchpix(tex,ivec2(uv.x+offset,uv.y),0);

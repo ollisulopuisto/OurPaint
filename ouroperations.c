@@ -24,6 +24,10 @@
 #include <unistd.h>
 #include <libgen.h>
 #endif
+#ifdef _WIN32
+#include <malloc.h> // _alloca()
+#define alloca _alloca
+#endif
 
 OurPaint *Our;
 extern LA MAIN;
