@@ -190,6 +190,7 @@ STRUCTURE(OurBrushSettingsNode){
     laNodeOutSocket* Smudge;       real rSmudge;
     laNodeOutSocket* DabsPerSize;  real rDabsPerSize;
     laNodeOutSocket* SmudgeLength; real rSmudgeLength;
+    laNodeOutSocket* SmudgeLifting;real rSmudgeLifting;
     laNodeOutSocket* Slender;      real rSlender;
     laNodeOutSocket* Angle;        real rAngle;
     laNodeOutSocket* Gunkyness;    real rGunkyness;
@@ -210,6 +211,7 @@ STRUCTURE(OurBrushOutputsNode){
     laNodeInSocket* Smudge;
     laNodeInSocket* DabsPerSize;
     laNodeInSocket* SmudgeLength;
+    laNodeInSocket* SmudgeLifting;
     laNodeInSocket* Slender;
     laNodeInSocket* Angle;
     laNodeInSocket* Color;
@@ -231,6 +233,7 @@ STRUCTURE(OurBrushDeviceNode){
     laNodeOutSocket* Angle;    real rAngle;
     laNodeOutSocket* Length;   real rLength;
     laNodeOutSocket* LengthAccum; real rLengthAccum;
+    laNodeOutSocket* PigmentLoading; real rPigmentLoading;
 };
 
 STRUCTURE(OurBrush){
@@ -240,7 +243,7 @@ STRUCTURE(OurBrush){
     real DabsPerSize;
     real Hardness;
     real Transparency;
-    real Smudge;
+    real Smudge,SmudgeLifting;
     real SmudgeResampleLength; real SmudgeAccum; int SmudgeRestart; real BrushRemainingDist;
     real Slender;
     real Angle;
@@ -274,6 +277,7 @@ STRUCTURE(OurBrush){
     real EvalTransparency;
     real EvalSmudge;
     real EvalSmudgeLength;
+    real EvalSmudgeLifting;
     real EvalSlender;
     real EvalAngle;
     real EvalForce, EvalGunkyness;
@@ -297,7 +301,7 @@ STRUCTURE(OurDab){
     float X,Y;
     float Size;
     float Hardness;
-    float Smudge; int ResampleSmudge;
+    float Smudge, SmudgeLifting; int ResampleSmudge;
     float Color[4];
     float Slender;
     float Angle;
@@ -474,6 +478,7 @@ STRUCTURE(BrushUniforms){
     GLint uMixRoutineSelectionES;
     GLint uBrushErasing;
     GLint uBrushMix;
+    GLint uBrushSmudgeLifting;
     GLint RoutineDoDabs;
     GLint RoutineDoSample;
     GLint RoutineDoMixNormal;
@@ -557,6 +562,7 @@ STRUCTURE(OurPaint){
     int PigmentDisplayMethod;
     int PaletteInColorsPanel;
     int DefaultCanvasType;
+    int ToolUndo;
 
     tnsTexture* SmudgeTexture;
     GLuint CanvasShader;         GLuint CanvasProgram;

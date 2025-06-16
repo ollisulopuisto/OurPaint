@@ -51,12 +51,14 @@ void IDN_BrushSettingsInit(OurBrushSettingsNode* n, int NoCreate){
     if(!n->Force) n->Force=laCreateOutSocket(n,"FORCE",LA_PROP_FLOAT);
     if(!n->Accumulation) n->Accumulation=laCreateOutSocket(n,"ACCUM",LA_PROP_FLOAT);
     if(!n->DepletionSpeed) n->DepletionSpeed=laCreateOutSocket(n,"DRAIN",LA_PROP_FLOAT);
+    if(!n->SmudgeLifting) n->SmudgeLifting=laCreateOutSocket(n,"LIFT",LA_PROP_FLOAT);
     n->CanvasScale->Data=&n->rCanvasScale;
     n->Size->Data=&n->rSize;
     n->Transparency->Data=&n->rTransparency;
     n->Hardness->Data=&n->rHardness;
     n->Smudge->Data=&n->rSmudge;
     n->SmudgeLength->Data=&n->rSmudgeLength;
+    n->SmudgeLifting->Data=&n->rSmudgeLifting;
     n->DabsPerSize->Data=&n->rDabsPerSize;
     n->Slender->Data=&n->rSlender;
     n->Angle->Data=&n->rAngle;
@@ -74,6 +76,7 @@ void IDN_BrushSettingsDestroy(OurBrushSettingsNode* n){
     laDestroyOutSocket(n->SmudgeLength); laDestroyOutSocket(n->DabsPerSize); laDestroyOutSocket(n->Slender); laDestroyOutSocket(n->Angle);
     laDestroyOutSocket(n->CanvasScale); laDestroyOutSocket(n->Iteration); laDestroyOutSocket(n->Custom1); laDestroyOutSocket(n->Custom2);
     laDestroyOutSocket(n->Gunkyness); laDestroyOutSocket(n->Force); laDestroyOutSocket(n->Accumulation);  laDestroyOutSocket(n->DepletionSpeed);
+    laDestroyOutSocket(n->SmudgeLifting);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushSettingsVisit(OurBrushSettingsNode* n, laNodeVisitInfo* vi){
@@ -88,6 +91,7 @@ int IDN_BrushSettingsEval(OurBrushSettingsNode* n){
     n->rHardness = Our->CurrentBrush->Hardness;
     n->rSmudge = Our->CurrentBrush->Smudge;
     n->rSmudgeLength = Our->CurrentBrush->SmudgeResampleLength;
+    n->rSmudgeLifting = Our->CurrentBrush->SmudgeLifting;
     n->rDabsPerSize = Our->CurrentBrush->DabsPerSize;
     n->rSlender = Our->CurrentBrush->Slender;
     n->rAngle = Our->CurrentBrush->Angle;
@@ -110,7 +114,7 @@ void IDN_BrushSettingsCopy(OurBrushSettingsNode* new, OurBrushSettingsNode* old,
     LA_IDN_OLD_DUPL(Smudge)      LA_IDN_OLD_DUPL(SmudgeLength)
     LA_IDN_OLD_DUPL(Transparency)LA_IDN_OLD_DUPL(Gunkyness)
     LA_IDN_OLD_DUPL(Force)       LA_IDN_OLD_DUPL(Accumulation)
-    LA_IDN_OLD_DUPL(DepletionSpeed)
+    LA_IDN_OLD_DUPL(DepletionSpeed) LA_IDN_OLD_DUPL(SmudgeLifting)
 }
 void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushSettingsNode*n=This->EndInstance;
@@ -130,6 +134,7 @@ void ui_BrushSettingsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, la
         laShowSeparator(uil,c)->Expand=1;
         laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_W;
         laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+        laShowNodeSocket(uil,c,This,"smudge_lifting",0)->Flags|=LA_UI_SOCKET_LABEL_W;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0);
         laShowSeparator(uil,c)->Expand=1;
@@ -169,6 +174,7 @@ void IDN_BrushOutputsInit(OurBrushOutputsNode* n, int NoCreate){
     if(!n->Force) n->Force=laCreateInSocket("FORCE",LA_PROP_FLOAT);
     if(!n->Accumulation) n->Accumulation=laCreateInSocket("ACCUM",LA_PROP_FLOAT);
     if(!n->DepletionSpeed) n->DepletionSpeed=laCreateInSocket("DRAIN",LA_PROP_FLOAT);
+    if(!n->SmudgeLifting) n->SmudgeLifting=laCreateInSocket("LIFTING",LA_PROP_FLOAT);
     strSafeSet(&n->Base.Name, "Brush Outputs");
 }
 void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
@@ -177,18 +183,19 @@ void IDN_BrushOutputsDestroy(OurBrushOutputsNode* n){
     laDestroyInSocket(n->SmudgeLength); laDestroyInSocket(n->DabsPerSize); laDestroyInSocket(n->Slender); laDestroyInSocket(n->Angle);
     laDestroyInSocket(n->Color); laDestroyInSocket(n->Repeats); laDestroyInSocket(n->Discard);
     laDestroyInSocket(n->Gunkyness); laDestroyInSocket(n->Force); laDestroyInSocket(n->Accumulation); laDestroyInSocket(n->DepletionSpeed);
+    laDestroyInSocket(n->SmudgeLifting);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushOutputsVisit(OurBrushOutputsNode* n, laNodeVisitInfo* vi){
     LA_GUARD_THIS_NODE(n,vi);
 #define BRUSH_OUT_VISIT(a) \
     if(LA_SRC_AND_PARENT(n->a)){ laBaseNode*bn=n->a->Source->Parent; LA_VISIT_NODE(bn,vi); }
-    BRUSH_OUT_VISIT(Offset) BRUSH_OUT_VISIT(Size) BRUSH_OUT_VISIT(Transparency)
-    BRUSH_OUT_VISIT(Hardness) BRUSH_OUT_VISIT(Smudge) BRUSH_OUT_VISIT(SmudgeLength)
-    BRUSH_OUT_VISIT(DabsPerSize) BRUSH_OUT_VISIT(Slender) BRUSH_OUT_VISIT(Angle)
-    BRUSH_OUT_VISIT(Color) BRUSH_OUT_VISIT(Repeats) BRUSH_OUT_VISIT(Discard)
-    BRUSH_OUT_VISIT(Gunkyness) BRUSH_OUT_VISIT(Force) BRUSH_OUT_VISIT(Accumulation)
-    BRUSH_OUT_VISIT(DepletionSpeed)
+    BRUSH_OUT_VISIT(Offset)         BRUSH_OUT_VISIT(Size)    BRUSH_OUT_VISIT(Transparency)
+    BRUSH_OUT_VISIT(Hardness)       BRUSH_OUT_VISIT(Smudge)  BRUSH_OUT_VISIT(SmudgeLength)
+    BRUSH_OUT_VISIT(DabsPerSize)    BRUSH_OUT_VISIT(Slender) BRUSH_OUT_VISIT(Angle)
+    BRUSH_OUT_VISIT(Color)          BRUSH_OUT_VISIT(Repeats) BRUSH_OUT_VISIT(Discard)
+    BRUSH_OUT_VISIT(Gunkyness)      BRUSH_OUT_VISIT(Force)   BRUSH_OUT_VISIT(Accumulation)
+    BRUSH_OUT_VISIT(DepletionSpeed) BRUSH_OUT_VISIT(SmudgeLifting)
 #undef BRUSH_OUT_VISIT
     LA_ADD_THIS_NODE(n,vi);
     return LA_DAG_FLAG_PERM;
@@ -223,15 +230,17 @@ int IDN_BrushOutputsEval(OurBrushOutputsNode* n){
     BRUSH_OUT_EVAL(DepletionSpeed)
     BRUSH_OUT_EVAL(Repeats)
     BRUSH_OUT_EVAL(Discard)
+    BRUSH_OUT_EVAL(SmudgeLifting)
 #undef BRUSH_OUT_EVAL
     return 1;
 }
 void IDN_BrushOutputsCopy(OurBrushOutputsNode* new, OurBrushOutputsNode* old, int DoRematch){
     if(DoRematch){
-        LA_IDN_NEW_LINK(Offset) LA_IDN_NEW_LINK(Size) LA_IDN_NEW_LINK(Transparency) LA_IDN_NEW_LINK(Hardness)
-        LA_IDN_NEW_LINK(Smudge) LA_IDN_NEW_LINK(SmudgeLength) LA_IDN_NEW_LINK(DabsPerSize) LA_IDN_NEW_LINK(Slender)
-        LA_IDN_NEW_LINK(Angle) LA_IDN_NEW_LINK(Color) LA_IDN_NEW_LINK(Repeats) LA_IDN_NEW_LINK(Discard)
-        LA_IDN_NEW_LINK(Gunkyness) LA_IDN_NEW_LINK(Force) LA_IDN_NEW_LINK(Accumulation) LA_IDN_NEW_LINK(DepletionSpeed)
+        LA_IDN_NEW_LINK(Offset)       LA_IDN_NEW_LINK(Size)         LA_IDN_NEW_LINK(Transparency) LA_IDN_NEW_LINK(Hardness)
+        LA_IDN_NEW_LINK(Smudge)       LA_IDN_NEW_LINK(SmudgeLength) LA_IDN_NEW_LINK(DabsPerSize)  LA_IDN_NEW_LINK(Slender)
+        LA_IDN_NEW_LINK(Angle)        LA_IDN_NEW_LINK(Color)        LA_IDN_NEW_LINK(Repeats)      LA_IDN_NEW_LINK(Discard)
+        LA_IDN_NEW_LINK(Gunkyness)    LA_IDN_NEW_LINK(Force)        LA_IDN_NEW_LINK(Accumulation) LA_IDN_NEW_LINK(DepletionSpeed)
+        LA_IDN_NEW_LINK(SmudgeLifting)
         return;
     }
     return;
@@ -253,6 +262,7 @@ void ui_BrushOutputsNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laC
     b=laBeginRow(uil,c,0,0);
         laShowNodeSocket(uil,c,This,"smudge",0)->Flags|=LA_UI_SOCKET_LABEL_E;
         laShowNodeSocket(uil,c,This,"smudge_length",0)->Flags|=LA_UI_SOCKET_LABEL_E;
+        laShowNodeSocket(uil,c,This,"smudge_lifting",0)->Flags|=LA_UI_SOCKET_LABEL_E;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0);
         laShowNodeSocket(uil,c,This,"gunkyness",0)->Flags|=LA_UI_SOCKET_LABEL_E;
@@ -280,6 +290,7 @@ void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
         strSafeSet(&n->Base.Name, "Brush Device");
     }
     if(!n->Twist){ n->Twist=laCreateOutSocket(n,"TWIST",LA_PROP_FLOAT); }
+    if(!n->PigmentLoading){ n->PigmentLoading=laCreateOutSocket(n,"LOAD",LA_PROP_FLOAT); }
     n->Pressure->Data=&n->rPressure;
     n->Tilt->Data=n->rTilt; n->Tilt->ArrLen=2;
     n->Twist->Data=&n->rTwist;
@@ -289,10 +300,11 @@ void IDN_BrushDeviceInit(OurBrushDeviceNode* n, int NoCreate){
     n->Angle->Data=&n->rAngle;
     n->Length->Data=&n->rLength;
     n->LengthAccum->Data=&n->rLengthAccum;
+    n->PigmentLoading->Data=&n->rPigmentLoading;
 }
 void IDN_BrushDeviceDestroy(OurBrushDeviceNode* n){
     laDestroyOutSocket(n->Pressure); laDestroyOutSocket(n->Tilt); laDestroyOutSocket(n->Position); laDestroyOutSocket(n->IsEraser); laDestroyOutSocket(n->Speed);
-    laDestroyOutSocket(n->Angle); laDestroyOutSocket(n->Length); laDestroyOutSocket(n->LengthAccum); laDestroyOutSocket(n->Twist);
+    laDestroyOutSocket(n->Angle); laDestroyOutSocket(n->Length); laDestroyOutSocket(n->LengthAccum); laDestroyOutSocket(n->Twist); laDestroyOutSocket(n->PigmentLoading);
     strSafeDestroy(&n->Base.Name);
 }
 int IDN_BrushDeviceVisit(OurBrushDeviceNode* n, laNodeVisitInfo* vi){
@@ -310,13 +322,14 @@ int IDN_BrushDeviceEval(OurBrushDeviceNode* n){
     n->rSpeed = Our->CurrentBrush->EvalSpeed;
     n->rLength = Our->CurrentBrush->EvalStrokeLength;
     n->rLengthAccum = Our->CurrentBrush->EvalStrokeLengthAccum;
+    n->rPigmentLoading = Our->CurrentBrush->PigmentLoading;
     return 1;
 }
 void IDN_BrushDeviceCopy(OurBrushDeviceNode* new, OurBrushDeviceNode* old, int DoRematch){
     if(DoRematch){ return;}
-    LA_IDN_OLD_DUPL(Pressure) LA_IDN_OLD_DUPL(Tilt) LA_IDN_OLD_DUPL(Position) LA_IDN_OLD_DUPL(Twist)
-    LA_IDN_OLD_DUPL(IsEraser) LA_IDN_OLD_DUPL(Speed) LA_IDN_OLD_DUPL(Angle)
-    LA_IDN_OLD_DUPL(Length) LA_IDN_OLD_DUPL(LengthAccum)
+    LA_IDN_OLD_DUPL(Pressure) LA_IDN_OLD_DUPL(Tilt)        LA_IDN_OLD_DUPL(Position)   LA_IDN_OLD_DUPL(Twist)
+    LA_IDN_OLD_DUPL(IsEraser) LA_IDN_OLD_DUPL(Speed)       LA_IDN_OLD_DUPL(Angle)
+    LA_IDN_OLD_DUPL(Length)   LA_IDN_OLD_DUPL(LengthAccum) LA_IDN_OLD_DUPL(PigmentLoading)
 }
 void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); OurBrushDeviceNode*n=This->EndInstance;
@@ -334,7 +347,10 @@ void ui_BrushDeviceNode(laUiList *uil, laPropPack *This, laPropPack *Extra, laCo
         laShowNodeSocket(uil,c,This,"is_eraser",0)->Flags|=LA_UI_SOCKET_LABEL_N;
     laEndRow(uil,b);
     b=laBeginRow(uil,c,0,0); laShowSeparator(uil,c)->Expand=1;
-        laShowNodeSocket(uil,c,This,"length_accum",0)->Flags|=LA_UI_SOCKET_LABEL_W; laShowNodeSocket(uil,c,This,"length",0)->Flags|=LA_UI_SOCKET_LABEL_W; laEndRow(uil,b);
+        laShowNodeSocket(uil,c,This,"length_accum",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+        laShowNodeSocket(uil,c,This,"length",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+        laShowNodeSocket(uil,c,This,"pigment_loading",0)->Flags|=LA_UI_SOCKET_LABEL_W;
+    laEndRow(uil,b);
     
 }
 
@@ -359,6 +375,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"hardness", "Hardness","Hardness","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Hardness),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"smudge", "Smudge","Smudge","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Smudge),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"smudge_length", "Smudge Length","Smudge length","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,SmudgeLength),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"smudge_lifting", "Smudge Lifting","Smudge Lifting","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,SmudgeLifting),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"dabs_per_size", "Dabs Per Size","Dabs per size","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,DabsPerSize),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"slender", "Slender","Slender","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_out_socket",0,0,0,offsetof(OurBrushSettingsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -380,6 +397,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"hardness", "Hardness","Hardness","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Hardness),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"smudge", "Smudge","Smudge","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Smudge),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"smudge_length", "Smudge Length","Smudge length","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,SmudgeLength),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"smudge_lifting", "Smudge Lifting","Smudge lifting","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,SmudgeLifting),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"dabs_per_size", "Dabs Per Size","Dabs per size","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,DabsPerSize),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"slender", "Slender","Slender","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Slender),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"angle", "Angle","Angle","la_in_socket",0,0,0,offsetof(OurBrushOutputsNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
@@ -403,6 +421,7 @@ void ourRegisterNodes(){
     laAddSubGroup(pc,"angle","Angle","Direction of the brush","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Angle),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"length","Length","Length of this brush stroke","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,Length),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"length_accum","Accumulated Length","Accumulated stroke length","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,LengthAccum),0,0,0,0,0,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"pigment_loading","Pigment Loading","Pigment loading of the brush","la_out_socket",0,0,0,offsetof(OurBrushDeviceNode,PigmentLoading),0,0,0,0,0,0,0,LA_UDF_SINGLE);
     
     LA_IDN_REGISTER("Brush Settings",U'⚙',OUR_IDN_BRUSH_SETTINGS,OUR_PC_IDN_BRUSH_SETTINGS, IDN_BrushSettings, OurBrushSettingsNode);
     LA_IDN_REGISTER("Brush Outputs",U'🌈',OUR_IDN_BRUSH_OUTPUTS,OUR_PC_IDN_BRUSH_OUTPUTS, IDN_BrushOutputs, OurBrushOutputsNode);

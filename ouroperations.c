@@ -529,6 +529,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             laShowItem(uil,c,&cb->PP,"dabs_per_size");
             OUR_BR laShowItem(uil,c,&cb->PP,"smudge")->Expand=1;  OUR_PRESSURE("pressure_smudge")  OUR_ER
             laShowItem(uil,c,&cb->PP,"smudge_resample_length");
+            laShowItem(uil,c,&cb->PP,"smudge_lifting");
             laShowItem(uil,c,&cb->PP,"gunkyness");
             OUR_BR laShowItem(uil,c,&cb->PP,"force")->Expand=1; OUR_PRESSURE("pressure_force") OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"depletion_speed")->Expand=1;  OUR_PRESSURE("pressure_depletion") OUR_ER
@@ -825,6 +826,11 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
 
     laShowLabel(uil,c,"Undo:",0,0);
     laShowItem(uil,cr,0,"our.preferences.paint_undo_limit");
+    laUiItem* undoui=laShowItemFull(uil,cr,0,"our.preferences.tool_undo",0,"text=Tool Undo (Requre Restart)",0,0); undoui->Flags|=LA_UI_FLAGS_CHECKBOX;
+    laUiItem* bundo=laOnConditionThat(uil,cr,laPropExpression(&undoui->PP,""));{
+            laShowLabel(uil,cr,"When tool undo is enabled, brush nodes can't be moved across node racks (current technical limitation)\n"
+                            ,0,0)->Flags|=LA_TEXT_USE_NEWLINE|LA_TEXT_LINE_WRAP|LA_UI_FLAGS_DISABLED;
+    }laEndCondition(uil,bundo);
     
     laShowSeparator(uil,c);
 
@@ -1582,7 +1588,7 @@ int ourmod_PigmentLoader(laOperator* a, laEvent* e){
     if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_UI_ACTIVE; }
     if(ui->State==LA_UI_ACTIVE && (e->type&LA_MOUSE_EVENT)){
         if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN){ ui->State=LA_UI_NORMAL; laRedrawCurrentPanel(); return LA_RUNNING; }
-        real fac=(1.0f-OUR_MIXING_SPEED)*e->Pressure; b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsersPP(&ui->PP);
+        real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsersPP(&ui->PP);
     }
 
     return LA_RUNNING;
@@ -1648,7 +1654,7 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
             our_PigmentToPreviewSelf(&Our->MixedPigment); laNotifyUsers("our.mixed_pigment"); }
         elif(es->On==4){ int d=e->y-es->LastY; int h=es->TargetVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
         elif(es->On==1 && e->type&LA_MOUSE_EVENT){ OurBrush* b=Our->CurrentBrush; if(!b){ return LA_RUNNING; }
-            real fac=(1.0f-OUR_MIXING_SPEED)*e->Pressure; b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsers("our.tools.current_brush.pigment_loading");
+            real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsers("our.tools.current_brush.pigment_loading");
             laRedrawCurrentPanel(); es->TargetValf=e->Pressure;
         }
     }
@@ -2897,7 +2903,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
     b->EvalSize=bsize; b->EvalHardness=b->Hardness; b->EvalSmudge=b->Smudge; b->EvalSmudgeLength=b->SmudgeResampleLength;
     b->EvalTransparency=b->Transparency; b->EvalDabsPerSize=b->DabsPerSize; b->EvalSlender=b->Slender; b->EvalAngle=b->Angle;
     b->EvalSpeed=tnsDistIdv2(x,y,xto,yto)/bsize; b->EvalForce=b->Force; b->EvalGunkyness=b->Gunkyness; b->EvalAccumulation=b->Accumulation;
-    b->EvalDepletionSpeed=b->DepletionSpeed; real drain_delta;
+    b->EvalSmudgeLifting=b->SmudgeLifting; b->EvalDepletionSpeed=b->DepletionSpeed; real drain_delta;
     if(Our->ResetBrush){ b->LastX=x; b->LastY=y; b->LastAngle=atan2(yto-y,xto-x); b->EvalStrokeLength=0; Our->ResetBrush=0; }
     real this_angle=atan2(yto-y,xto-x);
     if(b->LastAngle-this_angle>TNS_PI){ this_angle+=(TNS_PI*2); }
@@ -2927,7 +2933,7 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
             if(b->Iteration==0){ drain_delta=b->EvalDepletionSpeed/b->EvalDabsPerSize/100.0f*pfac(b->PressureDepletion); }
     #undef pfac
     #undef pfacm
-            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender;
+            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender; od->SmudgeLifting=b->EvalSmudgeLifting;
             od->Angle=b->EvalAngle; if(b->TwistAngle){ od->Angle=tnsInterpolate(last_twist,Twist,r); }
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
@@ -2979,6 +2985,7 @@ void our_PaintDoDab(OurDab* d, int tl, int tr, int tu, int tb){
     glUniform1f(OURU->uBrushSize,d->Size);
     glUniform1f(OURU->uBrushHardness,d->Hardness);
     glUniform1f(OURU->uBrushSmudge,d->Smudge);
+    glUniform1f(OURU->uBrushSmudgeLifting,d->SmudgeLifting+1);
     glUniform1f(OURU->uBrushSlender,d->Slender);
     glUniform1f(OURU->uBrushAngle,d->Angle);
     glUniform2fv(OURU->uBrushDirection,1,d->Direction);
@@ -3128,6 +3135,7 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
             pd.Reflectance[i]=pow(pigment[i]/255.0f,2.2f); pow(pd.Absorption[i]=pigment[i+8]/255.0f,2.2f);
             pd.Reflectance[i+8]=pow(pigment[i+16]/255.0f,2.2f); pow(pd.Absorption[i+8]=pigment[i+24]/255.0f,2.2f);
         }
+        pd.Reflectance[15]=(*((uint16_t*)&pigment[22]))/65535.0f; pd.Absorption[15]=(*((uint16_t*)&pigment[30]))/65535.0f;
         //printf("\nread:\n");
         //for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
         //for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
@@ -4520,7 +4528,7 @@ void ourpost_Canvas(void* unused){
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
 void ourpost_Brush(OurBrush* brush){
-    if(brush->Version<50){ brush->Accumulation=3; brush->PressureAccumulation=1; }
+    if(brush->Version<50){ brush->Accumulation=3; brush->PressureAccumulation=1; if(brush->Smudge>0){ brush->SmudgeLifting=0.5; } }
 }
 
 
@@ -4983,6 +4991,9 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"default_canvas_type","Default Canvas Type","Default canvas type",0,0,0,0,0,offsetof(OurPaint,DefaultCanvasType),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"RGBA","RGBA","Use RGBA Canvas as default",0,0);
     laAddEnumItemAs(p,"Pigment","Pigment","Use Pigment Canvas as default",1,0);
+    p=laAddEnumProperty(pc,"tool_undo","Tool Undo","Whether to enable undo for tools. Limitations apply. Effective upon restart.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ToolUndo),0,0,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"FALSE","No","Don't enable undo",0,0);
+    laAddEnumItemAs(p,"TRUE","Yes","Enable undo (Restrictions apply)",1,0);
     
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
@@ -5043,6 +5054,7 @@ void ourRegisterEverything(){
     laAddFloatProperty(pc,"transparency","Transparency","Transparency of a dab",0,0,0,1,0,0.05,0.5,0,offsetof(OurBrush,Transparency),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"hardness","Hardness","Hardness of the brush",0,0,0,1,0,0.05,0.95,0,offsetof(OurBrush,Hardness),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"smudge","Smudge","Smudge of the brush",0,0,0,1,0,0.05,0.95,0,offsetof(OurBrush,Smudge),0,0,0,0,0,0,0,0,0,0,0);
+    laAddFloatProperty(pc,"smudge_lifting","Smudge Lifting","How much paint does smudge brush lift",0,0,0,1,0,0.05,0.5,0,offsetof(OurBrush,SmudgeLifting),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"dabs_per_size","Dabs Per Size","How many dabs per size of the brush",0,0,0,0,0,0,0,0,offsetof(OurBrush,DabsPerSize),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"smudge_resample_length","Smudge Resample Length","How long of a distance (based on size) should elapse before resampling smudge",0,0,0,0,0,0,0,0,offsetof(OurBrush,SmudgeResampleLength),0,0,0,0,0,0,0,0,0,0,0);
     laAddFloatProperty(pc,"slender","Slender","Slenderness of the brush",0,0, 0,10,0,0.1,0,0,offsetof(OurBrush,Slender),0,0,0,0,0,0,0,0,0,0,0);
@@ -5388,6 +5400,7 @@ void ourGetUniforms(int CanvasProgram, int DisplayProgram, int CompositionProgra
     OURU->uBrushGunkyness=glGetUniformLocation(CanvasProgram,"uBrushGunkyness");
     OURU->uBrushErasing=glGetUniformLocation(CanvasProgram,"uBrushErasing");
     OURU->uBrushMix=glGetUniformLocation(CanvasProgram,"uBrushMix");
+    OURU->uBrushSmudgeLifting=glGetUniformLocation(CanvasProgram,"uBrushSmudgeLifting");
 
 #ifdef LA_USE_GLES
     OURU->uBrushRoutineSelectionES=glGetUniformLocation(CanvasProgram, "uBrushRoutineSelectionES");
@@ -5580,6 +5593,7 @@ int ourInit(){
 
     Our->FileRegistered = our_FileAssociationsRegistered();
 
+    Our->ToolUndo = 0;
     Our->SegmentedWrite = 1;
     Our->CanvasVersion=ourget_AssetVersion(0);
     Our->AlphaMode=1;
@@ -5626,7 +5640,10 @@ void ourFinalize(){
 
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
-    laAddRootDBInst("our.tools");
+    if(Our->ToolUndo){
+        MAIN.InitArgs.DisableUnsupportedUndo=1;
+        laAddRootDBInst("our.tools");
+    }
     laAddRootDBInst("our.canvas");
 }
 
