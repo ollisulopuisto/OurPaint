@@ -4859,7 +4859,7 @@ void ourRegisterEverything(){
     laRegisterUiTemplate("panel_canvas_properties", "Canvas Properties", ourui_CanvasPropertiesPanel,0,0,"Customizations",0,15,15);
     laRegisterUiTemplate("panel_pigments", "Pigments", ourui_PigmentsPreviewPanel, 0, 0,0, GL_RGBA16F,20,27);
     laRegisterUiTemplate("panel_pallettes", "Palettes", ourui_PalettesPanel, 0, 0,0, GL_RGBA16F,0,0);
-    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,230,30);
+    laRegisterUiTemplate("panel_brush_nodes", "Brush Nodes", ourui_BrushPage, 0, 0,0, 0,23,30);
     
     pc=laDefineRoot();
     laAddSubGroup(pc,"our","Our","OurPaint main","our_paint",0,0,0,-1,ourget_our,0,0,0,0,0,0,LA_UDF_SINGLE);
