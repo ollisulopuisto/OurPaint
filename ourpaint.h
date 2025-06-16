@@ -251,7 +251,8 @@ STRUCTURE(OurBrush){
     real Accumulation;
     real DepletionSpeed;
     int Iteration;
-    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,TwistAngle,PressureDepletion; // the simple way
+    int PressureSize,PressureHardness,PressureTransparency,PressureSmudge,PressureForce,
+        TwistAngle,PressureDepletion,PressureAccumulation; // the simple way
 
     int Binding,DefaultAsEraser;
     int ShowInPages;

@@ -523,7 +523,7 @@ void ourui_ToolsPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps
             OUR_BR laShowItem(uil,c,&cb->PP,"size_offset")->Expand=1; OUR_PRESSURE("pressure_size") OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"transparency")->Expand=1; OUR_PRESSURE("pressure_transparency")  OUR_ER
             OUR_BR laShowItem(uil,c,&cb->PP,"hardness")->Expand=1;  OUR_PRESSURE("pressure_hardness") OUR_ER
-            laShowItem(uil,c,&cb->PP,"accumulation");
+            OUR_BR laShowItem(uil,c,&cb->PP,"accumulation")->Expand=1;  OUR_PRESSURE("pressure_accumulation") OUR_ER
             laShowItem(uil,c,&cb->PP,"slender");
             OUR_BR laShowItem(uil,c,&cb->PP,"angle")->Expand=1; OUR_TWIST("twist_angle") OUR_ER;
             laShowItem(uil,c,&cb->PP,"dabs_per_size");
@@ -1863,6 +1863,7 @@ OurBrush* our_NewBrush(char* name, real SizeOffset, real Hardness, real DabsPerS
     b->SizeOffset=SizeOffset; b->Hardness=Hardness; b->DabsPerSize=DabsPerSize; b->Transparency=Transparency; b->Smudge=Smudge;
     b->PressureHardness=PressureHardness; b->PressureSize=PressureSize; b->PressureTransparency=PressureTransparency; b->PressureSmudge=PressureSmudge;
     b->SmudgeResampleLength = SmudgeResampleLength; b->PressureDepletion=PressureTransparency||PressureSmudge||PressureSize;
+    b->Accumulation=3; b->PressureAccumulation=b->PressureDepletion;
     memAssignRef(Our, &Our->CurrentBrush, b);
     b->Rack=memAcquire(sizeof(laRackPage)); b->Rack->RackType=LA_RACK_TYPE_DRIVER;
     b->Binding=-1;
@@ -2917,13 +2918,16 @@ int our_PaintGetDabs(OurBrush* b, OurLayer* l, real x, real y, real xto, real yt
                 od->X+=b->EvalOffset[0]; od->Y+=b->EvalOffset[1];
             }
             if(!b->EvalDabsPerSize) b->EvalDabsPerSize=1;
-    #define pfac(psw) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r):1)
+    #define pfacm(psw,max) (((!b->UseNodes)&&psw)?tnsInterpolate(last_pressure,pressure,r)*max:1)
+    #define pfac(psw) pfacm(psw,1)
             od->Size = b->EvalSize*pfac(b->PressureSize);       od->Hardness = b->EvalHardness*pfac(b->PressureHardness);
             od->Smudge = b->EvalSmudge*pfac(b->PressureSmudge); od->Color[3]=pow(b->EvalTransparency*pfac(b->PressureTransparency),2.718);
             tnsVectorSet3v(od->Color,b->EvalColor);             od->Force=b->EvalForce*pfac(b->PressureForce);
+            od->Accumulation=b->EvalAccumulation*pfac(b->PressureAccumulation);
             if(b->Iteration==0){ drain_delta=b->EvalDepletionSpeed/b->EvalDabsPerSize/100.0f*pfac(b->PressureDepletion); }
-    #undef pfac;
-            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender; od->Accumulation=b->EvalAccumulation;
+    #undef pfac
+    #undef pfacm
+            od->Gunkyness = b->EvalGunkyness; od->Slender = b->EvalSlender;
             od->Angle=b->EvalAngle; if(b->TwistAngle){ od->Angle=tnsInterpolate(last_twist,Twist,r); }
             xmin=TNS_MIN2(xmin, od->X-od->Size); xmax=TNS_MAX2(xmax, od->X+od->Size); 
             ymin=TNS_MIN2(ymin, od->Y-od->Size); ymax=TNS_MAX2(ymax, od->Y+od->Size);
@@ -4516,7 +4520,7 @@ void ourpost_Canvas(void* unused){
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
 void ourpost_Brush(OurBrush* brush){
-    if(brush->Version<50){ brush->Accumulation=3; }
+    if(brush->Version<50){ brush->Accumulation=3; brush->PressureAccumulation=1; }
 }
 
 
@@ -5062,6 +5066,8 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"pressure_smudge","Pressure Smudge","Use pen pressure to control smudging",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureSmudge),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_force","Pressure Force","Use pen pressure to control dab force",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureForce),0,0,0,0,0,0,0,0,0,0);
+    OUR_ADD_PRESSURE_SWITCH(p);
+    p=laAddEnumProperty(pc,"pressure_accumulation","Pressure Accumulation","Use pen pressure to control accumulation speed",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureAccumulation),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
     p=laAddEnumProperty(pc,"pressure_depletion","Pressure Depletion","Use pen pressure to control depletion speed",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurBrush,PressureDepletion),0,0,0,0,0,0,0,0,0,0);
     OUR_ADD_PRESSURE_SWITCH(p);
