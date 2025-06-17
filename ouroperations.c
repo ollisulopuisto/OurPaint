@@ -1251,7 +1251,7 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     our_CanvasDrawTextures(e->OffScr, ocd->OffScrSave);
 
     tnsUseImmShader(); 
-    if(Our->PigmentMode){ tnsLineWidth(2); tnsUseHalftone(1.0f); }
+    if(Our->PigmentMode){ tnsLineWidth(2); tnsUseHalftone(1.0f); tnsColor4d(0,0,0,1); }
     else{ glEnable(GL_BLEND); }
     if(Our->ShowTiles){ our_CanvasDrawTiles(); }
     if(Our->ShowBorder){ our_CanvasDrawCropping(ocd); }
@@ -3656,13 +3656,13 @@ int ourinv_MovePigment(laOperator* a, laEvent* e){
 
 int ourinv_NewUsePigment(laOperator* a, laEvent* e){
     our_NewUsePigment(0);
-    laNotifyUsers("our.canvas.use_pigments"); laRecordInstanceDifferences(Our,"our.canvas.use_pigments"); laPushDifferences("Add use pigment",0);
+    laNotifyUsers("our.canvas.use_pigments"); laRecordDifferences(0, "our.canvas.use_pigments"); laPushDifferences("Add use pigment",0);
     return LA_FINISHED;
 }
 int ourinv_RemoveUsePigment(laOperator* a, laEvent* e){
-    OurPigment* p=a->This?a->This->EndInstance:0; if(!p) return LA_CANCELED;
+    OurUsePigment* p=a->This?a->This->EndInstance:0; if(!p) return LA_CANCELED;
     our_RemoveUsePigment(p); laNotifyUsers("our.canvas.use_pigments");
-    laRecordInstanceDifferences(Our,"our.canvas.use_pigments"); laPushDifferences("Remove uses pigment",0);
+    laRecordDifferences(0, "our.canvas.use_pigments"); laPushDifferences("Remove uses pigment",0);
     return LA_FINISH;
 }
 
