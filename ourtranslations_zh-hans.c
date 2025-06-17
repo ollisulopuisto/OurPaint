@@ -23,8 +23,9 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
-"When tool undo is enabled, brush nodes can't be moved across node racks (current technical limitation)",
-    "工具撤销启用时，笔刷节点不能在挂架上左右移动（目前的技术限制）",
+"Depleted", "耗尽",
+"When tool undo is enabled, brush nodes can't be moved across node racks",
+    "工具撤销启用时，笔刷节点不能在挂架上左右移动",
 "Tool Undo (Requre Restart)","工具撤销（需要重启）",
 "Smudge Lifting","涂抹稀释",
 "Depletion Speed","耗尽速度",

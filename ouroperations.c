@@ -828,7 +828,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     laShowItem(uil,cr,0,"our.preferences.paint_undo_limit");
     laUiItem* undoui=laShowItemFull(uil,cr,0,"our.preferences.tool_undo",0,"text=Tool Undo (Requre Restart)",0,0); undoui->Flags|=LA_UI_FLAGS_CHECKBOX;
     laUiItem* bundo=laOnConditionThat(uil,cr,laPropExpression(&undoui->PP,""));{
-            laShowLabel(uil,cr,"When tool undo is enabled, brush nodes can't be moved across node racks (current technical limitation)\n"
+            laShowLabel(uil,cr,"When tool undo is enabled, brush nodes can't be moved across node racks"
                             ,0,0)->Flags|=LA_TEXT_USE_NEWLINE|LA_TEXT_LINE_WRAP|LA_UI_FLAGS_DISABLED;
     }laEndCondition(uil,bundo);
     
@@ -1608,11 +1608,17 @@ void our_PigmentLoaderDraw(laUiItem *ui, int h){
     la_DrawBoxAutoFill(ui->L,ui->R,ui->U,ui->B,bt,ui->State,UseColor);
 
     if (b){
+        tnsDrawStringAuto("Depleted",laThemeColor(bt,LA_BT_TEXT|LA_BT_DISABLED),L+LA_M,R-LA_M,U,LA_TEXT_SHADOW);
+        tnsUseNoTexture();
         int R1=tnsInterpolate(L,R,b->PigmentLoading);
         tnsColor4d(LA_COLOR3(color),1.0);
         tnsVertex2d(L-sw, U-sw); tnsVertex2d(R1-sw, U-sw);
         tnsVertex2d(R1-sw, B-sw); tnsVertex2d(L-sw, B-sw);
         tnsPackAs(GL_TRIANGLE_FAN);
+        tnsVertex2d(R1-sw, U-sw); tnsVertex2d(R1-sw, B-sw);
+        tnsColor4d(1,1,1,1);tnsPackAs(GL_LINES);
+        tnsVertex2d(R1-sw+1, U-sw); tnsVertex2d(R1-sw+1, B-sw);
+        tnsColor4d(0,0,0,1);tnsPackAs(GL_LINES);
     }
 
     la_DrawBoxAutoBorder(ui->L,ui->R,ui->U,ui->B,bt,ui->State);
@@ -4425,7 +4431,7 @@ void ourset_CurrentPalette(void* unused, OurColorPalette* cp){
     laNotifyUsers("our.tools.current_pallette"); laNotifyUsers("our.tools.pallettes");
 }
 void ourset_PaletteColor(void* unused, OurColorItem* ci){
-    memcpy(&Our->MixedPigment,&ci->Pigment,sizeof(OurPigmentData));
+    if(ci->Pigment.Absorption[0]!=0 && ci->Pigment.Reflectance[0]!=0) memcpy(&Our->MixedPigment,&ci->Pigment,sizeof(OurPigmentData));
     tnsVectorSet3v(Our->CurrentColor,ci->Pigment.PreviewColor[0]);
     laNotifyUsers("our.current_color");
 }
@@ -5636,7 +5642,7 @@ void ourFinalize(){
     OurPigment* default_white=laGetInstanceViaNUID("OURPIGM_TitaniumWhite",1);
     OurPigment* default_black=laGetInstanceViaNUID("OURPIGM_Black",1);
     memAssignRef(Our,&Our->UseWhite,default_white);
-    memAssignRef(Our,&Our->UseWhite,default_black);
+    memAssignRef(Our,&Our->UseBlack,default_black);
 
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
