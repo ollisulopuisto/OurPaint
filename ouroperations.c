@@ -4317,9 +4317,11 @@ void ourset_LayerImageSegmentedInfo(OurLayer* l, void* data, int size){
     }
 }
 
-void ourset_LayerMove(OurLayer* l, int move){
-    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); laNotifyUsers("our.canvas_notify"); }
-    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); laNotifyUsers("our.canvas_notify"); }
+void ourset_LayerMove(OurLayer* l, int move){ int changed=0;
+    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Layers, l); changed=1; }
+    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Layers, l); changed=1; }
+    if(changed){ laNotifyUsers("our.canvas.layers"); laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); 
+        laRecordDifferences(0,"our.canvas.layers"); laPushDifferences("Move Layer",0); }
 }
 void ourset_LayerAlpha(OurLayer* l, real a){
     l->Transparency=a; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
@@ -4333,25 +4335,34 @@ void ourset_LayerAsSketch(OurLayer* l, int sketch){
 void ourset_LayerBlendMode(OurLayer* l, int mode){
     l->BlendMode=mode; laNotifyUsers("our.canvas_notify");  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
-void ourset_BrushMove(OurBrush* b, int move){
-    if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
-    elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); laNotifyUsers("our.tools.brushes"); }
+void ourset_BrushMove(OurBrush* b, int move){ int changed=0;
+    if(move<0 && b->Item.pPrev){ lstMoveUp(&Our->Brushes, b); changed=1; }
+    elif(move>0 && b->Item.pNext){ lstMoveDown(&Our->Brushes, b); changed=1; }
+    if(changed){ laNotifyUsers("our.canvas.layers"); laRecordDifferences(0,"our.canvas.layers"); laPushDifferences("Move brush",0); }
 }
-void ourset_PigmentMove(OurPigment* p, int move){
-    if(move<0 && p->Item.pPrev){ lstMoveUp(&Our->Pigments, p); laNotifyUsers("our.tools.pigments"); }
-    elif(move>0 && p->Item.pNext){ lstMoveDown(&Our->Pigments, p); laNotifyUsers("our.tools.pigments"); }
+void ourset_PigmentMove(OurPigment* p, int move){ int changed=0;
+    if(move<0 && p->Item.pPrev){ lstMoveUp(&Our->Pigments, p); changed=1; }
+    elif(move>0 && p->Item.pNext){ lstMoveDown(&Our->Pigments, p); changed=1; }
+    if(changed){ laNotifyUsers("our.tools.pigments"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+        laRecordDifferences(0,"our.tools.pigments"); laPushDifferences("Move pigment",0); }
+    
 }
-void ourset_UsePigmentMove(OurUsePigment* p, int move){
-    if(move<0 && p->Item.pPrev){ lstMoveUp(&Our->UsePigments, p); laNotifyUsers("our.canvas.use_pigments"); }
-    elif(move>0 && p->Item.pNext){ lstMoveDown(&Our->UsePigments, p); laNotifyUsers("our.canvas.use_pigments"); }
+void ourset_UsePigmentMove(OurUsePigment* p, int move){ int changed=0;
+    if(move<0 && p->Item.pPrev){ lstMoveUp(&Our->UsePigments, p); changed=1; }
+    elif(move>0 && p->Item.pNext){ lstMoveDown(&Our->UsePigments, p); changed=1; }
+    if(changed){ laNotifyUsers("our.canvas.use_pigments"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); 
+        laRecordDifferences(0,"our.canvas.use_pigments"); laPushDifferences("Move use pigment",0); }
+    
 }
-void ourset_LightMove(OurLight* l, int move){
-    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Lights, l); laNotifyUsers("our.tools.lights"); }
-    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Lights, l); laNotifyUsers("our.tools.lights"); }
+void ourset_LightMove(OurLight* l, int move){ int changed=0;
+    if(move<0 && l->Item.pPrev){ lstMoveUp(&Our->Lights, l); changed=1; }
+    elif(move>0 && l->Item.pNext){ lstMoveDown(&Our->Lights, l); changed=1; }
+    if(changed){ laNotifyUsers("our.tools.lights");  laRecordDifferences(0,"our.tools.lights"); laPushDifferences("Move light",0); }
 }
-void ourset_CanvasSurfaceMove(OurCanvasSurface* cs, int move){
-    if(move<0 && cs->Item.pPrev){ lstMoveUp(&Our->CanvasSurfaces, cs); laNotifyUsers("our.tools.canvas_surfaces"); }
-    elif(move>0 && cs->Item.pNext){ lstMoveDown(&Our->CanvasSurfaces, cs); laNotifyUsers("our.tools.canvas_surfaces"); }
+void ourset_CanvasSurfaceMove(OurCanvasSurface* cs, int move){ int changed=0;
+    if(move<0 && cs->Item.pPrev){ lstMoveUp(&Our->CanvasSurfaces, cs); changed=1; }
+    elif(move>0 && cs->Item.pNext){ lstMoveDown(&Our->CanvasSurfaces, cs); changed=1; }
+    if(changed){ laNotifyUsers("our.tools.canvas_surfaces"); laRecordDifferences(0,"our.tools.canvas_surfaces"); laPushDifferences("Move canvas surface",0); }
 }
 void ourset_BrushSize(void* unused, real v){
     Our->BrushSize = v; Our->ShowBrushNumber=1; laNotifyUsers("our.canvas_notify");
@@ -4748,7 +4759,10 @@ void ourPreFrame(){
     if(MAIN.GraphNeedsRebuild){ ourRebuildBrushEval(); }
 }
 void ourPushEverything(){
-    laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
+    // Manual pushing is still required. See `laFindStartingDBProp`.
+    laRecordInstanceDifferences(Our,"our_canvas");
+    laRecordInstanceDifferences(Our,"our_tools");
+    laPushDifferences("Post-loading",0);
     laFreeOlderDifferences(0);
     for(OurLayer* ol=Our->Layers.pFirst;ol;ol=ol->Item.pNext){ our_LayerRefreshLocal(ol); }
 }
