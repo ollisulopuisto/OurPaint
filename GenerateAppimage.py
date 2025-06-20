@@ -53,6 +53,7 @@ os.system("rm -rf ../OurPaintApp/AppDir")
 os.system("rm -rf ../OurPaintApp/OurPaint")
 os.system("mkdir -p ../OurPaintApp/AppDir")
 os.system("mkdir -p ../OurPaintApp/OurPaint/fonts")
+os.system("mkdir -p ../OurPaintApp/OurPaint/profiles")
 os.system("cp build/OurPaint ../OurPaintApp/AppDir")
 os.system("cp README.md ../OurPaintApp/OurPaint")
 os.system("cp default_brushes.udf ../OurPaintApp/OurPaint")
@@ -63,6 +64,7 @@ os.system("cp default_lights.udf ../OurPaintApp/OurPaint")
 os.system("cp COPYING ../OurPaintApp/OurPaint")
 os.system("cp COPYING_CC_BY_NC ../OurPaintApp/OurPaint")
 os.system("cp %s/.local/share/fonts/lagui/*.* ../OurPaintApp/OurPaint/fonts"%os.path.expanduser("~"))
+os.system("cp profiles/*.* ../OurPaintApp/OurPaint/profiles")
 
 additional=""
 # bundle everything?

@@ -95,7 +95,7 @@ target_link_libraries(OurPaint
 )
 
 SET(INSTALL_EXTRAS
-    README.md default_brushes.udf default_pallettes.udf COPYING COPYING_CC_BY_NC)
+    README.md default_brushes.udf default_pallettes.udf default_canvases.udf default_lights.udf default_pigments.udf COPYING COPYING_CC_BY_NC)
 
 FILE(GLOB INSTALL_PROFILES profiles/*)
 
