@@ -5629,6 +5629,8 @@ int ourInit(){
     Our->AlphaMode=1;
     Our->MixingSpeed=0.5;
     Our->DefaultCanvasType=1;
+    Our->MixModeOnHeader=1;
+    Our->LightsOnHeader=1;
 
     Our->CanvasLight=memAcquireHyper(sizeof(OurLight));
     Our->CanvasSurface=memAcquireHyper(sizeof(OurCanvasSurface));
