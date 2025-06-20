@@ -4586,6 +4586,10 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         laShowItem(muil,mc,0,"OUR_clear_empty_tiles");
         laShowItemFull(muil,mc,0,"our.preferences.show_debug_tiles",LA_WIDGET_ENUM_HIGHLIGHT,"text=👁",0,0);
         laEndRow(muil,row);
+        laShowSeparator(muil,mc);
+        laShowLabel(muil,mc,"Pigments",0,0)->Flags|=LA_UI_FLAGS_DISABLED;
+        laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "text=List of Pigments;panel_id=panel_pigments;", 0, 0);
+        laShowSeparator(muil,mc);
         laShowLabel(muil, mc, "Settings", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItemFull(muil, mc, 0, "LA_panel_activator", 0, "text=User Preferences;panel_id=LAUI_user_preferences;", 0, 0);
     }
@@ -5663,6 +5667,11 @@ void ourFinalize(){
     OurPigment* default_black=laGetInstanceViaNUID("OURPIGM_Black",1);
     memAssignRef(Our,&Our->UseWhite,default_white);
     memAssignRef(Our,&Our->UseBlack,default_black);
+
+    if(default_black){
+        our_PigmentMix(&Our->MixedPigment,&default_black->Pigment,0.4);
+        our_PigmentToPreviewSelf(&Our->MixedPigment);
+    }
 
     if(!Our->CurrentPalette){ memAssignRef(Our,&Our->CurrentPalette,Our->Palettes.pFirst); }
 

@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"List of Pigments", "颜料列表",
+"New Palette", "新增调色板",
 "Depleted", "耗尽",
 "When tool undo is enabled, brush nodes can't be moved across node racks",
     "工具撤销启用时，笔刷节点不能在挂架上左右移动",
