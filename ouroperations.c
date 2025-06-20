@@ -4401,11 +4401,15 @@ void ourset_LayerPosition(OurLayer* l, int* xy){
     l->OffsetX=xy[0]; l->OffsetY=xy[1]; laNotifyUsers("our.canvas_notify"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 void ourreset_Canvas(OurPaint* op){
+    Our->PigmentMode=0; Our->AlphaMode=0;
     while(op->Layers.pFirst){ our_RemoveLayer(op->Layers.pFirst,1); }
     while(op->UsePigments.pFirst){ our_RemoveUsePigment(op->UsePigments.pFirst); }
 }
 void ourreset_Preferences(OurPaint* op){
     return; //does nothing.
+}
+void ourreset_Palette(OurColorPalette* cp){
+    while(cp->Colors.pFirst){ our_PaletteRemoveColor(cp->Colors.pFirst); } strSafeDestroy(&cp->Name);
 }
 void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
     for(OurBrush* b=p->Brushes.pFirst;b;b=b->Item.pNext){
@@ -4542,6 +4546,7 @@ void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
     if(Our->CanvasVersion<50){ Our->AlphaMode=0; }
     LA_ACQUIRE_GLES_CONTEXT;
+    our_RefreshAllPigmentPreviews();
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 }
 void ourpost_Brush(OurBrush* brush){
@@ -5128,6 +5133,7 @@ void ourRegisterEverything(){
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate brush","OUR_duplicate_brush",U'⎘',0);
 
     pc=laAddPropertyContainer("our_pallette","Our Palette","OurPaint pallette",0,0,sizeof(OurColorPalette),0,0,2);
+    laPropContainerExtraFunctions(pc,0,ourreset_Palette,0,0,0);
     laAddStringProperty(pc,"name","Name","Name of this pallette",0,0,0,0,1,offsetof(OurColorPalette,Name),0,0,0,0,LA_AS_IDENTIFIER);
     sp=laAddSubGroup(pc,"colors","Colors","Colors in this pallette","our_color_item",0,0,0,-1,0,0,0,ourset_PaletteColor,0,0,offsetof(OurColorPalette,Colors),0);
         sp->UiFilter=ourfilter_PaletteColorItem;
@@ -5657,6 +5663,8 @@ void ourFinalize(){
     OurPigment* default_black=laGetInstanceViaNUID("OURPIGM_Black",1);
     memAssignRef(Our,&Our->UseWhite,default_white);
     memAssignRef(Our,&Our->UseBlack,default_black);
+
+    if(!Our->CurrentPalette){ memAssignRef(Our,&Our->CurrentPalette,Our->Palettes.pFirst); }
 
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
 
