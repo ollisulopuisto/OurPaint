@@ -7,7 +7,7 @@ AppDir:
     id: chengdu.littlea.ourpaint
     name: OurPaint
     icon: application-x-executable
-    version: v0.2a
+    version: v0.5
     exec: OurPaint
     exec_args: $@
   apt:
@@ -57,6 +57,9 @@ os.system("cp build/OurPaint ../OurPaintApp/AppDir")
 os.system("cp README.md ../OurPaintApp/OurPaint")
 os.system("cp default_brushes.udf ../OurPaintApp/OurPaint")
 os.system("cp default_pallettes.udf ../OurPaintApp/OurPaint")
+os.system("cp default_canvases.udf ../OurPaintApp/OurPaint")
+os.system("cp default_pigments.udf ../OurPaintApp/OurPaint")
+os.system("cp default_lights.udf ../OurPaintApp/OurPaint")
 os.system("cp COPYING ../OurPaintApp/OurPaint")
 os.system("cp COPYING_CC_BY_NC ../OurPaintApp/OurPaint")
 os.system("cp %s/.local/share/fonts/lagui/*.* ../OurPaintApp/OurPaint/fonts"%os.path.expanduser("~"))
@@ -73,12 +76,11 @@ additional="""
     - libfreetype6
     - liblcms2-2
     - libpng16-16
-    - libglew2.1
     - libxi6
     - libxfixes3
     - libxcursor1
     - libxrandr2
-    - libglew2.2
+    - libglew2.1
 """
 template=template.replace("---includes---",additional)
 
