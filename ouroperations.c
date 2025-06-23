@@ -792,6 +792,7 @@ void ourui_OurPreference(laUiList *uil, laPropPack *This, laPropPack *DetachedPr
     uiitem=laShowItem(uil,cr,0,"our.preferences.enable_brush_circle");uiitem->Flags|=LA_UI_FLAGS_CHECKBOX;
     b=laOnConditionThat(uil,cr,laPropExpression(&uiitem->PP,""));
     laShowItemWithLabel(uil,cl,cr,0,"our.preferences.brush_circle_tilt_mode",0,0,0,0,"Show brush direction",0,c)->Flags|=LA_UI_FLAGS_EXPAND;
+    laShowItem(uil,cr,0,"our.preferences.max_recent_files");
     laEndCondition(uil,b);
 
     laShowSeparator(uil,c);
@@ -4085,6 +4086,23 @@ int ourinv_PaletteRemoveColor(laOperator* a, laEvent* e){
     return LA_FINISHED;
 }
 
+int ourinv_ReadPendingRecentFile(laOperator* a, laEvent* e){
+    if(!Our->PendingRecentFile){ return LA_CANCELED; }
+    laManagedUDF* m; laUDF* UDF = laOpenUDF(SSTR(Our->PendingRecentFile->Path), 1, 0, &m);
+    if (UDF){
+        laFreeNewerDifferences(); laFreeOlderDifferences(1);
+        laExtractUDF(UDF, m, LA_UDF_MODE_OVERWRITE);
+        laCloseUDF(UDF);
+        laRecordEverythingAndPush(); laNotifyUsers("la.differences");
+        return LA_FINISHED;
+    }else{
+        int x=5*LA_RH,y=5*LA_RH;
+        laEnableMessagePanel(0,0,"Error","Unable to extract UDF",x,y,100,0);
+    }
+    Our->PendingRecentFile=0;
+    return LA_FINISHED;
+}
+
 int our_TileHasPixels(OurTexTile* ot){
     if(!ot || !ot->Texture) return 0;
     int bufsize=OUR_TILE_W*OUR_TILE_W*OUR_CANVAS_PIXEL_SIZE;
@@ -4542,17 +4560,65 @@ void ourset_ChooseLight(void* unsed, OurLight* l){ if(!l){ return; }
 int ourget_AssetVersion(void* unused){
     return OUR_VERSION_MAJOR*100+OUR_VERSION_MINOR*10+OUR_VERSION_SUB;
 }
+void our_AddToRecentFiles(laUDF* udf){
+    if(!udf) return;
+    char* path=SSTR(udf->FileName); int found=0;
+    for(OurRecentFile* irf=Our->RecentFiles.pFirst;irf;irf=irf->Item.pNext){
+        if(strSame(SSTR(irf->Path),path)){
+            lstRemoveItem(&Our->RecentFiles,irf); lstPushItem(&Our->RecentFiles,irf); found=1; break;
+        }
+    }
+    if(found) return;
+    OurRecentFile* rf=memAcquire(sizeof(OurRecentFile));
+    strSafeSet(&rf->Path,path);
+    char* name=strGetLastSegment(SSTR(rf->Path),LA_PATH_SEP);
+    strSafeSet(&rf->Name,name);
+    lstPushItem(&Our->RecentFiles,rf);
+    int i=0; for(OurRecentFile* irf=Our->RecentFiles.pFirst;irf;irf=irf->Item.pNext){
+        if(i>=Our->MaxRecentFiles){ OurRecentFile* iirf=irf;
+            while(iirf){ OurRecentFile* trf=iirf;
+                iirf=iirf->Item.pNext; lstRemoveItem(&Our->RecentFiles,trf);
+            }
+            break;
+        }
+        i++;
+    }
+    laNotifyUsers("our.preferences.recent_files");
+}
 void ourpost_Canvas(void* unused){
     if(Our->CanvasVersion<20){ Our->BackgroundFactor=0; Our->BackgroundType=0; }
     if(Our->CanvasVersion<50){ Our->AlphaMode=0; }
     LA_ACQUIRE_GLES_CONTEXT;
     our_RefreshAllPigmentPreviews();
     laMarkMemClean(Our->CanvasSaverDummyList.pFirst);
+    laMarkMemClean(Our);
+    our_AddToRecentFiles(MAIN.ReadingUDF);
 }
 void ourpost_Brush(OurBrush* brush){
     if(brush->Version<50){ brush->Accumulation=3; brush->PressureAccumulation=1; if(brush->Smudge>0){ brush->SmudgeLifting=0.5; } }
 }
 
+void ourset_RecentFile(void* unused, OurRecentFile* rf){ if(!rf) return;
+    int empty=0; int mod=laRegisterModifications(1,1,&empty,0);
+    laWindow* w=MAIN.CurrentWindow;
+    Our->PendingRecentFile=rf;
+    if(w&&(mod||empty)){
+        int x=5*LA_RH,y=5*LA_RH;
+        laPanel* p=laEnableEmptyMessagePanel(0,0,"Caution",x,y,200,0);
+        laUiList* uil=laPrepareUi(p); laColumn* c=laFirstColumn(uil);
+        
+        laShowLabel(uil, c, "You still have unsaved data, reading a new canvas might overwrite them.", 0, 0)
+            ->Flags|=LA_TEXT_USE_NEWLINE|LA_TEXT_LINE_WRAP;
+        laUiItem* r = laBeginRow(uil,c,0,0);
+        laShowItemFull(uil,c,0,"OUR_read_pending_recent_file",0,"text=Still read the file;",0,0)->Flags|=LA_UI_FLAGS_WARNING;
+        laShowSeparator(uil,c)->Expand=1;
+        laShowItemFull(uil,c,0,"LA_panel_activator",0,"panel_id=LAUI_data_manager;text=Manage unsaved data...;",0,0)
+            ->Flags|=LA_UI_FLAGS_HIGHLIGHT;
+        laEndRow(uil, r);
+    }else{
+        ourinv_ReadPendingRecentFile(0,0);
+    }
+}
 
 #define OUR_ADD_PRESSURE_SWITCH(p) \
     laAddEnumItemAs(p,"NONE","None","Not using pressure",0,0);\
@@ -4565,6 +4631,14 @@ void ourui_MenuButtons(laUiList *uil, laPropPack *pp, laPropPack *actinst, laCol
         laShowLabel(muil, mc, "Our Paint", 0, 0)->Flags|=LA_TEXT_MONO|LA_UI_FLAGS_DISABLED;
         laShowItem(muil, mc, 0, "LA_udf_read");
         laShowItemFull(muil, mc, 0, "LA_udf_read",0,"mode=append;text=Append",0,0);
+        laUiList* mmuil=laMakeMenuPage(muil,mc,"Recent Files");{
+            laColumn* mmc=laFirstColumn(mmuil);
+            laUiItem* b=laOnConditionThat(mmuil,mmc,laPropExpression(0,"our.preferences.recent_files"));{
+                laShowItem(mmuil,mmc,0,"our.preferences.recent_files");
+            }laElse(mmuil,b);{
+                laShowLabel(mmuil,mmc,"No recent files.",0,0);
+            }laEndCondition(mmuil,b);
+        }
         laShowSeparator(muil,mc);
         laShowItemFull(muil, mc, 0, "LA_managed_save",0,"quiet=true;text=Save;",0,0);
         laShowItem(muil, mc, 0, "LA_managed_save");
@@ -4785,6 +4859,8 @@ void ourPostSave(){
         our_ShowAllocationError(&e);
     }
     Our->SaveFailed=0;
+    int level; laMemNodeHyper* m=memGetHead(Our->CanvasSaverDummyList.pFirst,&level);
+    if(m->FromFile && m->FromFile->udf){ our_AddToRecentFiles(m->FromFile->udf); }
 }
 void ourCleanUp(){
     while(Our->Layers.pFirst){ our_RemoveLayer(Our->Layers.pFirst,1); }
@@ -4889,6 +4965,8 @@ void ourRegisterEverything(){
     laCreateOperatorType("OUR_clear_empty_tiles","Clear Empty Tiles","Clear empty tiles in this image",0,0,0,ourinv_ClearEmptyTiles,0,U'🧹',0);
 
     laCreateOperatorType("OUR_register_file_associations","Register File Associations","Register file associations to current user",0,0,0,ourinv_RegisterFileAssociations,0,0,0);
+
+    laCreateOperatorType("OUR_read_pending_recent_file","Read Pending Recent File","Read pending recent file",0,0,0,ourinv_ReadPendingRecentFile,0,0,0);
 
     laRegisterUiTemplate("panel_canvas", "Canvas", ourui_CanvasPanel, 0, 0,"Our Paint", GL_RGBA16F,25,25);
     laRegisterUiTemplate("panel_thumbnail", "Thumbnail", ourui_ThumbnailPanel, 0, 0, 0, GL_RGBA16F,10,10);
@@ -5023,7 +5101,13 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"tool_undo","Tool Undo","Whether to enable undo for tools. Limitations apply. Effective upon restart.",LA_WIDGET_ENUM_HIGHLIGHT,0,0,0,0,offsetof(OurPaint,ToolUndo),0,0,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"FALSE","No","Don't enable undo",0,0);
     laAddEnumItemAs(p,"TRUE","Yes","Enable undo (Restrictions apply)",1,0);
-    
+    laAddSubGroup(pc,"recent_files","Recent Files","Recently opened files","our_recent_file",0,0,laui_IdentifierOnly,-1,0,0,0,ourset_RecentFile,0,0,offsetof(OurPaint,RecentFiles),0);
+    laAddIntProperty(pc,"max_recent_files","Max Recent Files","The maximum amount of files in the recent file list",0,0,0,20,0,1,5,0,offsetof(OurPaint,MaxRecentFiles),0,0,0,0,0,0,0,0,0,0,0);
+
+    pc=laAddPropertyContainer("our_recent_file","Our Recent File","Our recent file item",0,0,sizeof(OurRecentFile),0,0,1);
+    laAddStringProperty(pc,"name","Name","Name of the file",0,0,0,0,1,offsetof(OurRecentFile,Name),0,0,0,0,LA_READ_ONLY|LA_AS_IDENTIFIER);
+    laAddStringProperty(pc,"path","Path","Name of the file",0,0,0,0,1,offsetof(OurRecentFile,Path),0,0,0,0,LA_READ_ONLY);
+
     pc=laAddPropertyContainer("our_tools","Our Tools","OurPaint tools",0,0,sizeof(OurPaint),0,0,1);
     laPropContainerExtraFunctions(pc,0,0,0,ourpropagate_Tools,0);
     sp=laAddSubGroup(pc,"brushes","Brushes","Brushes","our_brush",0,0,ourui_Brush,offsetof(OurPaint,CurrentBrush),0,0,0,ourset_CurrentBrush,ourgetstate_H2Modified,0,offsetof(OurPaint,Brushes),0);
@@ -5218,7 +5302,7 @@ void ourRegisterEverything(){
     p=laAddEnumProperty(pc,"alpha_mode","Alpha Mode","How to associate alpha channel with color in RGBA canvas",0,0,0,0,0,offsetof(OurPaint,AlphaMode),0,ourset_AlphaMode,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"PREMULT","Premultiplied","Color values on canvas are pre-multiplied with alpha channel",0,0);
     laAddEnumItemAs(p,"STRAIGHT","Straight","Color values are not associative with alpha values on canvas",1,0);
-    laAddSubGroup(pc,"surface","Canvas Surfacs","Canvas surface configuration","our_canvas_surface",0,0,ourui_CanvasSurfaceItem,offsetof(OurPaint,CanvasSurface),0,0,0,0,ourgetstate_H2Modified,0,0,LA_UDF_SINGLE);
+    laAddSubGroup(pc,"surface","Canvas Surface","Canvas surface configuration","our_canvas_surface",0,0,ourui_CanvasSurfaceItem,offsetof(OurPaint,CanvasSurface),0,0,0,0,ourgetstate_H2Modified,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"light","Canvas Light","Canvas light configuration","our_light",0,0,ourui_LightItem,offsetof(OurPaint,CanvasLight),0,0,0,0,ourgetstate_H2Modified,0,0,LA_UDF_SINGLE);
 
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
@@ -5631,6 +5715,7 @@ int ourInit(){
     Our->DefaultCanvasType=1;
     Our->MixModeOnHeader=1;
     Our->LightsOnHeader=1;
+    Our->MaxRecentFiles=5;
 
     Our->CanvasLight=memAcquireHyper(sizeof(OurLight));
     Our->CanvasSurface=memAcquireHyper(sizeof(OurCanvasSurface));
@@ -5654,8 +5739,8 @@ void ourFinalize(){
         OurLight* l=our_NewLight("D65");
         memcpy(&l->Emission,OUR_PIGMENT_D65,sizeof(OurPigmentData));
     }
-    our_SetActiveCanvasSurface(Our->CanvasSurfaces.pFirst);
-    our_SetActiveLight(Our->Lights.pFirst);
+    our_SetActiveCanvasSurface(Our->CanvasSurfaces.pFirst); laMarkMemClean(Our->CanvasSurface);
+    our_SetActiveLight(Our->Lights.pFirst);                 laMarkMemClean(Our->CanvasLight);
     our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
     our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
 

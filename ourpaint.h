@@ -490,11 +490,20 @@ STRUCTURE(BrushUniforms){
     GLint uMixingTop;
 };
 
+STRUCTURE(OurRecentFile){
+    laListItem Item;
+    laSafeString* Name;
+    laSafeString* Path;
+};
+
 STRUCTURE(OurPaint){
     real pad;
 
     laListHandle CanvasSaverDummyList;
     laProp*      CanvasSaverDummyProp;
+
+    laListHandle RecentFiles;
+    OurRecentFile* PendingRecentFile;
 
     laListHandle BadEvents;
 
@@ -516,6 +525,7 @@ STRUCTURE(OurPaint){
     OurDab* Dabs; int NextDab,MaxDab;
     float LastBrushCenter[2];
     int CanvasVersion;
+    int MaxRecentFiles;
 
     laSafeString* Notes;
 
