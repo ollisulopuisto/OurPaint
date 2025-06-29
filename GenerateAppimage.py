@@ -15,16 +15,16 @@ AppDir:
     - amd64
     allow_unauthenticated: true
     sources:
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal main restricted
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal universe
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-updates universe
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal multiverse
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-updates multiverse
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-security main restricted
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-security universe
-    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ focal-security multiverse
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy main restricted
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-updates main restricted
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy universe
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-updates universe
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy multiverse
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-updates multiverse
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-backports main restricted universe multiverse
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-security main restricted
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-security universe
+    - sourceline: deb http://mirrors.aliyun.com/ubuntu/ jammy-security multiverse
     include:
     - libc6:amd64
     - locales
@@ -82,7 +82,7 @@ additional="""
     - libxfixes3
     - libxcursor1
     - libxrandr2
-    - libglew2.1
+    - libglew2.2
 """
 template=template.replace("---includes---",additional)
 

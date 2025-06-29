@@ -638,6 +638,7 @@ STRUCTURE(OurPaint){
     void* ProofTablesRGB, *ProofTableClay, *ProofTableD65;
 };
 
+void ourreset_Canvas(OurPaint* op);
 
 int ourProcessInitArgs(int argc, char* argv[]);
 
