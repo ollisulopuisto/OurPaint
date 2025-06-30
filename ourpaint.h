@@ -643,7 +643,7 @@ void ourreset_Canvas(OurPaint* op);
 int ourProcessInitArgs(int argc, char* argv[]);
 
 int ourInit();
-void ourFinalize();
+void ourFinalize(int anyload);
 void ourRegisterNodes();
 int ourRebuildBrushEval();
 int ourEvalBrush();

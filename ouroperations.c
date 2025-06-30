@@ -5730,7 +5730,7 @@ int ourInit(){
     return 1;
 }
 
-void ourFinalize(){
+void ourFinalize(int anyload){
     if(!Our->CanvasSurfaces.pFirst){
         OurCanvasSurface* cs=our_NewCanvasSurface("Gray");
         memcpy(&cs->Reflectance,OUR_PIGMENT_GRAY,sizeof(OurPigmentData));
@@ -5739,26 +5739,30 @@ void ourFinalize(){
         OurLight* l=our_NewLight("D65");
         memcpy(&l->Emission,OUR_PIGMENT_D65,sizeof(OurPigmentData));
     }
-    our_SetActiveCanvasSurface(Our->CanvasSurfaces.pFirst); laMarkMemClean(Our->CanvasSurface);
-    our_SetActiveLight(Our->Lights.pFirst);                 laMarkMemClean(Our->CanvasLight);
-    our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
-    our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
-
-    Our->PigmentMode=Our->DefaultCanvasType;
-
-    if(!MAIN.ProofingLUTs.pFirst){
-        laLoadProofingICC("profiles/ISOcoated_v2_300_bas.icc");
-        laLoadProofingICC("profiles/GenericCMYK.icm");
-    }
 
     OurPigment* default_white=laGetInstanceViaNUID("OURPIGM_TitaniumWhite",1);
     OurPigment* default_black=laGetInstanceViaNUID("OURPIGM_Black",1);
-    memAssignRef(Our,&Our->UseWhite,default_white);
-    memAssignRef(Our,&Our->UseBlack,default_black);
+
+    if(!anyload){
+        our_SetActiveCanvasSurface(Our->CanvasSurfaces.pFirst); laMarkMemClean(Our->CanvasSurface);
+        our_SetActiveLight(Our->Lights.pFirst);                 laMarkMemClean(Our->CanvasLight);
+        our_LightToPreview(&Our->CanvasLight->Emission,&Our->CanvasLight->Emission.PreviewColor[0]);
+        our_CanvasToPreview(&Our->CanvasSurface->Reflectance,&Our->CanvasSurface->Reflectance.PreviewColor[0]);
+
+        Our->PigmentMode=Our->DefaultCanvasType;
+
+        memAssignRef(Our,&Our->UseWhite,default_white);
+        memAssignRef(Our,&Our->UseBlack,default_black);
+    }
 
     if(default_black){
         our_PigmentMix(&Our->MixedPigment,&default_black->Pigment,0.4);
         our_PigmentToPreviewSelf(&Our->MixedPigment);
+    }
+
+    if(!MAIN.ProofingLUTs.pFirst){
+        laLoadProofingICC("profiles/ISOcoated_v2_300_bas.icc");
+        laLoadProofingICC("profiles/GenericCMYK.icm");
     }
 
     if(!Our->CurrentPalette){ memAssignRef(Our,&Our->CurrentPalette,Our->Palettes.pFirst); }
@@ -5770,5 +5774,7 @@ void ourFinalize(){
         laAddRootDBInst("our.tools");
     }
     laAddRootDBInst("our.canvas");
+
+    if(anyload){ laRecordEverythingAndPush(); }
 }
 

@@ -100,10 +100,9 @@ int main(int argc, char *argv[]){
 #endif
     }
 
-    ourFinalize();
+    ourFinalize(anyload);
 
-    if(anyload){ laRecordEverythingAndPush(); }
+    if(!anyload) our_EnableSplashPanel();
 
-    our_EnableSplashPanel();
     laMainLoop();
 }
