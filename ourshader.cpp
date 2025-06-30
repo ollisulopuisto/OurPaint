@@ -553,7 +553,7 @@ const char OUR_PIGMENT_COMMON[]=R"(
 float safepow(float a, float b){ if(a<POW_EPS){ return 1.0; }//a=clamp(a,POW_EPS,1.); //b=clamp(b,POW_EPS,1.-POW_EPS);
     return pow(a,b);
 }
-float safepow1(float a, float b){ if(a<(1./15.)){ return 0.0; }//a=clamp(a,POW_EPS,1.); //b=clamp(b,POW_EPS,1.-POW_EPS);
+float safepow1(float a, float b){ if(a<(1./255.)){ return 0.0; }//a=clamp(a,POW_EPS,1.); //b=clamp(b,POW_EPS,1.-POW_EPS);
     return pow(a,b);
 }
 #else
@@ -578,10 +578,10 @@ const PigmentData PIGMENT_BLACK=
 #define fetchpix(tex,uv,level) texelFetch(tex,uv,level).x
 #define loadpix(tex,uv) imageLoad(tex,uv).x
 #define packpix(c) uvec4(c)
-#define l8f(a) (safepow(float((uint(a)&0x0fu)>>0)/15.,2.2))
-#define h8f(a) (safepow(float((uint(a)&0xf0u)>>4)/15.,2.2))
+#define l8f(a) (safepow1(float((uint(a)&0x0fu)>>0)/15.,2.2))
+#define h8f(a) (safepow1(float((uint(a)&0xf0u)>>4)/15.,2.2))
 #define lh16f(a)  (float(a)/255.)
-#define fl16(l,h) (clamp((uint(round(safepow((l),1./2.2)*15.))),0u,15u)|(clamp((uint(round(safepow((h),1./2.2)*15.))),0u,15u)<<4))
+#define fl16(l,h) (clamp((uint(round(safepow1((l),1./2.2)*15.))),0u,15u)|(clamp((uint(round(safepow1((h),1./2.2)*15.))),0u,15u)<<4))
 #define fl16w(a)  (uint(round((a*255.))))
 uvec4 pixunpack(PixType c_){
     return uvec4((uint(c_)&0xffu),(uint(c_>>8)&0xffu),(uint(c_>>16)&0xffu),(uint(c_>>24)&0xffu));
@@ -675,10 +675,10 @@ PixType PixelAvg4H(PixType a_, PixType b_, PixType c_, PixType d_){
 #define fetchpix texelFetch
 #define packpix(c) c
 #define loadpix imageLoad
-#define l8f(a) (safepow(float(((a)&0x00ffu)>>0)/255.,2.2))
-#define h8f(a) (safepow(float(((a)&0xff00u)>>8)/255.,2.2))
+#define l8f(a) (safepow1(float(((a)&0x00ffu)>>0)/255.,2.2))
+#define h8f(a) (safepow1(float(((a)&0xff00u)>>8)/255.,2.2))
 #define lh16f(a)  (float(a)/65535.)
-#define fl16(l,h) (clamp((uint(round((pow(l,1./2.2))*255.))),0u,255u)|(clamp((uint(round((pow(h,1./2.2))*255.))),0u,255u)<<8))
+#define fl16(l,h) (clamp((uint(round((safepow1(l,1./2.2))*255.))),0u,255u)|(clamp((uint(round((safepow1(h,1./2.2))*255.))),0u,255u)<<8))
 #define fl16w(a)  (uint(round((a*65535.))))
 
 void setRL(uvec4 c, inout PigmentData p){
@@ -877,10 +877,10 @@ void PigmentOverSlices(float a[16], inout float b[16]){
 }
 void PigmentMultiplySlices(float a[16], inout float b[16], float factor){
     float fac=a[15]*factor; float fac1=b[15]; if(fac==0.) return;
-    if(fac1==0.0f){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ b[i]=a[i]; } b[15]=fac; }
-    b[15]=1.0f-(1.0-fac1)*(1.0f-fac);
+    //if(fac1==0.){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ b[i]=a[i]; } b[15]=fac; }
+    b[15]=1.0-(1.0-fac1)*(1.0-fac);
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        float pre=1.-(1.0f-b[i])*fac1; float mult=pre*(1.-(1.0f-a[i])*fac);
+        float pre=1.0-(1.0-b[i])*fac1; float mult=pre*(1.0-(1.0-a[i])*fac);
         b[i]=1.0f-(1.-mult)/b[15];
     }
 }
