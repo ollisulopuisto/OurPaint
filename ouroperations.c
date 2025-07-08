@@ -2480,7 +2480,7 @@ void our_Pigment2Opaque16(real* rgb, OurPigmentData* pd, uint16_t* buffer, int64
     out[0]=rgb[0]*65535; out[1]=rgb[1]*65535; out[2]=rgb[2]*65535; out[3]=65535;
 }
 void our_Pigment2Opaque8(real* rgb, OurPigmentData* pd, uint8_t* buffer, int64_t index){
-    uint8_t* out=&buffer[index];
+    uint8_t* out=&buffer[index]; tns2LogsRGB(rgb);
     out[0]=rgb[0]*255; out[1]=rgb[1]*255; out[2]=rgb[2]*255; out[3]=255;
 }
 static int ourthread_PigmentConversionSimple(OurPigmentConversionData* pcd){
