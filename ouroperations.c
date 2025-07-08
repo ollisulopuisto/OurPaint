@@ -2467,13 +2467,13 @@ void our_GetImagePigmentDataDebayer(int row, int col, OurPigmentData* pd){ //row
 typedef int (*OurPigmentConversionFunction)(OurPigmentConversionData* pcd);
 void our_Pigment2Alpha16(real* rgb, OurPigmentData* pd, uint16_t* buffer, int64_t index){
     real a=tnsLinearItp(pd->Reflectance[15],1.0f,pd->Absorption[15]*0.5);
-    uint16_t* out=&buffer[index];
-    out[0]=rgb[0]*a*65535; out[1]=rgb[1]*a*65535; out[2]=rgb[2]*a*65535; out[3]=a*65535;
+    uint16_t* out=&buffer[index]; //rgb[0]*=a; rgb[1]*=a; rgb[2]*=a; tns2LogsRGB(rgb); 16 bit is always exported flat.
+    out[0]=rgb[0]*65535; out[1]=rgb[1]*65535; out[2]=rgb[2]*65535; out[3]=a*65535;
 }
 void our_Pigment2Alpha8(real* rgb, OurPigmentData* pd, uint8_t* buffer, int64_t index){
     real a=tnsLinearItp(pd->Reflectance[15],1.0f,pd->Absorption[15]*0.5);
-    uint8_t* out=&buffer[index];
-    out[0]=rgb[0]*a*255; out[1]=rgb[1]*a*255; out[2]=rgb[2]*a*255; out[3]=a*255;
+    uint8_t* out=&buffer[index]; rgb[0]*=a; rgb[1]*=a; rgb[2]*=a; tns2LogsRGB(rgb);
+    out[0]=rgb[0]*255; out[1]=rgb[1]*255; out[2]=rgb[2]*255; out[3]=a*255;
 }
 void our_Pigment2Opaque16(real* rgb, OurPigmentData* pd, uint16_t* buffer, int64_t index){
     uint16_t* out=&buffer[index];
@@ -2493,7 +2493,7 @@ static int ourthread_PigmentConversionSimple(OurPigmentConversionData* pcd){
             memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
-            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
+            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1);
             uint16_t* pix=&pcd->ImageConversionBuffer[((int64_t)row*pcd->cols+col)*4];
             pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)row*pcd->cols+col)*4);
         }
@@ -2510,7 +2510,7 @@ static int ourthread_PigmentConversionDebayer(OurPigmentConversionData* pcd){
             memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
-            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
+            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1);
             pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)row*pcd->cols+col)*4);
         }
     }
