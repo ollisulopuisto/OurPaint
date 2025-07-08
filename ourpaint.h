@@ -431,11 +431,13 @@ STRUCTURE(OurThreadExportPNGData){
 };
 typedef void (*our_XYZ2RGBFunc)(tnsVector3d xyz, tnsVector3d rgb);
 typedef void (*our_2LogRGBFunc)(tnsVector3d rgb);
+typedef real (*our_Pigment2FinalFunc)(real* rgb, OurPigmentData* pd, void* buffer, int64_t index);
 STRUCTURE(OurPigmentConversionData){
     int RowStart,RowCount;
     int cols;
     uint16_t *ImageConversionBuffer;
     our_XYZ2RGBFunc XYZ2RGB;
+    our_Pigment2FinalFunc Pigment2Final;
 };
 NEED_STRUCTURE(OurThreadImportPNGDataMain);
 STRUCTURE(OurThreadImportPNGData){

@@ -2465,7 +2465,25 @@ void our_GetImagePigmentDataDebayer(int row, int col, OurPigmentData* pd){ //row
     OUR_PX_FL(p2,&pd->Absorption[0]); OUR_PX_FH(p3,&pd->Absorption[8]);
 }
 typedef int (*OurPigmentConversionFunction)(OurPigmentConversionData* pcd);
-static int ourthread_PigmentConversionSimple16(OurPigmentConversionData* pcd){
+void our_Pigment2Alpha16(real* rgb, OurPigmentData* pd, uint16_t* buffer, int64_t index){
+    real a=tnsLinearItp(pd->Reflectance[15],1.0f,pd->Absorption[15]*0.5);
+    uint16_t* out=&buffer[index];
+    out[0]=rgb[0]*a*65535; out[1]=rgb[1]*a*65535; out[2]=rgb[2]*a*65535; out[3]=a*65535;
+}
+void our_Pigment2Alpha8(real* rgb, OurPigmentData* pd, uint8_t* buffer, int64_t index){
+    real a=tnsLinearItp(pd->Reflectance[15],1.0f,pd->Absorption[15]*0.5);
+    uint8_t* out=&buffer[index];
+    out[0]=rgb[0]*a*255; out[1]=rgb[1]*a*255; out[2]=rgb[2]*a*255; out[3]=a*255;
+}
+void our_Pigment2Opaque16(real* rgb, OurPigmentData* pd, uint16_t* buffer, int64_t index){
+    uint16_t* out=&buffer[index];
+    out[0]=rgb[0]*65535; out[1]=rgb[1]*65535; out[2]=rgb[2]*65535; out[3]=65535;
+}
+void our_Pigment2Opaque8(real* rgb, OurPigmentData* pd, uint8_t* buffer, int64_t index){
+    uint8_t* out=&buffer[index];
+    out[0]=rgb[0]*255; out[1]=rgb[1]*255; out[2]=rgb[2]*255; out[3]=255;
+}
+static int ourthread_PigmentConversionSimple(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
     OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
     OurPigmentData bkg={0};
@@ -2477,29 +2495,12 @@ static int ourthread_PigmentConversionSimple16(OurPigmentConversionData* pcd){
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
             uint16_t* pix=&pcd->ImageConversionBuffer[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=rgb[0]*65535; pix[1]=rgb[1]*65535; pix[2]=rgb[2]*65535; pix[3]=65535;
+            pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)row*pcd->cols+col)*4);
         }
     }
     return 0;
 }
-static int ourthread_PigmentConversionSimple8(OurPigmentConversionData* pcd){
-    OurPigmentData pd; real xyz[3]; real rgb[3];
-    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
-    OurPigmentData bkg={0};
-    for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
-        for(int col=0;col<pcd->cols;col++){
-            our_GetImagePigmentDataSimple(row*2,col*2,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*32);
-            our_PigmentOver(&pd,&bkg,1.0f);
-            our_PigmentToXYZDirect(&bkg,xyz);
-            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
-            uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=round(rgb[0]*255.0f); pix[1]=round(rgb[1]*255.0f); pix[2]=round(rgb[2]*255.0f); pix[3]=255;
-        }
-    }
-    return 0;
-}
-static int ourthread_PigmentConversionDebayer16(OurPigmentConversionData* pcd){
+static int ourthread_PigmentConversionDebayer(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
     OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
     OurPigmentData bkg={0};
@@ -2510,39 +2511,23 @@ static int ourthread_PigmentConversionDebayer16(OurPigmentConversionData* pcd){
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
-            uint16_t* pix=&pcd->ImageConversionBuffer[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=rgb[0]*65535; pix[1]=rgb[1]*65535; pix[2]=rgb[2]*65535; pix[3]=65535;
+            pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)row*pcd->cols+col)*4);
         }
     }
     return 0;
 }
-static int ourthread_PigmentConversionDebayer8(OurPigmentConversionData* pcd){
-    OurPigmentData pd; real xyz[3]; real rgb[3];
-    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
-    OurPigmentData bkg={0};
-    for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
-        for(int col=0;col<pcd->cols;col++){
-            our_GetImagePigmentDataDebayer(row,col,&pd);
-            memcpy(&bkg,canvas,sizeof(real)*32);
-            our_PigmentOver(&pd,&bkg,1.0f);
-            our_PigmentToXYZDirect(&bkg,xyz);
-            pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1); tns2LogsRGB(rgb);
-            uint8_t* pix=&((uint8_t*)pcd->ImageConversionBuffer)[((int64_t)row*pcd->cols+col)*4];
-            pix[0]=round(rgb[0]*255.0f); pix[1]=round(rgb[1]*255.0f); pix[2]=round(rgb[2]*255.0f); pix[3]=255;
-        }
-    }
-    return 0;
-}
-void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer){
+void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer, int Transparent){
     int DebayerFac=Debayer?1:2;
     int rows=Our->ImageH/DebayerFac; int cols=Our->ImageW/DebayerFac;
     int threads = our_ProcessorCount(); threads=TNS_MIN2(rows,threads); threads=1;//TNS_MAX2(threads,1);
     int RowsPerThread=rows/threads;
-    OurPigmentConversionFunction* pcf;
-    if(Debayer){
-        pcf=(BitDepth==OUR_EXPORT_BIT_DEPTH_16)?ourthread_PigmentConversionDebayer16:ourthread_PigmentConversionDebayer8;
+    OurPigmentConversionFunction pcf;
+    our_Pigment2FinalFunc finalf;
+    if(Debayer){ pcf=ourthread_PigmentConversionDebayer; } else{ pcf=ourthread_PigmentConversionSimple; }
+    if(Transparent){
+        finalf=(BitDepth==OUR_EXPORT_BIT_DEPTH_16)?our_Pigment2Alpha16:our_Pigment2Alpha8;
     }else{
-        pcf=(BitDepth==OUR_EXPORT_BIT_DEPTH_16)?ourthread_PigmentConversionSimple16:ourthread_PigmentConversionSimple8;
+        finalf=(BitDepth==OUR_EXPORT_BIT_DEPTH_16)?our_Pigment2Opaque16:our_Pigment2Opaque8;
     }
     int SizePerPix=((BitDepth==OUR_EXPORT_BIT_DEPTH_16)?sizeof(uint16_t):sizeof(uint8_t))*4;
     uint16_t *ImageConversionBuffer=calloc(SizePerPix,rows*cols);
@@ -2555,6 +2540,7 @@ void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer){
         pcd[i].RowStart=i*RowsPerThread; pcd[i].RowCount=RowsPerThread;
         pcd[i].cols=cols; pcd[i].ImageConversionBuffer=ImageConversionBuffer;
         pcd[i].XYZ2RGB=func;
+        pcd[i].Pigment2Final=finalf;
     }
     int remaining=rows-threads*RowsPerThread; pcd[threads-1].RowCount+=remaining;
     thrd_t* th=calloc(threads,sizeof(thrd_t));
@@ -2567,13 +2553,13 @@ void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer){
     Our->X/=DebayerFac; Our->Y/=DebayerFac;
     Our->W/=DebayerFac; Our->H/=DebayerFac;
 }
-void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod, int IgnorePigmentPath){
+void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConversionMethod, int IgnorePigmentPath,int Transparent){
     uint8_t* NewImage;
     cmsHTRANSFORM cmsTransform = NULL;
     cmsHPROFILE input_buffer_profile=NULL, output_buffer_profile=NULL;
 
     if(Our->PigmentMode && (!IgnorePigmentPath)){
-        our_PigmentConvertForExport(BitDepth,ColorProfile,PigmentConversionMethod);
+        our_PigmentConvertForExport(BitDepth,ColorProfile,PigmentConversionMethod,Transparent);
         return;
     }
 
@@ -3232,7 +3218,7 @@ int our_RenderThumbnail(uint8_t** buf, int* sizeof_buf){
 
     Our->ImageW = use_w; Our->ImageH = use_h;
     our_ImageBufferFromNative();
-    our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY,0,1);
+    our_ImageConvertForExport(OUR_EXPORT_BIT_DEPTH_8,OUR_EXPORT_COLOR_MODE_CLAY,0,1,0);
     use_w=Our->ImageW; use_h=Our->ImageH;;
 
     png_structp png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,0,0,0);
@@ -3573,7 +3559,7 @@ int ourmod_ExportImage(laOperator* a, laEvent* e){
                 }
                 our_ImageBufferFromNative();
                 our_ExportSaveCropping(ex);
-                our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile, ex->PigmentConversionMethod,0);
+                our_ImageConvertForExport(ex->BitDepth, ex->ColorProfile, ex->PigmentConversionMethod,0,ex->Transparent);
                 if(!Our->ImageBuffer){ our_ShowAllocationError(e); fclose(fp); our_ExportRestoreCropping(ex); return LA_FINISHED; }
                 our_ImageExportPNG(fp, 0, 0, 0, Our->ShowBorder, ex->BitDepth, ex->ColorProfile,0,0);
                 if(Our->ImageBuffer){ free(Our->ImageBuffer); Our->ImageBuffer=0; }
@@ -3606,12 +3592,12 @@ void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     laShowSeparator(uil,c);
 
     b=laOnConditionThat(uil,c,laPropExpression(0,"our.canvas.pigment_mode"));{
-        laShowLabel(uil,cl,"Pigment Conversion Method:",0,0);
-        laShowItem(uil,cl,Operator,"pigment_conversion_method")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
+        laShowLabel(uil,cl,"Pigment Conversion Method:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+        laShowItem(uil,cr,Operator,"pigment_conversion_method")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
     }laElse(uil,b);{
-        laShowLabel(uil,cl,"Transparency:",0,0);
-        laShowItem(uil,cl,Operator,"transparent")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
     }laEndCondition(uil,b);
+    laShowLabel(uil,cl,"Transparency:",0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
+    laShowItem(uil,cr,Operator,"transparent")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_NO_CONFIRM;
 
     laShowSeparator(uil,c);
 
