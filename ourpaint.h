@@ -136,8 +136,10 @@ STRUCTURE(OurCanvasDraw){
 
 #ifdef LA_USE_GLES
 #define OUR_PIX_COMPACT uint8_t
+#define OUR_PIX_MAX 255
 #else
 #define OUR_PIX_COMPACT uint16_t
+#define OUR_PIX_MAX 65535
 #endif
 
 STRUCTURE(OurTexTile){
@@ -395,10 +397,10 @@ STRUCTURE(OurMoveUndo){
 #define OUR_EXPORT_BIT_DEPTH_8  0
 #define OUR_EXPORT_BIT_DEPTH_16 1
 
-#define OUR_EXPORT_COLOR_MODE_SRGB 0
-#define OUR_EXPORT_COLOR_MODE_CLAY 1
-#define OUR_EXPORT_COLOR_MODE_FLAT 2
-#define OUR_EXPORT_COLOR_MODE_D65_P3 3
+#define OUR_EXPORT_COLOR_MODE_SRGB OUR_CANVAS_INTERPRETATION_SRGB
+#define OUR_EXPORT_COLOR_MODE_CLAY OUR_CANVAS_INTERPRETATION_CLAY
+#define OUR_EXPORT_COLOR_MODE_D65_P3 OUR_CANVAS_INTERPRETATION_D65_P3
+#define OUR_EXPORT_COLOR_MODE_FLAT (OUR_CANVAS_INTERPRETATION_D65_P3+1)
 
 #define OUR_BRUSH_PAGE_LIST 128
 
@@ -438,6 +440,8 @@ STRUCTURE(OurPigmentConversionData){
     uint16_t *ImageConversionBuffer;
     our_XYZ2RGBFunc XYZ2RGB;
     our_Pigment2FinalFunc Pigment2Final;
+    OurPigmentData* canvas;
+    real** coeff;
 };
 NEED_STRUCTURE(OurThreadImportPNGDataMain);
 STRUCTURE(OurThreadImportPNGData){

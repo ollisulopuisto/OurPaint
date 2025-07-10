@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Convert To", "转换成",
+"RGBA", "红绿蓝式",
 "Max Recent Files", "最近文件列表长度",
 "Recent Files", "最近文件",
 "List of Pigments", "颜料列表",

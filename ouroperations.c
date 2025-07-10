@@ -57,6 +57,31 @@ OurPigmentData* OUR_PIGMENT_BLACK=&_OUR_PIGMENT_BLACK;
 OurPigmentData _OUR_PIGMENT_WATER={{0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000},{0},{0}};
 OurPigmentData* OUR_PIGMENT_WATER=&_OUR_PIGMENT_WATER;
 
+real OUR_RGB2PIGMENT[3][OUR_SPECTRAL_SLICES]={{ 1,0,0,0,0,0,0,0,0,1,1,1,1,1 },{ 0,0,0,0,0.5,1,1,1,1,0,0,0,0,0 },{ 1,1,1,1,0.5,0,0,0,0,0,0,0,0,0 }};
+
+#define OUR_PX_FL(p,pf) \
+    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=(pow((p[3]&0xff)/255.0f,2.2)); (pf)[7]=(pow((p[3]>>8)/255.0f,2.2)); }
+#define OUR_PX_FH(p,pf) \
+    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/65535.0f); }
+#define OUR_PX_FL4(p,pf) \
+    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=(pow((p[3]&0x0f)/15.0f,2.2)); (pf)[7]=(pow((p[3]>>4)/15.0f,2.2)); }
+#define OUR_PX_FH4(p,pf) \
+    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
+      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
+#define OUR_FL_2PX(pf) \
+    ((((uint16_t)(round(pow((pf)[1],1.0/2.2)*255.0f)))<<8)|(((uint16_t)(round(pow((pf)[0],1.0/2.2)*255.0f)))&0xff))
+#define OUR_FL_2PX4(pf) \
+    ((((uint8_t)(round(pow((pf)[1],1.0/2.2)*15.0f)))<<4)|(((uint8_t)(round(pow((pf)[0],1.0/2.2)*15.0f)))&0x0f))
+#define OUR_FL_1PX(pf) \
+    ((uint16_t)((pf)[1]*65535.0f))
+#define OUR_FL_1PX4(pf) \
+    ((uint8_t)((pf)[1]*255.0f))
+
+#define POW_EPS (1.0e-6)
+
 #define OUR_UI_FLAGS_EMISSION LA_UI_FLAGS_ICON
 #define OUR_UI_FLAGS_CANVAS LA_UI_FLAGS_CYCLE
 
@@ -237,12 +262,14 @@ void ourui_CanvasPropertiesPanel(laUiList *uil, laPropPack *This, laPropPack *De
     laUiItem* b,*b1,*b2,*b3;
     
     laUiItem* pigui=laShowItemWithLabel(uil,cl,cr,0,"our.canvas.pigment_mode",0,0,0,0,"Canvas Type",0,0);
-    laShowSeparator(uil,c);
-
     b3=laOnConditionThat(uil,c,laPropExpression(&pigui->PP,""));{
+        laShowItemWithLabel(uil,cl,cr,0,"OUR_canvas_convert_to_rgba",0,"text=RGBA;icon=🡪;",0,0,"Convert To",0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+        laShowSeparator(uil,c);
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
     }laElse(uil,b3);{
+        laShowItemWithLabel(uil,cl,cr,0,"OUR_canvas_convert_to_pigment",0,"text=Pigment;icon=🡪;",0,0,"Convert To",0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
+        laShowSeparator(uil,c);
         laShowItemWithLabel(uil,cl,cr,0,"our.canvas.color_interpretation",0,0,0,0,0,0,0);
         laShowItemWithLabel(uil,cl,cr,0,"our.canvas.background_color",LA_WIDGET_FLOAT_COLOR,0,0,0,0,0,0);
     }laEndCondition(uil,b3);
@@ -1241,11 +1268,13 @@ void our_CanvasDrawCanvas(laBoxedTheme *bt, OurPaint *unused_c, laUiItem* ui){
     
     if(Our->PigmentMode){
         uint32_t val[4]={0};
-        glClearBufferuiv(GL_COLOR, 0,val);
+        glClearBufferuiv(GL_COLOR, 0,val);tnsUseShader(Our->PigmentLayeringProgramT);
         tnsEnableShaderv(Our->PigmentLayeringProgramT);
+        Our->u=&Our->uPigment;
     }else{
         tnsClearColor(LA_COLOR3(Our->BackgroundColor),1); tnsClearAll();
         tnsUseImmShader(); tnsEnableShaderv(T->immShader);
+        Our->u=Our->AlphaMode?&Our->uRGBStraightA:&Our->uRGBA;
     }
 
     glDisable(GL_BLEND);
@@ -1387,7 +1416,10 @@ void our_PigmentMixSlice(real* target, real* source, real factor){
     if(afac1<DBL_EPSILON){ for(int i=0;i<OUR_SPECTRAL_SLICES;i++){ target[i]=source[i]; } target[15]=afac; return; }
     real ascale=1.0f/(afac1+afac); afac*=ascale; afac1*=ascale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        target[i]=safepow(target[i],afac1)*safepow(source[i],afac);
+        if(source[i]<POW_EPS && target[i]<POW_EPS){ target[i]=0.0f; }
+        else if(target[i]<POW_EPS){ target[i]=source[i]; }
+        else if(source[i]<POW_EPS){ continue; }
+        else { target[i]=pow(target[i],afac1)*pow(source[i],afac); }
     }
     target[15]=tnsInterpolate(target[15],source[15],factor);
 }
@@ -1399,7 +1431,10 @@ int our_PigmentOverSlices(real a[16], real b[16]){
     real fac=a[15]; real fac1=(1.0f-fac)*b[15]; if(fac==0.) return 0;
     real scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        b[i]=safepow(a[i],fac)*safepow(b[i],fac1);
+        if(a[i]<POW_EPS && b[i]<POW_EPS){ b[i]=0.0f; }
+        else if(b[i]<POW_EPS){ b[i]=a[i]; }
+        else if(a[i]<POW_EPS){ continue; }
+        else { b[i]=pow(a[i],fac)*pow(b[i],fac1); }
     }
     return 1;
 }
@@ -1760,7 +1795,7 @@ int our_MergeLayer(OurLayer* l){
         Our->u=&Our->uPigment;
         glUseProgram(Our->PigmentCompositionProgram);
     }else{
-        Our->u=&Our->uRGBA;
+        Our->u=Our->AlphaMode?&Our->uRGBStraightA:&Our->uRGBA;
         glUseProgram(Our->AlphaMode?Our->CompositionStraightProgram:Our->CompositionProgram);
     }
     glUniform1f(OURU->uAlphaTop, 1-l->Transparency);
@@ -1793,6 +1828,112 @@ int our_MergeLayer(OurLayer* l){
 
     return 1;
 }
+
+void our_RGB2Reflectance(real** coefficients, real* rgb, real* r){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        r[i]=rgb[0]*coefficients[0][i]+rgb[1]*coefficients[1][i]+rgb[2]*coefficients[2][i];
+        if(r[i]>1.0f){r[i]=1.0f;}
+        r[i]=pow(r[i],1.0/2.2);
+    }
+}
+void our_PixelToPigment(real** coefficients, OUR_PIX_COMPACT* pixels, int row, int col){
+    OUR_PIX_COMPACT* p1=&pixels[4*(row*Our->ImageW+col)];
+    OUR_PIX_COMPACT* p2=&pixels[4*(row*Our->ImageW+col+1)];
+    OUR_PIX_COMPACT* p3=&pixels[4*((row+1)*Our->ImageW+col)];
+    OUR_PIX_COMPACT* p4=&pixels[4*((row+1)*Our->ImageW+col+1)];
+    real px[4]; real hcy[3];
+    px[0]=pow(((real)((uint32_t)p1[0]+p2[0]+p3[0]+p4[0]))/4/OUR_PIX_MAX,2.2);
+    px[1]=pow(((real)((uint32_t)p1[1]+p2[1]+p3[1]+p4[1]))/4/OUR_PIX_MAX,2.2);
+    px[2]=pow(((real)((uint32_t)p1[2]+p2[2]+p3[2]+p4[2]))/4/OUR_PIX_MAX,2.2);
+    px[3]=((real)((uint32_t)p1[3]+p2[3]+p3[3]+p4[3]))/4/OUR_PIX_MAX;
+    px[0]=TNS_MAX2(px[0],POW_EPS);
+    px[1]=TNS_MAX2(px[1],POW_EPS);
+    px[2]=TNS_MAX2(px[2],POW_EPS);
+
+    real ref[14]; our_RGB2Reflectance(coefficients,px,ref); real aa[2]={px[3],px[3]};
+
+#ifdef LA_USE_GLES
+        p1[0]=OUR_FL_2PX4(&ref[0]);  p1[1]=OUR_FL_2PX4(&ref[2]);   p1[2]=OUR_FL_2PX4(&ref[4]);   p1[3]=OUR_FL_2PX4(&ref[6]);
+        p3[0]=OUR_FL_2PX4(&ref[8]);  p3[1]=OUR_FL_2PX4(&ref[10]);  p3[2]=OUR_FL_2PX4(&ref[12]);  p3[3]=OUR_FL_1PX4(aa);
+        p2[0]=p2[1]=p2[2]=p2[3]=p4[0]=p4[1]=p4[2]=p4[3]=0; 
+#else
+        p1[0]=OUR_FL_2PX(&ref[0]);  p1[1]=OUR_FL_2PX(&ref[2]);   p1[2]=OUR_FL_2PX(&ref[4]);  p1[3]=OUR_FL_2PX(&ref[6]);
+        p3[0]=OUR_FL_2PX(&ref[8]);  p3[1]=OUR_FL_2PX(&ref[10]);  p3[2]=OUR_FL_2PX(&ref[12]);  p3[3]=OUR_FL_1PX(aa);
+        p2[0]=p2[1]=p2[2]=p2[3]=p4[0]=p4[1]=p4[2]=p4[3]=0; 
+#endif
+}
+static int ourthread_PixelToPigment(OurPigmentConversionData* pcd){
+    int lastprog=0,prog=0;
+    for(int row=0;row<pcd->RowCount;row+=2){
+        for(int col=0;col<pcd->cols;col+=2){
+            our_PixelToPigment(pcd->coeff,Our->ImageBuffer,row+pcd->RowStart,col);
+        }
+        lastprog=row/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)row/pcd->RowCount); }
+    }
+    return 0;
+}
+void our_GetExposureCompensatedCoefficients(real** r){
+    for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
+        r[0][i]=OUR_RGB2PIGMENT[0][i]/(Our->CanvasSurface->Reflectance.Reflectance[i]+DBL_EPSILON);
+        r[1][i]=OUR_RGB2PIGMENT[1][i]/(Our->CanvasSurface->Reflectance.Reflectance[i]+DBL_EPSILON);
+        r[2][i]=OUR_RGB2PIGMENT[2][i]/(Our->CanvasSurface->Reflectance.Reflectance[i]+DBL_EPSILON);
+    }
+}
+void our_LayerConvertToPigment(OurLayer* l){
+    our_LayerEnsureImageBuffer(l,0);
+    our_LayerToImageBuffer(l,0);
+
+    if(!Our->ImageH || !Our->ImageW) return;
+
+    real *coeff[3]; real* cdata=alloca(sizeof(real)*3*OUR_SPECTRAL_SLICES); 
+    coeff[0]=cdata; coeff[1]=&cdata[OUR_SPECTRAL_SLICES]; coeff[2]=&cdata[OUR_SPECTRAL_SLICES*2];
+    our_GetExposureCompensatedCoefficients(coeff);
+
+    int threads = our_ProcessorCount(); threads=TNS_MIN2(Our->ImageH,threads);
+    int RowsPerThread=Our->ImageH/threads; RowsPerThread-=RowsPerThread%2;
+    OurPigmentConversionData* pcd=calloc(sizeof(OurPigmentConversionData),threads);
+    for(int i=0;i<threads;i++){
+        pcd[i].RowStart=i*RowsPerThread; pcd[i].RowCount=RowsPerThread;
+        pcd[i].cols=Our->ImageW;
+        pcd[i].coeff=coeff;
+    }
+    int remaining=Our->ImageH-threads*RowsPerThread; remaining-=remaining%2; pcd[threads-1].RowCount+=remaining;
+    thrd_t* th=calloc(threads,sizeof(thrd_t));
+    for(int i=0;i<threads;i++){ thrd_create(&th[i],ourthread_PixelToPigment,&pcd[i]); }
+    for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
+    free(th); free(pcd);
+
+    our_LayerToTexture(l);
+
+    int rowmin,rowmax,colmin,colmax;
+    our_LayerGetRange(l,&rowmin,&rowmax,&colmin,&colmax);
+    int xmin,xmax,ymin,ymax;
+    xmin =((real)colmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; ymin=((real)rowmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    xmax =((real)colmax+1-OUR_TILE_CTR+0.5)*OUR_TILE_W_USE; ymax=((real)rowmax+1-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
+}
+
+void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer, int Transparent);
+void our_LayerConvertToRGBA(OurLayer* l){
+    our_LayerEnsureImageBuffer(l,0);
+    our_LayerToImageBuffer(l,0);
+#ifdef LA_USE_GLES
+    int bitdepth=OUR_EXPORT_BIT_DEPTH_8;
+#else
+    int bitdepth=OUR_EXPORT_BIT_DEPTH_16;
+#endif
+
+    our_PigmentConvertForExport(OUR_EXPORT_BIT_DEPTH_16, Our->ColorInterpretation, 1, 1);
+    our_LayerToTexture(l);
+
+    int rowmin,rowmax,colmin,colmax;
+    our_LayerGetRange(l,&rowmin,&rowmax,&colmin,&colmax);
+    int xmin,xmax,ymin,ymax;
+    xmin =((real)colmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE; ymin=((real)rowmin-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    xmax =((real)colmax+1-OUR_TILE_CTR+0.5)*OUR_TILE_W_USE; ymax=((real)rowmax+1-OUR_TILE_CTR-0.5)*OUR_TILE_W_USE;
+    our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
+}
+
 
 OurPigment* our_NewPigment(char* name){
     OurPigment* p=memAcquireHyper(sizeof(OurPigment)); strSafeSet(&p->Name,name); lstAppendItem(&Our->Pigments, p);
@@ -2031,26 +2172,6 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
-#define OUR_PX_FL(p,pf) \
-    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=(pow((p[3]&0xff)/255.0f,2.2)); (pf)[7]=(pow((p[3]>>8)/255.0f,2.2)); }
-#define OUR_PX_FH(p,pf) \
-    { (pf)[0]=(pow((p[0]&0xff)/255.0f,2.2)); (pf)[1]=(pow((p[0]>>8)/255.0f,2.2)); (pf)[2]=(pow((p[1]&0xff)/255.0f,2.2)); (pf)[3]=(pow((p[1]>>8)/255.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0xff)/255.0f,2.2)); (pf)[5]=(pow((p[2]>>8)/255.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/65535.0f); }
-#define OUR_PX_FL4(p,pf) \
-    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=(pow((p[3]&0x0f)/15.0f,2.2)); (pf)[7]=(pow((p[3]>>4)/15.0f,2.2)); }
-#define OUR_PX_FH4(p,pf) \
-    { (pf)[0]=(pow((p[0]&0x0f)/15.0f,2.2)); (pf)[1]=(pow((p[0]>>4)/15.0f,2.2)); (pf)[2]=(pow((p[1]&0x0f)/15.0f,2.2)); (pf)[3]=(pow((p[1]>>4)/15.0f,2.2)); \
-      (pf)[4]=(pow((p[2]&0x0f)/15.0f,2.2)); (pf)[5]=(pow((p[2]>>4)/15.0f,2.2)); (pf)[6]=0; (pf)[7]=(p[3]/255.0f); }
-#define OUR_FL_2PX(pf) \
-    ((((uint16_t)(round(pow((pf)[1],1.0/2.2)*255.0f)))<<8)|(((uint16_t)(round(pow((pf)[0],1.0/2.2)*255.0f)))&0xff))
-#define OUR_FL_2PX4(pf) \
-    ((((uint8_t)(round(pow((pf)[1],1.0/2.2)*15.0f)))<<4)|(((uint8_t)(round(pow((pf)[0],1.0/2.2)*15.0f)))&0x0f))
-#define OUR_FL_1PX(pf) \
-    ((uint16_t)((pf)[1]*65535.0f))
-#define OUR_FL_1PX4(pf) \
-    ((uint8_t)((pf)[1]*255.0f))
 void our_ComposePigmentTileToImage(OUR_PIX_COMPACT* image_buffer, OurTexTile* ot, int SX, int SY, real alpha){
     for(int row=0;row<OUR_TILE_W_USE;row+=2){
         for(int col=0;col<OUR_TILE_W_USE;col+=2){
@@ -2485,7 +2606,7 @@ void our_Pigment2Opaque8(real* rgb, OurPigmentData* pd, uint8_t* buffer, int64_t
 }
 static int ourthread_PigmentConversionSimple(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
-    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData* canvas=pcd->canvas;
     OurPigmentData bkg={0};
     for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
         for(int col=0;col<pcd->cols;col++){
@@ -2502,25 +2623,28 @@ static int ourthread_PigmentConversionSimple(OurPigmentConversionData* pcd){
 }
 static int ourthread_PigmentConversionDebayer(OurPigmentConversionData* pcd){
     OurPigmentData pd; real xyz[3]; real rgb[3];
-    OurPigmentData* canvas=&Our->CanvasSurface->Reflectance;canvas->Reflectance[15]=1.0f;
+    OurPigmentData* canvas=pcd->canvas;
     OurPigmentData bkg={0};
-    for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row++){
+    int prog=0,lastprog=0;
+    for(int row=0;row<pcd->RowCount;row++){
         for(int col=0;col<pcd->cols;col++){
-            our_GetImagePigmentDataDebayer(row,col,&pd);
+            our_GetImagePigmentDataDebayer(row+pcd->RowStart,col,&pd);
             memcpy(&bkg,canvas,sizeof(real)*32);
             our_PigmentOver(&pd,&bkg,1.0f);
             our_PigmentToXYZDirect(&bkg,xyz);
             pcd->XYZ2RGB(xyz,rgb); TNS_CLAMP(rgb[0],0,1);TNS_CLAMP(rgb[1],0,1);TNS_CLAMP(rgb[2],0,1);
-            pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)row*pcd->cols+col)*4);
+            pcd->Pigment2Final(rgb,&pd,pcd->ImageConversionBuffer,((int64_t)(row+pcd->RowStart)*pcd->cols+col)*4);
         }
+        lastprog=row/100; if(lastprog!=prog){ prog=lastprog; laShowProgress(-1,(real)row/pcd->RowCount); }
     }
     return 0;
 }
 void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer, int Transparent){
+    if(!Our->ImageH || !Our->ImageW) return;
     int DebayerFac=Debayer?1:2;
     int rows=Our->ImageH/DebayerFac; int cols=Our->ImageW/DebayerFac;
-    int threads = our_ProcessorCount(); threads=TNS_MIN2(rows,threads); threads=1;//TNS_MAX2(threads,1);
-    int RowsPerThread=rows/threads;
+    int threads = our_ProcessorCount(); threads=TNS_MIN2(rows,threads);
+    int RowsPerThread=rows/threads; RowsPerThread-=RowsPerThread%2;
     OurPigmentConversionFunction pcf;
     our_Pigment2FinalFunc finalf;
     if(Debayer){ pcf=ourthread_PigmentConversionDebayer; } else{ pcf=ourthread_PigmentConversionSimple; }
@@ -2536,13 +2660,15 @@ void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer, in
     if(ToColorSpace==OUR_EXPORT_COLOR_MODE_SRGB){ func=tnsXYZ2sRGB; }
     elif(ToColorSpace==OUR_EXPORT_COLOR_MODE_D65_P3){ func=tnsXYZ2D65P3; }
     else{ func=tnsXYZ2Clay; }
+    Our->CanvasSurface->Reflectance.Reflectance[15]=1.0f;
     for(int i=0;i<threads;i++){
         pcd[i].RowStart=i*RowsPerThread; pcd[i].RowCount=RowsPerThread;
         pcd[i].cols=cols; pcd[i].ImageConversionBuffer=ImageConversionBuffer;
         pcd[i].XYZ2RGB=func;
         pcd[i].Pigment2Final=finalf;
+        pcd[i].canvas=Transparent?OUR_PIGMENT_WATER:&Our->CanvasSurface->Reflectance;
     }
-    int remaining=rows-threads*RowsPerThread; pcd[threads-1].RowCount+=remaining;
+    int remaining=rows-threads*RowsPerThread; remaining-=remaining%2; pcd[threads-1].RowCount+=remaining;
     thrd_t* th=calloc(threads,sizeof(thrd_t));
     for(int i=0;i<threads;i++){ thrd_create(&th[i],pcf,&pcd[i]); }
     for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
@@ -2581,7 +2707,7 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
     input_buffer_profile=IgnorePigmentPath?
-        cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay):
+        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
         (Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
             cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
             ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?
@@ -3037,7 +3163,7 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
         }else{
             glUseProgram(Our->CanvasProgram);
         }
-        Our->u=&Our->uRGBA;
+        Our->u=Our->AlphaMode?&Our->uRGBStraightA:&Our->uRGBA;
     }
 
     glUniform1i(OURU->uBrushErasing,Our->Erasing);
@@ -3129,9 +3255,9 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
             pd.Reflectance[i+8]=pow(pigment[i+16]/255.0f,2.2f); pow(pd.Absorption[i+8]=pigment[i+24]/255.0f,2.2f);
         }
         pd.Reflectance[15]=(*((uint16_t*)&pigment[22]))/65535.0f; pd.Absorption[15]=(*((uint16_t*)&pigment[30]))/65535.0f;
-        //printf("\nread:\n");
-        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
-        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
+        printf("\nread:\n");
+        for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
+        for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
         our_PigmentToPreviewSelf(&pd);
         memcpy(&Our->MixedPigment,&pd,sizeof(OurPigmentData));
 #endif
@@ -3602,6 +3728,31 @@ void ourui_ExportImage(laUiList *uil, laPropPack *This, laPropPack *Operator, la
     laShowSeparator(uil,c);
 
     b=laBeginRow(uil,c,0,0);laShowSeparator(uil,c)->Expand=1;laShowItem(uil,c,0,"LA_confirm")->Flags|=LA_UI_FLAGS_HIGHLIGHT;laEndRow(uil,b);
+}
+
+int ourinv_CanvasConvertToPigment(laOperator* a, laEvent* e){
+    if(Our->PigmentMode){ return LA_FINISHED; } int LayerCount=lstCountElements(&Our->Layers); int CurrentLayer=0;
+    for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
+        laShowProgress(((real)CurrentLayer)/LayerCount,0);
+        our_LayerConvertToPigment(l); CurrentLayer++;
+    }
+    laHideProgress();
+    Our->PigmentMode=1; laRecordDifferences(0,"our.canvas.pigment_mode");
+    laPushDifferences("Convert to pigment",0);
+    laNotifyUsers("our.canvas");laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    return LA_FINISHED;
+}
+int ourinv_CanvasConvertToRGBA(laOperator* a, laEvent* e){
+    if(Our->PigmentMode==0){ return LA_FINISHED; } int LayerCount=lstCountElements(&Our->Layers); int CurrentLayer=0;
+    for(OurLayer* l=Our->Layers.pFirst;l;l=l->Item.pNext){
+        laShowProgress(((real)CurrentLayer)/LayerCount,0);
+        our_LayerConvertToRGBA(l); CurrentLayer++;
+    }
+    laHideProgress();
+    Our->PigmentMode=0; laRecordDifferences(0,"our.canvas.pigment_mode");
+    laPushDifferences("Convert to RGBA",0);
+    laNotifyUsers("our.canvas");laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+    return LA_FINISHED;
 }
 
 int ourinv_NewPigment(laOperator* a, laEvent* e){
@@ -4548,6 +4699,10 @@ int ourget_AssetVersion(void* unused){
 }
 void our_AddToRecentFiles(laUDF* udf){
     if(!udf) return;
+    
+    strSafeSet(&MAIN.PreviousDirectory,SSTR(MAIN.ReadingUDF->FileName));
+    strDiscardLastSegmentSeperateBy(SSTR(MAIN.PreviousDirectory),LA_PATH_SEP);
+
     char* path=SSTR(udf->FileName); int found=0;
     for(OurRecentFile* irf=Our->RecentFiles.pFirst;irf;irf=irf->Item.pNext){
         if(strSame(SSTR(irf->Path),path)){
@@ -4890,6 +5045,9 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"LINEAR_CLAY","Linear Clay","Write Clay (AdobeRGB 1998 compatible) pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_CLAY,0);
     laAddEnumItemAs(p,"LINEAR_D65_P3","Linear D65 P3","Write D65 P3 pixels values into canvas regardless of the canvas interpretation",OUR_PNG_READ_OUTPUT_LINEAR_D65_P3,0);
     laAddIntProperty(pc,"offsets","Offsets","Offsets of the imported layer (0 for default)",0,"X,Y",0,0,0,0,0,0,offsetof(OurPNGReadExtra,Offsets),0,0,2,0,0,0,0,0,0,0,0);
+
+    laCreateOperatorType("OUR_canvas_convert_to_pigment","Convert To Pigment","Convert the entire canvas to pigment",0,0,0,ourinv_CanvasConvertToPigment,0,0,0);
+    laCreateOperatorType("OUR_canvas_convert_to_rgba","Convert To RGBA","Convert the entire canvas to rgba",0,0,0,ourinv_CanvasConvertToRGBA,0,0,0);
 
     laCreateOperatorType("OUR_new_pigment","New Pigment","Create a new pigment",0,0,0,ourinv_NewPigment,0,'+',0);
     laCreateOperatorType("OUR_remove_pigment","Remove Pigment","Remove this pigment",0,0,0,ourinv_RemovePigment,ourmod_RemovePigment,U'🗴',0);

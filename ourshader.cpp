@@ -546,14 +546,14 @@ void main() {
 )";
 
 const char OUR_PIGMENT_COMMON[]=R"(
-#define POW_EPS (1.0e-7)
+#define POW_EPS (1.0e-6)
 #define USE_SAFE_POW 1
 
 #if USE_SAFE_POW
 float safepow(float a, float b){ if(a<POW_EPS){ return 1.0; }
     return pow(a,b);
 }
-float safepow0(float a, float b){ if(a<(POW_EPS)){ return 0.0; }
+float safepow0(float a, float b){ if(a<(POW_EPS)){ return a; }
     return pow(a,b);
 }
 #else
@@ -873,7 +873,7 @@ void PigmentMixSlices(float a[16], inout float b[16], float factor){
 void PigmentOverSlices(float a[16], inout float b[16]){
     float fac=a[15]; float fac1=(1.0f-fac)*b[15];
     if(fac==0.) return; if(fac1==0.){ for(int i=0;i<16;i++){b[i]=a[i];} return; }
-    float scale=1.0/(fac+fac1); b[15]=fac1+fac; fac*=scale; fac1*=scale;
+    float scale=1.0/(fac+fac1); b[15]=fac+fac1*(1.0f-fac); fac*=scale; fac1*=scale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         if(a[i]<POW_EPS && b[i]<POW_EPS){ b[i]=0.0f; }
         else if(b[i]<POW_EPS){ b[i]=a[i]; }
