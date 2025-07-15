@@ -873,7 +873,7 @@ void PigmentMixSlices(float a[16], inout float b[16], float factor){
 void PigmentOverSlices(float a[16], inout float b[16]){
     float fac=a[15]; float fac1=(1.0f-fac)*b[15];
     if(fac==0.) return; if(fac1==0.){ for(int i=0;i<16;i++){b[i]=a[i];} return; }
-    float scale=1.0/(fac+fac1); b[15]=fac+fac1*(1.0f-fac); fac*=scale; fac1*=scale;
+    float scale=1.0/(fac+fac1); b[15]=fac+fac1; fac*=scale; fac1*=scale;
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         if(a[i]<POW_EPS && b[i]<POW_EPS){ b[i]=0.0f; }
         else if(b[i]<POW_EPS){ b[i]=a[i]; }

@@ -438,10 +438,13 @@ STRUCTURE(OurPigmentConversionData){
     int RowStart,RowCount;
     int cols;
     uint16_t *ImageConversionBuffer;
+    uint16_t *TextureTileData;
     our_XYZ2RGBFunc XYZ2RGB;
     our_Pigment2FinalFunc Pigment2Final;
     OurPigmentData* canvas;
     real** coeff;
+    int SX,SY;
+    real alpha;
 };
 NEED_STRUCTURE(OurThreadImportPNGDataMain);
 STRUCTURE(OurThreadImportPNGData){
@@ -606,6 +609,7 @@ STRUCTURE(OurPaint){
     laListHandle     UsePigments;
     OurPigment*   UseWhite;
     OurPigment*   UseBlack;
+    int ExposureCompensation;
 
     real CurrentColor[3];
     real BackgroundColor[3];

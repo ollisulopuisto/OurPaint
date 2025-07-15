@@ -80,6 +80,8 @@ real OUR_RGB2PIGMENT[3][OUR_SPECTRAL_SLICES]={{ 1,0,0,0,0,0,0,0,0,1,1,1,1,1 },{ 
 #define OUR_FL_1PX4(pf) \
     ((uint8_t)((pf)[1]*255.0f))
 
+const real OUR_EXPOSURE_FACTORS[13]={0.25,0.31,0.40,0.5,0.63,0.79,1.0,1.26,1.59,2.0,2.52,3.17,4.0};
+
 #define POW_EPS (1.0e-6)
 
 #define OUR_UI_FLAGS_EMISSION LA_UI_FLAGS_ICON
@@ -124,9 +126,11 @@ void our_Spectral2XYZ(real spec[16],real XYZ[3]){
     //tnsVectorSet3v(XYZ,xyz);
 }
 void our_ToPigmentData140(OurPigmentData* pd,OurPigmentData* paper, OurPigmentData140* pd140){
+    real exposure=OUR_EXPOSURE_FACTORS[Our->ExposureCompensation+6];
+    if(exposure<FLT_EPSILON || exposure>4+FLT_EPSILON){exposure=1;}
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        pd140->Absorption[i*4]=pd->Absorption[i];
-        pd140->Reflectance[i*4]=pd->Reflectance[i];
+        pd140->Absorption[i*4]=pd->Absorption[i]*exposure;
+        pd140->Reflectance[i*4]=pd->Reflectance[i]*exposure;
         pd140->PaperAbsorption[i*4]=paper->Absorption[i];
         pd140->PaperReflectance[i*4]=paper->Reflectance[i];
     }
@@ -260,6 +264,8 @@ void ourui_CanvasPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
 void ourui_CanvasPropertiesPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProps, laColumn *UNUSED, int context){
     laColumn* c=laFirstColumn(uil); laColumn* cl,*cr; laSplitColumn(uil,c,0.6); cl=laLeftColumn(c,0);cr=laRightColumn(c,0);
     laUiItem* b,*b1,*b2,*b3;
+
+    laShowColumnAdjuster(uil,c);
     
     laUiItem* pigui=laShowItemWithLabel(uil,cl,cr,0,"our.canvas.pigment_mode",0,0,0,0,"Canvas Type",0,0);
     b3=laOnConditionThat(uil,c,laPropExpression(&pigui->PP,""));{
@@ -267,6 +273,10 @@ void ourui_CanvasPropertiesPanel(laUiList *uil, laPropPack *This, laPropPack *De
         laShowSeparator(uil,c);
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
         laShowItemWithLabel(uil,cl,cr,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0,0,0,0)->Flags|=0;
+        laUiItem* br=laBeginRow(uil,cl,0,0); laUiItem* uilabel=laShowLabel(uil,cl,"Exposure",0,0);uilabel->Expand=1;uilabel->Flags|=LA_TEXT_ALIGN_RIGHT;
+        laShowItem(uil,cl,0,"our.canvas.exposure_compensation")->Flags|=LA_UI_FLAGS_NO_DECAL|LA_UI_FLAGS_NO_EVENT|LA_TEXT_ALIGN_RIGHT;
+        laEndRow(uil,br);
+        laShowItem(uil,cr,0,"our.canvas.exposure_compensation")->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON;
     }laElse(uil,b3);{
         laShowItemWithLabel(uil,cl,cr,0,"OUR_canvas_convert_to_pigment",0,"text=Pigment;icon=🡪;",0,0,"Convert To",0,0)->Flags|=LA_UI_FLAGS_EXIT_WHEN_TRIGGERED;
         laShowSeparator(uil,c);
@@ -1458,20 +1468,22 @@ int our_PigmentOver(OurPigmentData* p0, OurPigmentData* p1, real alpha){
 }
 void our_PigmentToXYZ(OurPigmentData* pd, OurPigmentData* bkg, real* xyz){
     real slices[OUR_SPECTRAL_SLICES];
+    real exposure=OUR_EXPOSURE_FACTORS[Our->ExposureCompensation+6];
     OurPigmentData temp={0}; memcpy(&temp,bkg,sizeof(OurPigmentData));
     our_PigmentMix(&temp, pd, 1.0f);
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         real absfac=1.0f-(1.0f-temp.Absorption[i])*(temp.Absorption[15]); if(absfac<0)absfac=0; slices[i]=temp.Reflectance[i]*absfac;
-        slices[i]*= Our->CanvasLight->Emission.Reflectance[i];
+        slices[i]*= Our->CanvasLight->Emission.Reflectance[i]*exposure;
         //TNS_CLAMP(slices[i],0.0f,1.0f);
     }
     our_Spectral2XYZ(slices,xyz);
 }
 void our_PigmentToXYZDirect(OurPigmentData* pd, real* xyz){
     real slices[OUR_SPECTRAL_SLICES];
+    real exposure=OUR_EXPOSURE_FACTORS[Our->ExposureCompensation+6];
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
         real absfac=1.0f-(1.0f-pd->Absorption[i])*(pd->Absorption[15]); if(absfac<0)absfac=0; slices[i]=pd->Reflectance[i]*absfac;
-        slices[i]*= Our->CanvasLight->Emission.Reflectance[i];
+        slices[i]*= Our->CanvasLight->Emission.Reflectance[i]*exposure;
     }
     our_Spectral2XYZ(slices,xyz);
 }
@@ -1483,8 +1495,9 @@ void our_LightToPreview(OurPigmentData* pd, real* rgb){
 }
 void our_CanvasToXYZ(OurPigmentData* pd, real* xyz){
     real slices[OUR_SPECTRAL_SLICES];
+    real exposure=OUR_EXPOSURE_FACTORS[Our->ExposureCompensation+6];
     for(int i=0;i<OUR_SPECTRAL_SLICES;i++){
-        slices[i]=Our->CanvasLight->Emission.Reflectance[i]*pd->Reflectance[i];
+        slices[i]=Our->CanvasLight->Emission.Reflectance[i]*pd->Reflectance[i]*exposure;
     }
     our_Spectral2XYZ(slices,xyz);
 }
@@ -2172,18 +2185,20 @@ void our_LayerEnsureTiles(OurLayer* ol, real xmin,real xmax, real ymin,real ymax
     }
     *tl=l; *tr=r; *tu=u; *tb=b;
 }
-void our_ComposePigmentTileToImage(OUR_PIX_COMPACT* image_buffer, OurTexTile* ot, int SX, int SY, real alpha){
-    for(int row=0;row<OUR_TILE_W_USE;row+=2){
+static int ourthread_ComposePigmentTileToImage(OurPigmentConversionData* pcd){
+    OUR_PIX_COMPACT* data=pcd->TextureTileData;
+    OUR_PIX_COMPACT* image=pcd->ImageConversionBuffer;
+    for(int row=pcd->RowStart;row<pcd->RowCount+pcd->RowStart;row+=2){
         for(int col=0;col<OUR_TILE_W_USE;col+=2){
             OurPigmentData pds,pdt;
-            OUR_PIX_COMPACT* t0=&ot->Data[(row*OUR_TILE_W_USE+col)*4];
-            OUR_PIX_COMPACT* t1=&ot->Data[((row+1)*OUR_TILE_W_USE+col)*4];
-            OUR_PIX_COMPACT* t2=&ot->Data[(row*OUR_TILE_W_USE+(col+1))*4];
-            OUR_PIX_COMPACT* t3=&ot->Data[((row+1)*OUR_TILE_W_USE+(col+1))*4];
-            OUR_PIX_COMPACT* s0=&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+col)*4];
-            OUR_PIX_COMPACT* s1=&image_buffer[((int64_t)(SY+row+1)*Our->ImageW+SX+col)*4];
-            OUR_PIX_COMPACT* s2=&image_buffer[((int64_t)(SY+row)*Our->ImageW+SX+(col+1))*4];
-            OUR_PIX_COMPACT* s3=&image_buffer[((int64_t)(SY+row+1)*Our->ImageW+SX+(col+1))*4];
+            OUR_PIX_COMPACT* t0=&data[(row*OUR_TILE_W_USE+col)*4];
+            OUR_PIX_COMPACT* t1=&data[((row+1)*OUR_TILE_W_USE+col)*4];
+            OUR_PIX_COMPACT* t2=&data[(row*OUR_TILE_W_USE+(col+1))*4];
+            OUR_PIX_COMPACT* t3=&data[((row+1)*OUR_TILE_W_USE+(col+1))*4];
+            OUR_PIX_COMPACT* s0=&image[((int64_t)(pcd->SY+row)*Our->ImageW+pcd->SX+col)*4];
+            OUR_PIX_COMPACT* s1=&image[((int64_t)(pcd->SY+row+1)*Our->ImageW+pcd->SX+col)*4];
+            OUR_PIX_COMPACT* s2=&image[((int64_t)(pcd->SY+row)*Our->ImageW+pcd->SX+(col+1))*4];
+            OUR_PIX_COMPACT* s3=&image[((int64_t)(pcd->SY+row+1)*Our->ImageW+pcd->SX+(col+1))*4];
 #ifdef LA_USE_GLES
             OUR_PX_FL4(t0,&pdt.Reflectance[0]); OUR_PX_FH4(t1,&pdt.Reflectance[8]);
             OUR_PX_FL4(t2,&pdt.Absorption[0]);  OUR_PX_FH4(t3,&pdt.Absorption[8]);
@@ -2195,7 +2210,7 @@ void our_ComposePigmentTileToImage(OUR_PIX_COMPACT* image_buffer, OurTexTile* ot
             OUR_PX_FL(s0,&pds.Reflectance[0]); OUR_PX_FH(s1,&pds.Reflectance[8]);
             OUR_PX_FL(s2,&pds.Absorption[0]);  OUR_PX_FH(s3,&pds.Absorption[8]);
 #endif
-            int res=our_PigmentOver(&pdt,&pds,alpha);
+            int res=our_PigmentOver(&pdt,&pds,pcd->alpha);
 #ifdef LA_USE_GLES
             if(res&1){
                 s0[0]=OUR_FL_2PX4(&pds.Reflectance[0]);  s0[1]=OUR_FL_2PX4(&pds.Reflectance[2]);
@@ -2225,6 +2240,25 @@ void our_ComposePigmentTileToImage(OUR_PIX_COMPACT* image_buffer, OurTexTile* ot
 #endif
         }
     }
+    return 0;
+}
+void our_ComposePigmentTileToImage(OUR_PIX_COMPACT* image_buffer, OurTexTile* ot, int SX, int SY, real alpha){
+    int threads = our_ProcessorCount(); int rows=OUR_TILE_W_USE/2; threads=TNS_MIN2(rows,threads);
+    int RowsPerThread=rows/threads; RowsPerThread*=2;
+    OurPigmentConversionData* pcd=calloc(sizeof(OurPigmentConversionData),threads);
+    
+    for(int i=0;i<threads;i++){
+        pcd[i].RowStart=i*RowsPerThread; pcd[i].RowCount=RowsPerThread;
+        pcd[i].cols=OUR_TILE_W_USE; pcd[i].ImageConversionBuffer=image_buffer;
+        pcd[i].TextureTileData=ot->Data;
+        pcd[i].SX=SX; pcd[i].SY=SY; pcd[i].alpha=alpha;
+    }
+    int remaining=OUR_TILE_W_USE-threads*RowsPerThread; remaining-=remaining%2; pcd[threads-1].RowCount+=remaining;
+
+    thrd_t* th=calloc(threads,sizeof(thrd_t));
+    for(int i=0;i<threads;i++){ thrd_create(&th[i],ourthread_ComposePigmentTileToImage,&pcd[i]); }
+    for(int i=0;i<threads;i++){ int result = thrd_join(th[i], NULL); }
+    free(th); free(pcd);
 }
 void our_TileTextureToImage(OurTexTile* ot, int SX, int SY, int composite, int BlendMode, real alpha){
     if(!ot->Texture) return;
@@ -4687,11 +4721,14 @@ void* ourget_FirstCanvasSurface(void* unused){ return Our->CanvasSurfaces.pFirst
 void* ourget_FirstLight(void* unused){ return Our->Lights.pFirst; }
 void* ourget_CurrentCanvasSurface(void* unused){ return Our->CanvasSurface; }
 void* ourget_CurrentLight(void* unused){ return Our->CanvasLight; }
-void ourset_ChooseCanvasSurface(void* unsed, OurCanvasSurface* cs){ if(!cs){ return; }
+void ourset_ChooseCanvasSurface(void* unsed, OurCanvasSurface* cs){ if(!cs){ return; }  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
     our_SetActiveCanvasSurface(cs); laNotifyUsers("our.canvas.surface"); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set canvas surface",0);
 }
 void ourset_ChooseLight(void* unsed, OurLight* l){ if(!l){ return; }
-    our_SetActiveLight(l); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set light",0);
+    our_SetActiveLight(l); laRecordInstanceDifferences(Our,"our_canvas"); laPushDifferences("Set light",0);  laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
+}
+void ourset_ExposureCompensation(void* unused, int mode){
+    Our->ExposureCompensation=mode; laNotifyUsers("our.canvas"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst);
 }
 
 int ourget_AssetVersion(void* unused){
@@ -4700,7 +4737,7 @@ int ourget_AssetVersion(void* unused){
 void our_AddToRecentFiles(laUDF* udf){
     if(!udf) return;
     
-    strSafeSet(&MAIN.PreviousDirectory,SSTR(MAIN.ReadingUDF->FileName));
+    strSafeSet(&MAIN.PreviousDirectory,SSTR(udf->FileName));
     strDiscardLastSegmentSeperateBy(SSTR(MAIN.PreviousDirectory),LA_PATH_SEP);
 
     char* path=SSTR(udf->FileName); int found=0;
@@ -4844,6 +4881,16 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
         b1=laOnConditionThat(uil,c,laPropExpression(0,"our.preferences.lights_on_header"));{
             laShowItemFull(uil,c,0,"our.canvas.light.name",LA_WIDGET_STRING_PLAIN,0,0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
             laShowItemFull(uil,c,0,"our.tools.light_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
+            laUiList* muil=laMakeMenuPage(uil,c,"◩"); laColumn*mc=laFirstColumn(muil);{
+                laShowItemWithLabel(muil,mc,mc,0,"our.canvas.exposure_compensation",0,0,0,0,0,LA_TEXT_ALIGN_LEFT,0)
+                    ->Flags|=LA_UI_FLAGS_EXPAND|LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
+                b2=laBeginRow(muil,mc,0,0);
+                laShowLabel(muil,mc,"-2",0,0);
+                laUiItem* ui=laShowItem(muil,mc,0,"our.canvas.exposure_compensation"); ui->Expand=1;
+                    ui->Flags|=LA_TEXT_ALIGN_CENTER|LA_UI_FLAGS_NO_EVENT|LA_UI_FLAGS_NO_DECAL;
+                laShowLabel(muil,mc,"+2",0,0);
+                laEndRow(muil,b2);
+            }
             laShowItemFull(uil,c,0,"our.canvas.surface.name",LA_WIDGET_STRING_PLAIN,0,0,0)->Flags|=LA_TEXT_ALIGN_RIGHT;
             laShowItemFull(uil,c,0,"our.tools.canvas_surface_chooser",LA_WIDGET_COLLECTION_SELECTOR,0,0,0)->Flags|=LA_UI_COLLECTION_SIMPLE_SELECTOR;
             laShowSeparator(uil,c);
@@ -5448,6 +5495,12 @@ void ourRegisterEverything(){
     laAddEnumItemAs(p,"STRAIGHT","Straight","Color values are not associative with alpha values on canvas",1,0);
     laAddSubGroup(pc,"surface","Canvas Surface","Canvas surface configuration","our_canvas_surface",0,0,ourui_CanvasSurfaceItem,offsetof(OurPaint,CanvasSurface),0,0,0,0,ourgetstate_H2Modified,0,0,LA_UDF_SINGLE);
     laAddSubGroup(pc,"light","Canvas Light","Canvas light configuration","our_light",0,0,ourui_LightItem,offsetof(OurPaint,CanvasLight),0,0,0,0,ourgetstate_H2Modified,0,0,LA_UDF_SINGLE);
+    p=laAddEnumProperty(pc,"exposure_compensation","Exposure Compensation","Exposure compensation of the canvas",0,0,0,0,0,offsetof(OurPaint,ExposureCompensation),0,ourset_ExposureCompensation,0,0,0,0,0,0,0,0);
+    laAddEnumItemAs(p,"M6","-2","",-6,0);    laAddEnumItemAs(p,"M5","-1 2/3","",-5,0); laAddEnumItemAs(p,"M4","-1 1/3","",-4,0);
+    laAddEnumItemAs(p,"M3","-1","",-3,0);    laAddEnumItemAs(p,"M2","-2/3","",-2,0);   laAddEnumItemAs(p,"M1","-1/3","",-1,0);
+    laAddEnumItemAs(p,"NONE","0","",0,0);
+    laAddEnumItemAs(p,"P1","+1/3","",1,0);   laAddEnumItemAs(p,"P2","+2/3","",2,0);    laAddEnumItemAs(p,"P3","+1","",3,0);
+    laAddEnumItemAs(p,"P4","+1 1/3","",4,0); laAddEnumItemAs(p,"P5","+1 2/3","",5,0);  laAddEnumItemAs(p,"P6","+2","",6,0);
 
     pc=laAddPropertyContainer("our_layer","Our Layer","OurPaint layer",0,0,sizeof(OurLayer),0,0,1);
     laPropContainerExtraFunctions(pc,ourbeforefree_Layer,ourbeforefree_Layer,0,0,0);

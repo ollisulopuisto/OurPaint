@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Exposure","曝光",
+"Exposure Compensation","曝光补偿",
 "Convert To", "转换成",
 "RGBA", "红绿蓝式",
 "Max Recent Files", "最近文件列表长度",
