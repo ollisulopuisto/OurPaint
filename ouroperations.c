@@ -1626,6 +1626,7 @@ void our_ColorPadDraw(laUiItem *ui, int h){
 int ourmod_PigmentLoader(laOperator* a, laEvent* e){
     laUiItem *ui = a->Instance;
     laBoxedTheme *bt = (*ui->Type->Theme);
+    laGeneralUiExtraData* ex=ui->Extra;
 
     if (!laIsInUiItem(ui, a, e->x, e->y) && ui->State==LA_UI_NORMAL){
         return LA_FINISHED_PASS;
@@ -1634,10 +1635,12 @@ int ourmod_PigmentLoader(laOperator* a, laEvent* e){
     OurBrush*b=ui->PP.LastPs?ui->PP.LastPs->UseInstance:0;
     if(!b){ return LA_RUNNING; }
 
-    if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_UI_ACTIVE; }
+    if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_UI_ACTIVE; ex->On=((e->x-ui->L)>TNS_MIN2(LA_RH,(ui->R-ui->L)/2))?0:1; }
     if(ui->State==LA_UI_ACTIVE && (e->type&LA_MOUSE_EVENT)){
         if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN){ ui->State=LA_UI_NORMAL; laRedrawCurrentPanel(); return LA_RUNNING; }
-        real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsersPP(&ui->PP);
+        real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); 
+        if(ex->On==0){ b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; } else { b->PigmentLoading=b->PigmentLoading*fac; }
+        laNotifyUsersPP(&ui->PP);
     }
 
     return LA_RUNNING;
@@ -1651,18 +1654,23 @@ void our_PigmentLoaderDraw(laUiItem *ui, int h){
     else{ color=Our->CurrentColor; } tnsVectorSet3v(UseColor,color);
     
     int L=ui->L,R=ui->R,U=ui->U,B=ui->B;
+    int BW=TNS_MIN2((R-L)/2,LA_RH);
 
     int sw=la_GetBoxOffset(bt,ui->State);
     tnsUseNoTexture();
     la_DrawBoxAutoFill(ui->L,ui->R,ui->U,ui->B,bt,ui->State,UseColor);
 
+    tnsColor4dv(laThemeColor(bt,ui->State));
+    la_DrawBox(L,L+BW,U,B);
+    tnsDrawIcon(U'💦',laThemeColor(bt,LA_BT_TEXT|ui->State),L,L+LA_RH,U,LA_TEXT_SHADOW);
+
     if (b){
-        tnsDrawStringAuto("Depleted",laThemeColor(bt,LA_BT_TEXT|LA_BT_DISABLED),L+LA_M,R-LA_M,U,LA_TEXT_SHADOW);
+        tnsDrawStringAuto(transLate("Depleted"),laThemeColor(bt,LA_BT_TEXT|LA_BT_DISABLED),L+LA_M+BW,R-LA_M,U,LA_TEXT_SHADOW);
         tnsUseNoTexture();
-        int R1=tnsInterpolate(L,R,b->PigmentLoading);
+        int R1=tnsInterpolate(L+BW,R,b->PigmentLoading);
         tnsColor4d(LA_COLOR3(color),1.0);
-        tnsVertex2d(L-sw, U-sw); tnsVertex2d(R1-sw, U-sw);
-        tnsVertex2d(R1-sw, B-sw); tnsVertex2d(L-sw, B-sw);
+        tnsVertex2d(L+BW-sw, U-sw); tnsVertex2d(R1-sw, U-sw);
+        tnsVertex2d(R1-sw, B-sw); tnsVertex2d(L+BW-sw, B-sw);
         tnsPackAs(GL_TRIANGLE_FAN);
         tnsVertex2d(R1-sw, U-sw); tnsVertex2d(R1-sw, B-sw);
         tnsColor4d(1,1,1,1);tnsPackAs(GL_LINES);
@@ -1670,7 +1678,7 @@ void our_PigmentLoaderDraw(laUiItem *ui, int h){
         tnsColor4d(0,0,0,1);tnsPackAs(GL_LINES);
     }
 
-    la_DrawBoxAutoBorder(ui->L,ui->R,ui->U,ui->B,bt,ui->State);
+    la_DrawBoxAutoBorder(L,R,U,B,bt,ui->State);
 
 }
 
@@ -5538,7 +5546,7 @@ void ourRegisterEverything(){
     OUR_WIDGET_PIGMENT_PREVIEW->Type=
     _OUR_UI_PIGMENT_PREVIEW = la_RegisterUiType("OUR_UI_pigment_preview", 0, 0, &_LA_THEME_VALUATOR, our_PigmentPreviewDraw, 0, 0, 0);
     OUR_WIDGET_PIGMENT_LOADER->Type=
-    _OUR_UI_PIGMENT_LOADER = la_RegisterUiType("OUR_UI_pigment_loader", 0, "OUR_UIOP_pigment_loader", &_LA_THEME_VALUATOR, our_PigmentLoaderDraw, 0, 0, 0);
+    _OUR_UI_PIGMENT_LOADER = la_RegisterUiType("OUR_UI_pigment_loader", 0, "OUR_UIOP_pigment_loader", &_LA_THEME_VALUATOR, our_PigmentLoaderDraw, 0,  la_GeneralUiInit, la_GeneralUiDestroy);
     OUR_WIDGET_COLOR_PAD->Type=
     _OUR_UI_COLOR_PAD = la_RegisterUiType("OUR_UI_color_pad", 0, "OUR_UIOP_color_pad", &_LA_THEME_VALUATOR, our_ColorPadDraw, 0, 0, 0);
 
