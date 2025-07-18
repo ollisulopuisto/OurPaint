@@ -554,7 +554,7 @@ STRUCTURE(OurPaint){
     int BackgroundType;
     int BackgroundRandom;
     real BackgroundFactor;
-    int PenID,EraserID;
+    OurBrush* PenBrush,*EraserBrush; real LastPigmentLoading;
     int X,Y,W,H; //border
     real BorderFadeWidth;
     int ColorInterpretation;

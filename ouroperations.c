@@ -3265,18 +3265,14 @@ void our_PaintDoDabsWithSmudgeSegments(OurLayer* l,int tl, int tr, int tu, int t
 void ourset_CurrentBrush(void* unused, OurBrush* b);
 void our_EnsureEraser(int EventIsEraser){
     if(EventIsEraser==Our->EventErasing){ return; }
-    printf("ev e %d %d\n", Our->EventErasing, Our->Erasing);
+    //printf("ev e %d %d\n", Our->EventErasing, Our->Erasing);
     int erasing=Our->Erasing; int num=0;
-    if(EventIsEraser && (!Our->EventErasing)){ num=TNS_MAX2(Our->EraserID,num);
-        for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){
-            if(b->Binding==num){ ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break; }
-        }
+    if(EventIsEraser && (!Our->EventErasing)){ 
+        if(Our->EraserBrush){ ourset_CurrentBrush(Our,Our->EraserBrush); laNotifyUsers("our.tools.brushes"); }
         Our->Erasing=1; Our->EventErasing=1; laNotifyUsers("our.erasing");
     }
-    elif((!EventIsEraser) && Our->EventErasing){ num=TNS_MAX2(Our->PenID,num);
-        for(OurBrush* b=Our->Brushes.pFirst;b;b=b->Item.pNext){
-            if(b->Binding==num){ ourset_CurrentBrush(Our,b); laNotifyUsers("our.tools.brushes"); break; }
-        }
+    elif((!EventIsEraser) && Our->EventErasing){ 
+        if(Our->PenBrush){ ourset_CurrentBrush(Our,Our->PenBrush); laNotifyUsers("our.tools.brushes"); }
         Our->Erasing=0; Our->EventErasing=0; laNotifyUsers("our.erasing");
     }
 }
@@ -4618,16 +4614,16 @@ void ourpropagate_Tools(OurPaint* p, laUDF* udf, int force){
 }
 void ourset_CurrentBrush(void* unused, OurBrush* b){
     real r;
-    OurBrush* ob=Our->CurrentBrush;
+    OurBrush* ob=Our->CurrentBrush; int CurrentIsEraser=ob&&ob->DefaultAsEraser;
     if(ob){
         if(ob->DefaultAsEraser){ Our->SaveEraserSize=Our->BrushSize; }else{ Our->SaveBrushSize=Our->BrushSize; }
     }
     memAssignRef(Our,&Our->CurrentBrush,b);
     if(b){
-        if(b->DefaultAsEraser){ Our->Erasing=1; Our->EraserID=b->Binding; if(Our->SaveEraserSize)Our->BrushSize=Our->SaveEraserSize; }
-        else{ Our->Erasing=0; Our->PenID=b->Binding; if(Our->SaveBrushSize)Our->BrushSize=Our->SaveBrushSize; }
+        if(b->DefaultAsEraser){ Our->Erasing=1; memAssignRef(Our,&Our->EraserBrush,b); if(Our->SaveEraserSize)Our->BrushSize=Our->SaveEraserSize; }
+        else{ Our->Erasing=0; memAssignRef(Our,&Our->PenBrush,b); if(Our->SaveBrushSize)Our->BrushSize=Our->SaveBrushSize; }
     }
-    Our->ShowBrushName = 1; Our->ShowBrushNumber=1; b->PigmentLoading=1;
+    Our->ShowBrushName = 1; Our->ShowBrushNumber=1; b->PigmentLoading=CurrentIsEraser?b->PigmentLoading:1;
     laNotifyUsers("our.tools.current_brush"); laNotifyUsers("our.erasing"); laGraphRequestRebuild();
 }
 void ourset_CurrentPigment(void* unused, OurPigment* p){
@@ -5890,8 +5886,6 @@ int ourInit(){
     Our->AllowNonPressure=1;
     Our->BadEventsLimit=7;
 
-    Our->PenID=-1;
-    Our->EraserID=-1;
     Our->BrushNumber=3;
 
     Our->RefAlpha=0.75;
