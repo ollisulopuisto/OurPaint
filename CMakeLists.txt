@@ -30,6 +30,11 @@ add_compile_options("$<$<C_COMPILER_ID:MSVC>:/std:c11>")
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
+add_definitions(-Wno-incompatible-pointer-types)
+add_definitions(-Wno-int-conversion)
+add_definitions(-Wno-discarded-qualifiers)
+add_definitions(-Werror=implicit-function-declaration)
+#add_definitions(-Wreturn-mismatch)
 add_definitions(-w)
 
 # embed_resource("data.dat" "data.h" "DATA")

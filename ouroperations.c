@@ -2748,8 +2748,9 @@ void our_ImageConvertForExport(int BitDepth, int ColorProfile, int PigmentConver
 
     if(BitDepth==OUR_EXPORT_BIT_DEPTH_16){ return; /* only export 16bit flat */ }
 
-    input_buffer_profile=IgnorePigmentPath?
-        cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
+    cmsHPROFILE thumb_profile=Our->PigmentMode?cmsOpenProfileFromMem(Our->icc_Clay,Our->iccsize_Clay):
+                                               cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay);
+    input_buffer_profile=IgnorePigmentPath?thumb_profile:
         (Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_CLAY)?
             cmsOpenProfileFromMem(Our->icc_LinearClay,Our->iccsize_LinearClay):
             ((Our->ColorInterpretation==OUR_CANVAS_INTERPRETATION_D65_P3)?

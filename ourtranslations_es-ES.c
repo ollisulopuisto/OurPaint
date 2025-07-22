@@ -28,6 +28,22 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Lights","Luces",
+"Canvas Surfaces","Superficies de lienzo",
+"Exposure","Exposición",
+"Exposure Compensation","Compensación de exposición",
+"Convert To", "Convertir a",
+"Max Recent Files", "Max Ficheros Recientes",
+"Recent Files", "Ficheros Recientes",
+"List of Pigments", "Listado de Pigmentos",
+"New Palette", "Agregar Paleta",
+"Depleted", "Seco",
+"When tool undo is enabled, brush nodes can't be moved across node racks",
+    "Cuando Deshacer Herramienta está activado, los nodos de pincel no pueden moverse en los racks de nodos",
+"Tool Undo (Requre Restart)","Deshacer Útil (requiere reiniciar)",
+"Smudge Lifting","Levantamiento de manchas",
+"Depletion Speed","Velocidad de secado",
+"Mixing Speed","Velocidad de mezcla",
 "Pigment Conversion Method:","Método de conversión de Pigmento",
 "Pixel Binning","Agrupamiento de pixels",
 "See list of Sponsors", "Listado de Patrocinadores",

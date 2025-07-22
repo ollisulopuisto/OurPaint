@@ -23,6 +23,8 @@ extern tnsMain* T;
 extern OurPaint *Our;
 
 static const char *entries[]={
+"Lights","光源",
+"Canvas Surfaces","画布表面",
 "Exposure","曝光",
 "Exposure Compensation","曝光补偿",
 "Convert To", "转换成",
