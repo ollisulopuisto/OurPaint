@@ -34,6 +34,7 @@ add_definitions(-Wno-incompatible-pointer-types)
 add_definitions(-Wno-int-conversion)
 add_definitions(-Wno-discarded-qualifiers)
 add_definitions(-Werror=implicit-function-declaration)
+add_definitions(-Werror=return-type)
 #add_definitions(-Wreturn-mismatch)
 add_definitions(-w)
 

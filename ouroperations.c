@@ -1900,6 +1900,10 @@ void our_GetExposureCompensatedCoefficients(real** r){
         r[2][i]=OUR_RGB2PIGMENT[2][i]/(Our->CanvasSurface->Reflectance.Reflectance[i]+DBL_EPSILON);
     }
 }
+void our_LayerToImageBuffer(OurLayer* ol, int composite);
+int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate);
+void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* colmax);
+void our_LayerToTexture(OurLayer* ol);
 void our_LayerConvertToPigment(OurLayer* l){
     our_LayerEnsureImageBuffer(l,0);
     our_LayerToImageBuffer(l,0);
@@ -5684,6 +5688,11 @@ void ourRegisterEverything(){
 }
 
 #ifdef LAGUI_ANDROID
+static void android_ensure_asset_to_public_dir_mkdir(char* dir){
+    char dir_internal[2048],dir_external[2048];
+    sprintf(dir_external, "%s/%s", MAIN.InternalDataPath,dir);
+    mkdir(dir_external, S_IRWXU | S_IRWXG | S_IRWXO);
+}
 static void android_ensure_asset_to_public_dir(char* asset_file){
     char dir_internal[2048],dir_external[2048];
     sprintf(dir_external, "%s/%s", MAIN.InternalDataPath,asset_file);
@@ -5925,6 +5934,12 @@ int ourInit(){
 #ifdef LAGUI_ANDROID
     android_ensure_asset_to_public_dir("default_brushes.udf");
     android_ensure_asset_to_public_dir("default_pallettes.udf");
+    android_ensure_asset_to_public_dir("default_pigments.udf");
+    android_ensure_asset_to_public_dir("default_canvases.udf");
+    android_ensure_asset_to_public_dir("default_lights.udf");
+    android_ensure_asset_to_public_dir_mkdir("profiles");
+    android_ensure_asset_to_public_dir("profiles/ISOcoated_v2_300_bas.icc");
+    android_ensure_asset_to_public_dir("profiles/GenericCMYK.icm");
 #endif
 
     return 1;

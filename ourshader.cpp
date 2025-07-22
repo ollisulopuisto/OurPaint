@@ -469,7 +469,7 @@ void DoSample(){
     PigmentData color=PIGMENT_BLANK; for(int i=0;i<WORKGROUP_SIZE;i++){
         PigmentData dabc; GetImgPixel(smudge_buckets, ivec2(i*2+128,0), dabc); color=PigmentMix(color,dabc,1.0/(float(i)+1.));
     }
-    if(uBrushSmudgeLifting>1.0 && color.a[15]>0){ color.a[15]=pow(color.a[15],uBrushSmudgeLifting); }
+    if(uBrushSmudgeLifting>1.0 && color.a[15]>0.){ color.a[15]=pow(color.a[15],uBrushSmudgeLifting); }
     PigmentData oldcolor; GetImgPixel(smudge_buckets, ivec2(0,0), oldcolor);
     //PigmentMultiply(color,2./WORKGROUP_SIZE);
     WriteImgPixel(smudge_buckets,ivec2(2,0),uBrushErasing==2?color:oldcolor);
