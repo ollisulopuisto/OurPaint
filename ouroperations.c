@@ -1602,7 +1602,7 @@ int ourmod_ColorPad(laOperator* a, laEvent* e){
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){ ui->State=LA_BT_NORMAL; }
     }
 
-    return LA_RUNNING;
+    return LA_RUNNING_PASS;
 }
 void our_ColorPadDraw(laUiItem *ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme); OurPigmentData* pd;
@@ -1643,7 +1643,7 @@ int ourmod_PigmentLoader(laOperator* a, laEvent* e){
         laNotifyUsersPP(&ui->PP);
     }
 
-    return LA_RUNNING;
+    return LA_RUNNING_PASS;
 }
 void our_PigmentLoaderDraw(laUiItem *ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
@@ -1722,7 +1722,7 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
         }
     }
 
-    return LA_RUNNING;
+    return LA_RUNNING_PASS;
 }
 void our_PigmentMixerDraw(laUiItem* ui, int h){
     laBoxedTheme *bt = (*ui->Type->Theme);
