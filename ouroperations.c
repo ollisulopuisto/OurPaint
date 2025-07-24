@@ -3298,9 +3298,9 @@ void our_ReadWidgetColor(laCanvasExtra*e,int x,int y){
             pd.Reflectance[i+8]=pow(pigment[i+16]/255.0f,2.2f); pow(pd.Absorption[i+8]=pigment[i+24]/255.0f,2.2f);
         }
         pd.Reflectance[15]=(*((uint16_t*)&pigment[22]))/65535.0f; pd.Absorption[15]=(*((uint16_t*)&pigment[30]))/65535.0f;
-        printf("\nread:\n");
-        for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
-        for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
+        //printf("\nread:\n");
+        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Reflectance[i]); } printf("\n");
+        //for(int i=0;i<16;i++) { printf("%.3f ",pd.Absorption[i]); } printf("\n");
         our_PigmentToPreviewSelf(&pd);
         memcpy(&Our->MixedPigment,&pd,sizeof(OurPigmentData));
 #endif
