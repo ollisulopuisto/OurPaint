@@ -416,7 +416,7 @@ int dab_pigment(float d, vec2 fpx, PigmentData color, float size, float hardness
 
     if(uBrushErasing!=0){
         PigmentData smudged_color=PigmentMix(last_color,smudge_color,smudge*fac*canvas);
-        final=PigmentMix(smudged_color,PIGMENT_BLANK,erasing*canvas*fac);
+        final=PigmentMix(smudged_color,cc,erasing*canvas*fac*color.r[15]);
     }else{
         float usefac=canvas*fac*(1.-smudge);
         cc.a[15]=color.a[15]*usefac;
@@ -541,7 +541,7 @@ void main() {
     vec4 c1=OurImageLoad(top,px); vec4 c2=OurImageLoad(bottom,px);
     vec4 c=(uBlendMode==0)?mix_over(c1,c2):add_over(c1,c2);
     OurImageStore(bottom,px,c);
-    OurImageStore(top,px,vec4(1.));
+    //OurImageStore(top,px,vec4(1.));
 }
 )";
 

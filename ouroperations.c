@@ -350,6 +350,7 @@ void ourui_LayersPanel(laUiList *uil, laPropPack *This, laPropPack *DetachedProp
         laUiItem* b1=laBeginRow(uil,c,0,0);
         laShowItem(uil,c,&lui->PP,"remove")->Flags|=LA_UI_FLAGS_ICON|LA_UI_FLAGS_NO_CONFIRM;
         laShowItem(uil,c,&lui->PP,"merge")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
+        laShowItemFull(uil,c,&lui->PP,"merge",0,"text=Stamp;mode=stamp;icon=∨;",0,0)->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laShowSeparator(uil,c)->Expand=1;
         laShowItem(uil,c,&lui->PP,"duplicate")->Flags|=LA_UI_FLAGS_NO_CONFIRM;
         laEndRow(uil,b1);
@@ -1810,7 +1811,7 @@ void our_RemoveLayer(OurLayer* l, int cleanup){
     if(cleanup) ourbeforefree_Layer(l);
     memLeave(l);
 }
-int our_MergeLayer(OurLayer* l){
+int our_MergeLayer(OurLayer* l, int stamp){
     OurLayer* ol=l->Item.pNext; if(!ol) return 0; int xmin=INT_MAX,xmax=-INT_MAX,ymin=INT_MAX,ymax=-INT_MAX; int seam=OUR_TILE_SEAM;
     if(Our->PigmentMode){
         Our->u=&Our->uPigment;
@@ -1841,11 +1842,17 @@ int our_MergeLayer(OurLayer* l){
 
     if(xmin>xmax||ymin>ymax) return 0;
 
-    our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
+    const char* label="Merge layers";
+    if(stamp){
+        l->AsSketch=1;
+        label="Stamp layer";
+    }else{
+        our_RecordUndo(l,xmin,xmax,ymin,ymax,1,0);
+        our_RemoveLayer(l,0);
+    }
     our_RecordUndo(ol,xmin,xmax,ymin,ymax,1,0);
-    our_RemoveLayer(l,0);
     laRecordDifferences(0,"our.canvas.layers");laRecordDifferences(0,"our.canvas.current_layer");
-    laPushDifferences("Merge layers",0);
+    laPushDifferences(label,0);
 
     return 1;
 }
@@ -3578,7 +3585,8 @@ int ourchk_MergeLayer(laPropPack *This, laStringSplitor *ss){
 int ourinv_MergeLayer(laOperator* a, laEvent* e){
     OurLayer* l=a->This?a->This->EndInstance:0; if(!l || !l->Item.pNext) return LA_CANCELED;
     OurLayer* nl=l->Item.pNext; if(l->Lock || l->Transparency==1 || nl->Lock || nl->Transparency==1) return LA_CANCELED;
-    if(our_MergeLayer(l)){ laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
+    int stamp=0; if(strArgumentMatch(a->ExtraInstructionsP,"mode","stamp")){ stamp=1; };
+    if(our_MergeLayer(l, stamp)){ laNotifyUsers("our.canvas"); laNotifyUsers("our.canvas.layers"); laMarkMemChanged(Our->CanvasSaverDummyList.pFirst); }
     return LA_FINISHED;
 }
 int ourchk_ExportLayer(laPropPack *This, laStringSplitor *ss){
@@ -5532,7 +5540,7 @@ void ourRegisterEverything(){
     laRawPropertyExtraFunctions(p,ourget_LayerImageSegmented,ourget_LayerImageShouldSegment);
     laAddOperatorProperty(pc,"move","Move","Move Layer","OUR_move_layer",0,0);
     laAddOperatorProperty(pc,"remove","Remove","Remove layer","OUR_remove_layer",U'🗴',0);
-    laAddOperatorProperty(pc,"merge","Merge","Merge layer","OUR_merge_layer",U'🠳',0);
+    laAddOperatorProperty(pc,"merge","Merge","Merge layer","OUR_merge_layer",U'⊻',0);
     laAddOperatorProperty(pc,"duplicate","Duplicate","Duplicate layer","OUR_duplicate_layer",U'⎘',0);
     p=laAddEnumProperty(pc,"as_sketch","As Sketch","As sketch layer (for quick toggle)",0,0,0,0,0,offsetof(OurLayer,AsSketch),0,ourset_LayerAsSketch,0,0,0,0,0,0,0,0);
     laAddEnumItemAs(p,"NORMAL","Normal","Layer is normal",0,U'🖌');
