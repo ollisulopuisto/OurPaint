@@ -145,8 +145,8 @@ void our_ToBrushData140(OurBrushData140* b140, real transparency,real Accumulati
             safepow(Our->MixedPigment.Absorption[i],AccumulationStrength);
         b140->Reflectance[i*4]=Our->MixedPigment.Reflectance[i];
     }
-    b140->Absorption[15*4]=Our->MixedPigment.Absorption[15]*transparency;
-    b140->Reflectance[15*4]=Our->MixedPigment.Reflectance[15]*transparency;
+    b140->Absorption[15*4]=(Our->Erasing?1.0f:Our->MixedPigment.Absorption[15])*transparency;
+    b140->Reflectance[15*4]=(Our->Erasing?1.0f:Our->MixedPigment.Reflectance[15])*transparency;
 }
 
 
