@@ -1596,7 +1596,7 @@ int ourmod_ColorPad(laOperator* a, laEvent* e){
     if(pd){
         if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_BT_ACTIVE; }
         if(ui->State==LA_BT_ACTIVE){
-            our_PigmentMix(&Our->MixedPigment,pd,OUR_MIXING_SPEED*e->Pressure);
+            our_PigmentMix(&Our->MixedPigment,pd,OUR_MIXING_SPEED*e->Pressure*e->Pressure);
             our_PigmentToPreviewSelf(&Our->MixedPigment);
             laNotifyUsers("our.mixed_pigment");
         }
@@ -1639,7 +1639,7 @@ int ourmod_PigmentLoader(laOperator* a, laEvent* e){
     if(e->type==LA_L_MOUSE_DOWN){ ui->State=LA_UI_ACTIVE; ex->On=((e->x-ui->L)>TNS_MIN2(LA_RH,(ui->R-ui->L)/2))?0:1; }
     if(ui->State==LA_UI_ACTIVE && (e->type&LA_MOUSE_EVENT)){
         if(e->type==LA_L_MOUSE_UP || e->type==LA_R_MOUSE_DOWN){ ui->State=LA_UI_NORMAL; laRedrawCurrentPanel(); return LA_RUNNING; }
-        real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); 
+        real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure*e->Pressure); 
         if(ex->On==0){ b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; } else { b->PigmentLoading=b->PigmentLoading*fac; }
         laNotifyUsersPP(&ui->PP);
     }
@@ -1714,12 +1714,12 @@ int ourmod_PigmentMixer(laOperator* a, laEvent* e){
         if(e->type==LA_L_MOUSE_UP || (e->type==LA_KEY_DOWN && e->key==LA_KEY_ESCAPE)){
             ui->Extra->On=0; es->Dragging=0; laRedrawCurrentPanel(); ui->State=LA_UI_NORMAL; return LA_RUNNING;
         }
-        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure);
+        if(es->On==3){ our_PigmentMix(&Our->MixedPigment,OUR_PIGMENT_WATER,OUR_MIXING_SPEED*e->Pressure*e->Pressure);
             our_PigmentToPreviewSelf(&Our->MixedPigment); laNotifyUsers("our.mixed_pigment"); }
         elif(es->On==4){ int d=e->y-es->LastY; int h=es->TargetVali+d/LA_RH; if(h<2){ h=2; } if(ui->Extent!=h){ ui->Extent=h; laRecalcCurrentPanel(); };  }
         elif(es->On==1 && e->type&LA_MOUSE_EVENT){ OurBrush* b=Our->CurrentBrush; if(!b){ return LA_RUNNING; }
-            real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure); b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsers("our.tools.current_brush.pigment_loading");
-            laRedrawCurrentPanel(); es->TargetValf=e->Pressure;
+            real fac=(1.0f-OUR_MIXING_SPEED*e->Pressure*e->Pressure); b->PigmentLoading=1.0f-(1.0f-b->PigmentLoading)*fac; laNotifyUsers("our.tools.current_brush.pigment_loading");
+            laRedrawCurrentPanel(); es->TargetValf=e->Pressure*e->Pressure;
         }
     }
 
@@ -1865,10 +1865,10 @@ void our_RGB2Reflectance(real** coefficients, real* rgb, real* r){
     }
 }
 void our_PixelToPigment(real** coefficients, OUR_PIX_COMPACT* pixels, int row, int col){
-    OUR_PIX_COMPACT* p1=&pixels[4*(row*Our->ImageW+col)];
-    OUR_PIX_COMPACT* p2=&pixels[4*(row*Our->ImageW+col+1)];
-    OUR_PIX_COMPACT* p3=&pixels[4*((row+1)*Our->ImageW+col)];
-    OUR_PIX_COMPACT* p4=&pixels[4*((row+1)*Our->ImageW+col+1)];
+    OUR_PIX_COMPACT* p1=&pixels[4*(((uint64_t)row)*Our->ImageW+col)];
+    OUR_PIX_COMPACT* p2=&pixels[4*(((uint64_t)row)*Our->ImageW+col+1)];
+    OUR_PIX_COMPACT* p3=&pixels[4*(((uint64_t)(row)+1)*Our->ImageW+col)];
+    OUR_PIX_COMPACT* p4=&pixels[4*(((uint64_t)(row)+1)*Our->ImageW+col+1)];
     real px[4]; real hcy[3];
     px[0]=pow(((real)((uint32_t)p1[0]+p2[0]+p3[0]+p4[0]))/4/OUR_PIX_MAX,2.2);
     px[1]=pow(((real)((uint32_t)p1[1]+p2[1]+p3[1]+p4[1]))/4/OUR_PIX_MAX,2.2);
