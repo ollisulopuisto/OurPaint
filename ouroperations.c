@@ -1912,7 +1912,7 @@ int our_LayerEnsureImageBuffer(OurLayer* ol, int OnlyCalculate);
 void our_LayerGetRange(OurLayer* ol, int* rowmin,int* rowmax, int* colmin, int* colmax);
 void our_LayerToTexture(OurLayer* ol);
 void our_LayerConvertToPigment(OurLayer* l){
-    our_LayerEnsureImageBuffer(l,0);
+    if(our_LayerEnsureImageBuffer(l,0)<0) return;
     our_LayerToImageBuffer(l,0);
 
     if(!Our->ImageH || !Our->ImageW) return;
@@ -1947,7 +1947,7 @@ void our_LayerConvertToPigment(OurLayer* l){
 
 void our_PigmentConvertForExport(int BitDepth, int ToColorSpace, int Debayer, int Transparent);
 void our_LayerConvertToRGBA(OurLayer* l){
-    our_LayerEnsureImageBuffer(l,0);
+    if(our_LayerEnsureImageBuffer(l,0)<=0) return;
     our_LayerToImageBuffer(l,0);
 #ifdef LA_USE_GLES
     int bitdepth=OUR_EXPORT_BIT_DEPTH_8;
