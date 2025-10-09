@@ -1651,8 +1651,8 @@ void our_PigmentLoaderDraw(laUiItem *ui, int h){
     OurBrush*b=ui->PP.LastPs?ui->PP.LastPs->UseInstance:0;
     real UseColor[4]; UseColor[3]=0.3;
     real* color;
-    if(Our->PigmentMode){ color=Our->MixedPigment.PreviewColor[0]; }
-    else{ color=Our->CurrentColor; } tnsVectorSet3v(UseColor,color);
+    if(Our->PigmentMode){ color=Our->MixedPigment.PreviewColor[0]; tnsVectorSet3v(UseColor,color); }
+    else{ color=Our->CurrentColor; tnsVectorSet3v(UseColor,color); tns2LogsRGB(UseColor); } 
     
     int L=ui->L,R=ui->R,U=ui->U,B=ui->B;
     int BW=TNS_MIN2((R-L)/2,LA_RH);
@@ -1669,7 +1669,7 @@ void our_PigmentLoaderDraw(laUiItem *ui, int h){
         tnsDrawStringAuto(transLate("Depleted"),laThemeColor(bt,LA_BT_TEXT|LA_BT_DISABLED),L+LA_M+BW,R-LA_M,U,LA_TEXT_SHADOW);
         tnsUseNoTexture();
         int R1=tnsInterpolate(L+BW,R,b->PigmentLoading);
-        tnsColor4d(LA_COLOR3(color),1.0);
+        tnsColor4d(LA_COLOR3(UseColor),1.0);
         tnsVertex2d(L+BW-sw, U-sw); tnsVertex2d(R1-sw, U-sw);
         tnsVertex2d(R1-sw, B-sw); tnsVertex2d(L+BW-sw, B-sw);
         tnsPackAs(GL_TRIANGLE_FAN);
