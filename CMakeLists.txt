@@ -62,6 +62,16 @@ embed_resource("Resources/splash_highdpi.png" "BuildResources/data_splash_highdp
 if(WIN32)
 endif()
 
+if(APPLE)
+    set(MACOSX_BUNDLE_GUI_IDENTIFIER "com.OurPaint")
+	set(MACOSX_BUNDLE_BUNDLE_NAME "OurPaint")
+	set(MACOSX_BUNDLE_ICON_FILE "ourpaint.icns")
+	set(MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist")
+	set_target_properties(OurPaint PROPERTIES MACOSX_BUNDLE ON)
+	add_custom_command(TARGET OurPaint POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
+	${CMAKE_CURRENT_SOURCE_DIR}/Resources $<TARGET_FILE_DIR:OurPaint>/../Resources)
+endif()
+
 include_directories(
     ${LAGUI_INCLUDE_DIRS_ALL}
 )
