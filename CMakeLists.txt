@@ -6,7 +6,7 @@ if(${ANDROID})
     return()
 endif()
 
-if(${LAGUI_USE_GLES})
+if(${LVGL_USE_GLES})
     add_definitions(-DLA_USE_GLES)
 endif()
 
@@ -23,12 +23,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-no-pie")
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-no-pie")
 
-find_package(lagui REQUIRED)
+find_package(lvgl REQUIRED)
 find_package(PNG REQUIRED)
 
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/std:c11>")
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$< $<C_COMPILER_ID:MSVC>:/std:c11>")
+add_compile_options("$< $<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$< $<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
 add_definitions(-Wno-incompatible-pointer-types)
 add_definitions(-Wno-int-conversion)
@@ -76,7 +76,7 @@ if(APPLE)
 endif()
 
 include_directories(
-    ${LAGUI_INCLUDE_DIRS_ALL}
+    ${LVGL_INCLUDE_DIRS_ALL}
 )
 
 file(GLOB_RECURSE OurPaintFiles
@@ -105,11 +105,11 @@ execute_process(
     OUTPUT_VARIABLE OURPAINT_GIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_BRANCH=\"${OURPAINT_GIT_BRANCH}\"")
-target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_HASH=\"${OURPAINT_GIT_HASH}\"")
+target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_BRANCH=\"${OURPAINT_GIT_BRANCH}\"" )
+target_compile_definitions(OurPaint PRIVATE "-DOURPAINT_GIT_HASH=\"${OURPAINT_GIT_HASH}\"" )
 
 target_link_libraries(OurPaint
-    ${LAGUI_SHARED_LIBS}
+    ${LVGL_SHARED_LIBS}
     ${PNG_LIBRARY}
 )
 
@@ -118,10 +118,10 @@ SET(INSTALL_EXTRAS
 
 FILE(GLOB INSTALL_PROFILES profiles/*)
 
-SET(LAGUI_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to find lagui fonts")
+SET(LVGL_FONT_CUSTOM_PATH  $ENV{HOME}/.local/share/fonts/lagui CACHE STRING "Where to find lagui fonts")
 
-if (NOT DEFINED ${LAGUI_FONT_CUSTOM_PATH})
-    set(LAGUI_FONT_CUSTOM_PATH $ENV{HOME}/.local/share/fonts/lagui)
+if (NOT DEFINED ${LVGL_FONT_CUSTOM_PATH})
+    set(LVGL_FONT_CUSTOM_PATH $ENV{HOME}/.local/share/fonts/lagui)
 endif()
 
 set(INSTALL_PATH_BIN ".")
@@ -141,6 +141,6 @@ install(RUNTIME_DEPENDENCY_SET runtime_deps
     DESTINATION ${INSTALL_PATH_BIN}
 )
 endif()
-install(DIRECTORY "${LAGUI_FONT_CUSTOM_PATH}/" DESTINATION ${INSTALL_PATH_BIN}/fonts PATTERN "*.*")
+install(DIRECTORY "${LVGL_FONT_CUSTOM_PATH}/" DESTINATION ${INSTALL_PATH_BIN}/fonts PATTERN "*.*")
 install(FILES ${INSTALL_EXTRAS} DESTINATION ${INSTALL_PATH_BIN})
 install(FILES ${INSTALL_PROFILES} DESTINATION ${INSTALL_PATH_BIN}/profiles)
