@@ -85,12 +85,16 @@ file(GLOB_RECURSE OurPaintFiles
     ourtranslations_es-ES.c
     BuildResources/data_splash.c
     BuildResources/data_splash_highdpi.c
-    Resources/icon.rc
 )
+if(WIN32)
+    list(APPEND OurPaintFiles "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.rc")
+endif()
 
 add_executable(OurPaint ${OurPaintFiles})
 
-target_link_options(OurPaint PUBLIC "-Wl,--start-group")
+if(NOT APPLE)
+    target_link_options(OurPaint PUBLIC "-Wl,--start-group")
+endif()
 
 
 execute_process(

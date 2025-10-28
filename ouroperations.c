@@ -20,7 +20,7 @@
 #include "png.h"
 #include "lcms2.h"
 #include <threads.h>
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
 #include <libgen.h>
 #endif
@@ -88,14 +88,14 @@ const real OUR_EXPOSURE_FACTORS[13]={0.25,0.31,0.40,0.5,0.63,0.79,1.0,1.26,1.59,
 #define OUR_UI_FLAGS_CANVAS LA_UI_FLAGS_CYCLE
 
 static int our_ProcessorCount() {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     return sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-#ifdef _WIN32
+#elif defined(_WIN32)
     SYSTEM_INFO sysinfo; GetSystemInfo(&sysinfo);
     return sysinfo.dwNumberOfProcessors;
-#endif
+#else
     return 1;
+#endif
 }
 
 // See lin2012xyz2e_1_7_sf_calc.ods
@@ -4951,7 +4951,7 @@ void ourui_ToolExtras(laUiList *uil, laPropPack *pp, laPropPack *actinst, laColu
 }
 
 int our_FileAssociationsRegistered(){
-#ifdef __linux__
+#if defined(__linux__)
     char* homedir=getenv("HOME"); char buf[2048]; struct stat statbuf;
     sprintf(buf,"%s/.local/share/mime/image/ourpaint.xml",homedir);
     if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
@@ -4960,13 +4960,13 @@ int our_FileAssociationsRegistered(){
     sprintf(buf,"%s/.local/share/applications/ourpaint.desktop",homedir);
     if(stat(buf, &statbuf) != 0 || (S_ISDIR(statbuf.st_mode))){ return 0; }
     return 1;
-#endif
-#ifdef _WIN32
+#elif defined(_WIN32) || defined(__APPLE__)
     return 0;
 #endif
+    return 0;
 }
 int our_RegisterFileAssociations(){
-#ifdef __linux__
+#if defined(__linux__)
     char* homedir=getenv("HOME"); char buf[2048]; char exepath[1024]; int failed=0; FILE* f;
     logPrintNew("Registering file associations...\n");
 
@@ -5003,21 +5003,20 @@ int our_RegisterFileAssociations(){
 reg_cleanup:
     if(failed) return 0;
     return 1;
-#endif
-#ifdef _WIN32
+#elif defined(_WIN32) || defined(__APPLE__)
     return 0;
 #endif
+    return 0;
 }
 int ourinv_RegisterFileAssociations(laOperator* a, laEvent* e){
-#ifdef __linux__
+#if defined(__linux__)
     if(!our_RegisterFileAssociations()){
         laEnableMessagePanel(0,0,"Error","Failed to register file associations,\n see terminal for details.",e->x,e->y,200,e);
     }else{
         laEnableMessagePanel(0,0,"Success","Successfully registered file associations.",e->x,e->y,200,e);
     }
     Our->FileRegistered=our_FileAssociationsRegistered(); laNotifyUsers("our.preferences.file_registered");
-#endif
-#ifdef _WIN32
+#elif defined(_WIN32) || defined(__APPLE__)
     laEnableMessagePanel(0, 0, "Error", "Feature not supported yet.", e->x, e->y, 200, e);
 #endif
     return LA_FINISHED;
